@@ -1,0 +1,58 @@
+/* Thema-tokens: zie DESIGN.md (normatief). */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import 'tailwindcss';
+@plugin 'daisyui';
+
+@plugin 'daisyui/theme' {
+    name: 'portfolio';
+    default: true;
+    prefersdark: false;
+    color-scheme: light;
+
+    --color-primary: #0068f0;
+    --color-primary-content: #ffffff;
+    --color-secondary: #5b6472;
+    --color-secondary-content: #ffffff;
+    --color-accent: #0068f0;
+    --color-accent-content: #ffffff;
+    --color-neutral: #283848;
+    --color-neutral-content: #ffffff;
+
+    --color-base-100: #ffffff;
+    --color-base-200: #f8fafc;
+    --color-base-300: #e2e8f0;
+    --color-base-content: #101828;
+
+    --color-info: #0068f0;
+    --color-info-content: #ffffff;
+    --color-success: #10c070;
+    --color-success-content: #ffffff;
+    --color-warning: #f5a623;
+    --color-warning-content: #101828;
+    --color-error: #f05252;
+    --color-error-content: #ffffff;
+
+    --radius-selector: 9999px;
+    --radius-field: 8px;
+    --radius-box: 12px;
+    --border: 1px;
+
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+    --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.1);
+}
+
+:root {
+    font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+}
+
+body {
+    background-color: var(--color-base-200);
+    color: var(--color-base-content);
+}
+
+.tnum {
+    font-feature-settings: 'tnum';
+}

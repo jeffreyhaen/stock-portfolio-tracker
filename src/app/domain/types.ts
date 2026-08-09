@@ -62,6 +62,7 @@ export interface Transaction {
     readonly id: string;
     readonly date: string;
     readonly time: string;
+    readonly valueDate: string;
     readonly rowIndex: number;
     readonly product: string;
     readonly isin: string | null;

@@ -68,6 +68,7 @@ export function toTransaction(row: RawCsvRow, warnings: ImportWarning[]): Transa
         id: fingerprint,
         date: parseNlDate(row.datum),
         time: row.tijd,
+        valueDate: parseNlDate(row.valutadatum),
         rowIndex: row.rowIndex,
         product: row.product,
         isin: row.isin.trim() === '' ? null : row.isin,

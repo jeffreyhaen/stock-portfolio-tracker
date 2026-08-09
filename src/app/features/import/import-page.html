@@ -1,0 +1,150 @@
+<h1 class="text-3xl font-bold">Import</h1>
+<p class="mt-1 text-sm text-base-content/60">Import a DEGIRO account export (CSV) into a portfolio.</p>
+
+<div class="mt-6 flex flex-col gap-6">
+    <section class="rounded-xl border border-base-300 bg-base-100 p-6">
+        <h2 class="text-base font-semibold">Portfolio</h2>
+        @if (portfolios().length > 0) {
+        <div class="mt-4 flex items-center gap-3">
+            <label class="text-xs font-medium uppercase tracking-wide text-base-content/60" for="portfolio-select"
+                >Portfolio</label
+            >
+            <select
+                id="portfolio-select"
+                class="select select-bordered select-sm"
+                [value]="selectedPortfolioId()"
+                (change)="onPortfolioChange($any($event.target).value)"
+            >
+                @for (portfolio of portfolios(); track portfolio.id) {
+                <option [value]="portfolio.id">{{ portfolio.naam }}</option>
+                }
+            </select>
+            <button class="btn btn-outline btn-sm" (click)="showCreateForm.set(true)">New portfolio</button>
+        </div>
+        } @else {
+        <p class="mt-2 text-sm text-base-content/60">No portfolios yet. Create one to start importing.</p>
+        } @if (showCreateForm() || portfolios().length === 0) {
+        <div class="mt-4 flex items-center gap-3">
+            <input
+                class="input input-bordered input-sm w-72"
+                type="text"
+                placeholder="Portfolio name"
+                [value]="newPortfolioName()"
+                (input)="newPortfolioName.set($any($event.target).value)"
+                (keydown.enter)="createPortfolio()"
+            />
+            <button
+                class="btn btn-primary btn-sm"
+                [disabled]="newPortfolioName().trim() === ''"
+                (click)="createPortfolio()"
+            >
+                Create
+            </button>
+        </div>
+        }
+    </section>
+
+    <section class="rounded-xl border border-base-300 bg-base-100 p-6">
+        <h2 class="text-base font-semibold">Import CSV</h2>
+        <div
+            class="mt-4 rounded-xl border-2 border-dashed p-10 text-center transition-colors"
+            [class.border-primary]="dragActive()"
+            [class.bg-[#e6effe]]="dragActive()"
+            [class.border-base-300]="!dragActive()"
+            (dragover)="onDragOver($event)"
+            (dragleave)="onDragLeave()"
+            (drop)="onDrop($event)"
+        >
+            @if (busy()) {
+            <p class="text-sm font-medium">Importing…</p>
+            } @else if (selectedPortfolioId() === '') {
+            <p class="text-sm text-base-content/60">Create a portfolio first.</p>
+            } @else {
+            <p class="text-sm font-medium">Drop your DEGIRO CSV here</p>
+            <p class="mt-1 text-sm text-base-content/60">or</p>
+            <label class="btn btn-primary btn-sm mt-3">
+                Choose file
+                <input type="file" accept=".csv,text/csv" class="hidden" (change)="onFileInput($event)" />
+            </label>
+            }
+        </div>
+    </section>
+
+    @if (error(); as foutmelding) {
+    <section class="rounded-xl border border-error/40 bg-[#fdeaea] p-6">
+        <h2 class="text-base font-semibold text-[#901010]">Import failed</h2>
+        <p class="mt-2 font-mono text-sm text-[#901010]">{{ foutmelding }}</p>
+    </section>
+    } @if (report(); as rapport) {
+    <section class="rounded-xl border border-base-300 bg-base-100 p-6">
+        <h2 class="text-base font-semibold">Import report</h2>
+        <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Rows in file</p>
+                <p class="mt-1 text-sm font-medium tabular-nums">{{ rapport.aantalRegels | nlNumber: 0 }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Added</p>
+                <p class="mt-1 text-sm font-medium tabular-nums text-[#0a8a52]">
+                    {{ rapport.toegevoegd | nlNumber: 0 }}
+                </p>
+            </div>
+            <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Duplicates skipped</p>
+                <p class="mt-1 text-sm font-medium tabular-nums">{{ rapport.overgeslagenDuplicaten | nlNumber: 0 }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Unknown types</p>
+                <p class="mt-1 text-sm font-medium tabular-nums" [class.text-[#901010]]="rapport.onbekendeTypen > 0">
+                    {{ rapport.onbekendeTypen | nlNumber: 0 }}
+                </p>
+            </div>
+        </div>
+        @if (rapport.waarschuwingen.length > 0) {
+        <div class="mt-4 rounded-lg bg-[#fdf3e0] p-4">
+            <h3 class="text-sm font-semibold">Warnings ({{ rapport.waarschuwingen.length }})</h3>
+            <ul class="mt-2 flex flex-col gap-1">
+                @for (waarschuwing of rapport.waarschuwingen; track waarschuwing.regelNr) {
+                <li class="text-sm">
+                    <span class="font-mono text-xs">row {{ waarschuwing.regelNr + 1 }}</span>
+                    <span class="text-base-content/80"> — {{ waarschuwing.omschrijving }}</span>
+                </li>
+                }
+            </ul>
+        </div>
+        }
+    </section>
+    }
+
+    <section class="rounded-xl border border-base-300 bg-base-100 p-6">
+        <h2 class="text-base font-semibold">Import history</h2>
+        @if (batches().length === 0) {
+        <p class="mt-2 text-sm text-base-content/60">No imports yet for this portfolio.</p>
+        } @else {
+        <table class="mt-4 table table-sm">
+            <thead>
+                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                    <th>Imported at</th>
+                    <th>File</th>
+                    <th class="text-right">Rows</th>
+                    <th class="text-right">Added</th>
+                    <th class="text-right">Duplicates</th>
+                    <th class="text-right">Unknown</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (batch of batches(); track batch.id) {
+                <tr class="hover">
+                    <td>{{ formatDateTime(batch.geimporteerdOp) }}</td>
+                    <td>{{ batch.bestandsnaam }}</td>
+                    <td class="text-right tabular-nums">{{ batch.aantalRegels | nlNumber: 0 }}</td>
+                    <td class="text-right tabular-nums">{{ batch.rapport.toegevoegd | nlNumber: 0 }}</td>
+                    <td class="text-right tabular-nums">{{ batch.rapport.overgeslagenDuplicaten | nlNumber: 0 }}</td>
+                    <td class="text-right tabular-nums">{{ batch.rapport.onbekendeTypen | nlNumber: 0 }}</td>
+                </tr>
+                }
+            </tbody>
+        </table>
+        }
+    </section>
+</div>

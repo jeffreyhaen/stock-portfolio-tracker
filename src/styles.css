@@ -4,7 +4,9 @@
 @import '@fontsource/inter/600.css';
 @import '@fontsource/inter/700.css';
 @import 'tailwindcss';
-@plugin 'daisyui';
+@plugin 'daisyui' {
+    themes: false;
+}
 
 @plugin 'daisyui/theme' {
     name: 'portfolio';

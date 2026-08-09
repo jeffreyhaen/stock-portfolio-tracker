@@ -1,0 +1,47 @@
+<h1 class="text-3xl font-bold">Holdings</h1>
+<p class="mt-1 text-sm text-base-content/60">Open positions, cost basis per current open position.</p>
+
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    @if (holdings().length === 0) {
+    <div class="py-10 text-center">
+        <p class="text-sm text-base-content/60">No holdings yet.</p>
+        <a routerLink="/import" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
+    </div>
+    } @else {
+    <div class="overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                    <th>Security</th>
+                    <th class="text-right">Position<br />Holding period</th>
+                    <th class="text-right">Net cash invested<br />per share</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (holding of holdings(); track holding.isin) {
+                <tr class="hover">
+                    <td>
+                        <p class="text-sm font-medium">{{ holding.product }}</p>
+                        <p class="font-mono text-[0.8125rem] text-base-content/60">{{ holding.isin }}</p>
+                    </td>
+                    <td class="text-right">
+                        <p class="text-sm font-medium tabular-nums">{{ holding.quantity | nlNumber: 4 : 0 }}</p>
+                        @if (holding.periodDays !== null) {
+                        <p class="text-[0.8125rem] text-base-content/60">{{ holding.periodDays | nlNumber: 0 }} days</p>
+                        }
+                    </td>
+                    <td class="text-right">
+                        <p class="text-sm font-medium tabular-nums">
+                            {{ holding.netInvested | money: holding.currency }}
+                        </p>
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                            {{ holding.netInvestedPerShare | money: holding.currency }}/share
+                        </p>
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    }
+</section>

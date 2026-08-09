@@ -1,0 +1,85 @@
+<h1 class="text-3xl font-bold">Transactions</h1>
+<p class="mt-1 text-sm text-base-content/60">All imported ledger rows, newest first.</p>
+
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="flex flex-wrap items-center gap-3">
+        <input
+            class="input input-bordered input-sm w-72"
+            type="search"
+            placeholder="Search product, description or ISIN"
+            [value]="search()"
+            (input)="onSearch($any($event.target).value)"
+        />
+        <select
+            class="select select-bordered select-sm"
+            [value]="typeFilter()"
+            (change)="onTypeFilter($any($event.target).value)"
+        >
+            <option value="ALL">All types</option>
+            @for (type of beschikbareTypen(); track type) {
+            <option [value]="type">{{ typeLabel(type) }}</option>
+            }
+        </select>
+        <span class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+            {{ totaalAantal() | nlNumber: 0 }} rows
+        </span>
+    </div>
+
+    @if (transactions().length === 0) {
+    <div class="py-10 text-center">
+        <p class="text-sm text-base-content/60">No transactions found.</p>
+        <a routerLink="/import" class="btn btn-primary btn-sm mt-4">Import a CSV</a>
+    </div>
+    } @else {
+    <div class="mt-4 overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th class="text-right">Quantity</th>
+                    <th class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (txn of transactions(); track txn.id) {
+                <tr class="hover">
+                    <td class="align-top">
+                        <p class="text-sm">{{ txn.date | nlDate }}</p>
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">{{ txn.time }}</p>
+                    </td>
+                    <td class="align-top">
+                        <span
+                            class="inline-block rounded-full px-2 py-0.5 text-xs font-medium tracking-wide"
+                            [class]="txn.badgeClass"
+                            >{{ txn.label }}</span
+                        >
+                    </td>
+                    <td class="align-top">
+                        <p class="text-sm font-medium text-[#283848]">{{ txn.product || '—' }}</p>
+                        <p class="max-w-md truncate text-[0.8125rem] text-base-content/60">{{ txn.description }}</p>
+                    </td>
+                    <td class="text-right align-top">
+                        @if (txn.quantity !== null) {
+                        <p class="text-sm font-medium tabular-nums">{{ txn.quantity | nlNumber: 4 : 0 }}</p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                    <td class="text-right align-top">
+                        <p class="text-sm font-medium tabular-nums">{{ txn.mutation | money: txn.mutationCurrency }}</p>
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (heeftMeer()) {
+    <div class="mt-4 text-center">
+        <button class="btn btn-outline btn-sm" (click)="toonMeer()">
+            Show more ({{ (totaalAantal() - zichtbareAantallen()) | nlNumber: 0 }} remaining)
+        </button>
+    </div>
+    } }
+</section>

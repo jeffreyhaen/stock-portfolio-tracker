@@ -1,7 +1,7 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { ImportService } from '../../data/import.service';
-import { PortfolioRepository } from '../../data/portfolio.repository';
-import { ImportRapport, StoredImportBatch, StoredPortfolio } from '../../data/stored-types';
+import { PortfolioContext } from '../../data/portfolio-context';
+import { ImportRapport, StoredImportBatch } from '../../data/stored-types';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
 
 @Component({
@@ -9,12 +9,12 @@ import { NlNumberPipe } from '../../shared/nl-number.pipe';
     imports: [NlNumberPipe],
     templateUrl: './import-page.html',
 })
-export class ImportPage implements OnInit {
-    private readonly portfolioRepository = inject(PortfolioRepository);
+export class ImportPage {
     private readonly importService = inject(ImportService);
+    readonly context = inject(PortfolioContext);
 
-    readonly portfolios = signal<StoredPortfolio[]>([]);
-    readonly selectedPortfolioId = signal('');
+    readonly portfolios = this.context.portfolios;
+    readonly selectedPortfolioId = this.context.selectedPortfolioId;
     readonly newPortfolioName = signal('');
     readonly showCreateForm = signal(false);
     readonly busy = signal(false);
@@ -23,13 +23,10 @@ export class ImportPage implements OnInit {
     readonly error = signal<string | null>(null);
     readonly batches = signal<StoredImportBatch[]>([]);
 
-    async ngOnInit(): Promise<void> {
-        const list = await this.portfolioRepository.list();
-        this.portfolios.set(list);
-        if (list.length > 0) {
-            this.selectedPortfolioId.set(list[0].id);
-            await this.reloadBatches();
-        }
+    constructor() {
+        effect(() => {
+            void this.reloadBatches(this.selectedPortfolioId());
+        });
     }
 
     async createPortfolio(): Promise<void> {
@@ -37,20 +34,18 @@ export class ImportPage implements OnInit {
         if (naam === '' || this.busy()) {
             return;
         }
-        const portfolio = await this.portfolioRepository.create(naam, 'EUR');
-        this.portfolios.update((list) => [...list, portfolio]);
-        this.selectedPortfolioId.set(portfolio.id);
+        const portfolio = await this.context.create(naam, 'EUR');
+        this.context.select(portfolio.id);
         this.newPortfolioName.set('');
         this.showCreateForm.set(false);
         this.report.set(null);
-        await this.reloadBatches();
+        this.error.set(null);
     }
 
-    async onPortfolioChange(id: string): Promise<void> {
-        this.selectedPortfolioId.set(id);
+    onPortfolioChange(id: string): void {
+        this.context.select(id);
         this.report.set(null);
         this.error.set(null);
-        await this.reloadBatches();
     }
 
     async onFileInput(event: Event): Promise<void> {
@@ -95,7 +90,8 @@ export class ImportPage implements OnInit {
         try {
             const rapport = await this.importService.importCsv(portfolioId, bestandsnaam, csvTekst);
             this.report.set(rapport);
-            await this.reloadBatches();
+            await this.context.refresh();
+            await this.reloadBatches(portfolioId);
         } catch (fout: unknown) {
             this.error.set(fout instanceof Error ? fout.message : String(fout));
         } finally {
@@ -107,8 +103,7 @@ export class ImportPage implements OnInit {
         return new Intl.DateTimeFormat('nl-NL', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
     }
 
-    private async reloadBatches(): Promise<void> {
-        const portfolioId = this.selectedPortfolioId();
+    private async reloadBatches(portfolioId: string): Promise<void> {
         this.batches.set(portfolioId === '' ? [] : await this.importService.batchesFor(portfolioId));
     }
 }

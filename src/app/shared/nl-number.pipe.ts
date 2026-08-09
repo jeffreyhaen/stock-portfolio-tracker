@@ -1,9 +1,13 @@
 import { Pipe, PipeTransform } from '@angular/core';
 import Decimal from 'decimal.js';
 
-@Pipe({ name: 'nlNumber' })
+@Pipe({ name: 'nlNumber', standalone: true })
 export class NlNumberPipe implements PipeTransform {
-    transform(value: Decimal | number | string | null | undefined, decimals = 2): string {
+    transform(
+        value: Decimal | string | number | null | undefined,
+        maxDecimals = 2,
+        minDecimals: number | null = null,
+    ): string {
         if (value === null || value === undefined) {
             return '–';
         }
@@ -12,9 +16,10 @@ export class NlNumberPipe implements PipeTransform {
             if (decimal.isNaN()) {
                 return '–';
             }
+            const min = minDecimals ?? maxDecimals;
             return new Intl.NumberFormat('nl-NL', {
-                minimumFractionDigits: decimals,
-                maximumFractionDigits: decimals,
+                minimumFractionDigits: min,
+                maximumFractionDigits: maxDecimals,
             }).format(decimal.toNumber());
         } catch {
             return '–';

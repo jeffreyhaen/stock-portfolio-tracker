@@ -1,0 +1,82 @@
+<h1 class="text-3xl font-bold">Cash</h1>
+<p class="mt-1 text-sm text-base-content/60">Cash balances per currency, anchored on the latest reported balance.</p>
+
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <h2 class="text-base font-semibold">Balances</h2>
+    @if (balances().length === 0) {
+    <div class="py-10 text-center">
+        <p class="text-sm text-base-content/60">No cash balances yet.</p>
+        <a routerLink="/import" class="btn btn-primary btn-sm mt-4">Import a CSV</a>
+    </div>
+    } @else {
+    <table class="mt-4 table table-sm w-full">
+        <thead>
+            <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                <th>Currency</th>
+                <th class="text-right">Balance</th>
+                <th class="text-right">Balance in reporting currency</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (row of balances(); track row.currency) {
+            <tr class="hover">
+                <td>
+                    <p class="text-sm font-medium">{{ row.name }}</p>
+                    <p class="font-mono text-[0.8125rem] text-base-content/60">{{ row.currency }}</p>
+                </td>
+                <td class="text-right">
+                    <p class="text-sm font-medium tabular-nums">{{ row.balance | money: row.currency }}</p>
+                </td>
+                <td class="text-right">
+                    @if (row.currency === rapportagevaluta()) {
+                    <p class="text-sm font-medium tabular-nums">{{ row.balance | money: row.currency }}</p>
+                    } @else {
+                    <p class="text-sm text-base-content/60" title="Available once FX rates are fetched">–</p>
+                    }
+                </td>
+            </tr>
+            }
+        </tbody>
+    </table>
+    }
+</section>
+
+@if (flows().length > 0) {
+<section class="mt-8 rounded-xl border border-base-300 bg-base-100 p-6">
+    <h2 class="text-base font-semibold">External flows</h2>
+    <table class="mt-4 table table-sm w-full">
+        <thead>
+            <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                <th>Currency</th>
+                <th class="text-right">Deposits</th>
+                <th class="text-right">Withdrawals</th>
+                <th class="text-right">Net invested</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (flow of flows(); track flow.currency) {
+            <tr class="hover">
+                <td>
+                    <p class="text-sm font-medium">{{ flow.currency }}</p>
+                </td>
+                <td class="text-right">
+                    <p class="text-sm font-medium tabular-nums text-[#0a8a52]">
+                        +{{ flow.deposits | money: flow.currency }}
+                    </p>
+                </td>
+                <td class="text-right">
+                    <p class="text-sm font-medium tabular-nums text-[#901010]">
+                        {{ flow.withdrawals | money: flow.currency }}
+                    </p>
+                </td>
+                <td class="text-right">
+                    <p class="text-sm font-medium tabular-nums">
+                        {{ flow.deposits.plus(flow.withdrawals) | money: flow.currency }}
+                    </p>
+                </td>
+            </tr>
+            }
+        </tbody>
+    </table>
+</section>
+}

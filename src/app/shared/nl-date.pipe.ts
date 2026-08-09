@@ -6,7 +6,7 @@ export class NlDatePipe implements PipeTransform {
         if (isoDatum === null || isoDatum === undefined || isoDatum === '') {
             return '–';
         }
-        const [jaar, maand, dag] = isoDatum.split('-');
+        const [jaar, maand, dag] = isoDatum.slice(0, 10).split('-');
         if (jaar === undefined || maand === undefined || dag === undefined) {
             return isoDatum;
         }

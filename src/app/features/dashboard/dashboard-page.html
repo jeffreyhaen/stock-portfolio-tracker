@@ -1,0 +1,142 @@
+<h1 class="text-3xl font-bold">Dashboard</h1>
+<p class="mt-1 text-sm text-base-content/60">Performance and totals at a glance.</p>
+
+@if (isEmpty()) {
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="py-10 text-center">
+        <p class="text-sm text-base-content/60">No data yet.</p>
+        <a routerLink="/import" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
+    </div>
+</section>
+} @else {
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            @if (valuation().totals.value !== null) {
+            <p class="text-4xl font-semibold tabular-nums">{{ valuation().totals.value | money: 'EUR' }}</p>
+            @if (valuation().totals.result !== null) {
+            <p
+                class="mt-1 text-lg font-medium tabular-nums"
+                [class.text-success]="!valuation().totals.result?.isNegative()"
+                [class.text-error]="valuation().totals.result?.isNegative()"
+            >
+                {{ valuation().totals.result | money: 'EUR' }} ({{ valuation().totals.resultPct | nlNumber: 2 }}%)
+            </p>
+            } } @else {
+            <p class="text-4xl font-semibold tabular-nums">–</p>
+            <p class="mt-1 text-sm text-base-content/60">Enter manual prices below to see the portfolio value.</p>
+            }
+        </div>
+        <div class="flex gap-1">
+            @for (optie of ranges; track optie.id) {
+            <button
+                type="button"
+                class="rounded-full px-3 py-1 text-xs font-medium"
+                [class.border]="range() === optie.id"
+                [class.border-base-300]="range() === optie.id"
+                [class.bg-base-100]="range() === optie.id"
+                [class.text-primary]="range() === optie.id"
+                [class.text-base-content/60]="range() !== optie.id"
+                (click)="range.set(optie.id)"
+            >
+                {{ optie.label }}
+            </button>
+            }
+        </div>
+    </div>
+    <div class="mt-4">
+        <app-value-chart [series]="chartSeries()" />
+    </div>
+</section>
+
+<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Net invested</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ valuation().totals.netInvested | money: 'EUR' }}</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Deposits minus withdrawals</p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Result</p>
+        @if (valuation().totals.result !== null) {
+        <p
+            class="mt-1 text-2xl font-semibold tabular-nums"
+            [class.text-success]="!valuation().totals.result?.isNegative()"
+            [class.text-error]="valuation().totals.result?.isNegative()"
+        >
+            {{ valuation().totals.result | money: 'EUR' }}
+        </p>
+        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
+            {{ valuation().totals.resultPct | nlNumber: 2 }}% on net invested
+        </p>
+        } @else {
+        <p class="mt-1 text-2xl font-semibold tabular-nums">–</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Needs manual prices</p>
+        }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Income</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ valuation().totals.income | money: 'EUR' }}</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Dividends and interest, net of tax</p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Total costs</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ valuation().totals.costs | money: 'EUR' }}</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Broker and connection fees</p>
+    </div>
+</div>
+
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-lg font-semibold">Manual prices</h2>
+            <p class="mt-1 text-sm text-base-content/60">
+                Prices in EUR per share, used for the portfolio value until live quotes arrive.
+            </p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="savePrices()">
+            Save prices
+        </button>
+    </div>
+    @if (priceRows().length === 0) {
+    <p class="mt-4 text-sm text-base-content/60">No open positions.</p>
+    } @else {
+    <div class="mt-4 overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                    <th>Security</th>
+                    <th class="text-right">Price (EUR)</th>
+                    <th class="text-right">Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (row of priceRows(); track row.isin) {
+                <tr class="hover">
+                    <td>
+                        <p class="text-sm font-medium">{{ row.product }}</p>
+                        <p class="font-mono text-[0.8125rem] text-base-content/60">{{ row.isin }}</p>
+                    </td>
+                    <td class="text-right">
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            class="input input-sm input-bordered w-32 text-right tabular-nums"
+                            [class.input-error]="row.ongeldig"
+                            [value]="row.invoer"
+                            (input)="onPriceInput(row.isin, $any($event.target).value)"
+                        />
+                        @if (row.ongeldig) {
+                        <p class="mt-1 text-[0.8125rem] text-error">Not a valid number</p>
+                        }
+                    </td>
+                    <td class="text-right text-[0.8125rem] text-base-content/60">
+                        {{ row.quote === null ? '–' : (row.quote.tijdstip | nlDate) }}
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    }
+</section>
+}

@@ -198,6 +198,16 @@ const server = http.createServer(async (req, res) => {
     }
 });
 
+server.on('error', (fout) => {
+    if (fout.code === 'EADDRINUSE') {
+        console.error(
+            `Poort ${PORT} is al in gebruik — draait er al een quote-proxy? (of kies een andere poort via QUOTE_PROXY_PORT)`,
+        );
+        process.exit(1);
+    }
+    throw fout;
+});
+
 server.listen(PORT, () => {
     console.log(`quote-proxy luistert op http://localhost:${PORT}`);
 });

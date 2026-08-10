@@ -138,7 +138,12 @@ export class DashboardPage {
         ];
     });
 
-    readonly twr = computed(() => timeWeightedReturn(this.seriesPunten()));
+    readonly twr = computed(() => {
+        if (!this.heeftHistorie()) {
+            return { twr: null, twrPct: null, dagen: 0 };
+        }
+        return timeWeightedReturn(this.seriesPunten());
+    });
 
     async refreshQuotes(): Promise<void> {
         await this.quoteSync.refreshAll(this.eersteDatum());

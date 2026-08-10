@@ -47,8 +47,83 @@ export interface Valuation {
     readonly nietEurExterneFlows: number;
 }
 
+export interface RangeTotals {
+    readonly netInvested: Decimal;
+    readonly income: Decimal;
+    readonly incomePerCurrency: ReadonlyMap<string, Decimal>;
+    readonly costs: Decimal;
+    readonly costsPerCurrency: ReadonlyMap<string, Decimal>;
+    readonly missingFxIncome: number;
+    readonly missingFxCosts: number;
+}
+
 function compareChronological(a: Transaction, b: Transaction): number {
     return a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || a.rowIndex - b.rowIndex;
+}
+
+export function rangeTotals(
+    transactions: readonly Transaction[],
+    fx: FxResolver,
+    cutoff: string | null,
+): RangeTotals {
+    let netInvested = new Decimal(0);
+    let income = new Decimal(0);
+    let costs = new Decimal(0);
+    const incomePerCurrency = new Map<string, Decimal>();
+    const costsPerCurrency = new Map<string, Decimal>();
+    let missingFxIncome = 0;
+    let missingFxCosts = 0;
+
+    for (const txn of transactions) {
+        if (cutoff !== null && txn.date < cutoff) {
+            continue;
+        }
+        if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === 'EUR') {
+            netInvested = netInvested.plus(txn.mutation);
+        }
+        if (COST_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency !== null) {
+            costsPerCurrency.set(
+                txn.mutationCurrency,
+                (costsPerCurrency.get(txn.mutationCurrency) ?? new Decimal(0)).plus(txn.mutation),
+            );
+            if (txn.mutationCurrency === 'EUR') {
+                costs = costs.plus(txn.mutation);
+            } else {
+                const rate = fx(txn.mutationCurrency, txn.date);
+                if (rate !== null) {
+                    costs = costs.plus(txn.mutation.times(rate));
+                } else {
+                    missingFxCosts++;
+                }
+            }
+        }
+        if (INCOME_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency !== null) {
+            incomePerCurrency.set(
+                txn.mutationCurrency,
+                (incomePerCurrency.get(txn.mutationCurrency) ?? new Decimal(0)).plus(txn.mutation),
+            );
+            if (txn.mutationCurrency === 'EUR') {
+                income = income.plus(txn.mutation);
+            } else {
+                const rate = fx(txn.mutationCurrency, txn.date);
+                if (rate !== null) {
+                    income = income.plus(txn.mutation.times(rate));
+                } else {
+                    missingFxIncome++;
+                }
+            }
+        }
+    }
+
+    return {
+        netInvested,
+        income,
+        incomePerCurrency,
+        costs,
+        costsPerCurrency,
+        missingFxIncome,
+        missingFxCosts,
+    };
 }
 
 export function buildValuation(

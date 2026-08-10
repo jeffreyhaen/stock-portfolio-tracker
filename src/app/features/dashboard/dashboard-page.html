@@ -22,13 +22,13 @@
         <div>
             @if (valuation().totals.value !== null) {
             <p class="text-4xl font-semibold tabular-nums">{{ valuation().totals.value | money: 'EUR' }}</p>
-            @if (valuation().totals.result !== null) {
+            @if (rangeResult() !== null) {
             <p
                 class="mt-1 text-lg font-medium tabular-nums"
-                [class.text-success]="!valuation().totals.result?.isNegative()"
-                [class.text-error]="valuation().totals.result?.isNegative()"
+                [class.text-success]="!rangeResult()?.result?.isNegative()"
+                [class.text-error]="rangeResult()?.result?.isNegative()"
             >
-                {{ valuation().totals.result | money: 'EUR' }} ({{ valuation().totals.resultPct | nlNumber: 2 }}%)
+                {{ rangeResult()?.result | money: 'EUR' }} ({{ rangeResult()?.resultPct | nlNumber: 2 }}%)
             </p>
             } } @else {
             <p class="text-4xl font-semibold tabular-nums">–</p>
@@ -36,7 +36,7 @@
             }
         </div>
         <div class="flex items-center gap-3">
-            <div class="flex gap-1">
+            <div class="flex flex-wrap justify-end gap-1">
                 @for (optie of ranges; track optie.id) {
                 <button
                     type="button"
@@ -62,21 +62,23 @@
 <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Net invested</p>
-        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ valuation().totals.netInvested | money: 'EUR' }}</p>
-        <p class="mt-1 text-[0.8125rem] text-base-content/60">Deposits minus withdrawals</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ rangeTotals().netInvested | money: 'EUR' }}</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            @if (range() === 'all') { Deposits minus withdrawals } @else { In range: deposits minus withdrawals }
+        </p>
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Result</p>
-        @if (valuation().totals.result !== null) {
+        @if (rangeResult() !== null) {
         <p
             class="mt-1 text-2xl font-semibold tabular-nums"
-            [class.text-success]="!valuation().totals.result?.isNegative()"
-            [class.text-error]="valuation().totals.result?.isNegative()"
+            [class.text-success]="!rangeResult()?.result?.isNegative()"
+            [class.text-error]="rangeResult()?.result?.isNegative()"
         >
-            {{ valuation().totals.result | money: 'EUR' }}
+            {{ rangeResult()?.result | money: 'EUR' }}
         </p>
         <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
-            {{ valuation().totals.resultPct | nlNumber: 2 }}% on net invested
+            {{ rangeResult()?.resultPct | nlNumber: 2 }}% on capital in range
         </p>
         } @else {
         <p class="mt-1 text-2xl font-semibold tabular-nums">–</p>
@@ -116,10 +118,10 @@
         </div>
         <p
             class="mt-1 text-2xl font-semibold tabular-nums"
-            [class.text-success]="!valuation().totals.income?.isNegative()"
-            [class.text-error]="valuation().totals.income?.isNegative()"
+            [class.text-success]="!rangeTotals().income?.isNegative()"
+            [class.text-error]="rangeTotals().income?.isNegative()"
         >
-            {{ valuation().totals.income | money: 'EUR' }}
+            {{ rangeTotals().income | money: 'EUR' }}
         </p>
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
@@ -139,10 +141,10 @@
         </div>
         <p
             class="mt-1 text-2xl font-semibold tabular-nums"
-            [class.text-success]="!valuation().totals.costs?.isNegative()"
-            [class.text-error]="valuation().totals.costs?.isNegative()"
+            [class.text-success]="!rangeTotals().costs?.isNegative()"
+            [class.text-error]="rangeTotals().costs?.isNegative()"
         >
-            {{ valuation().totals.costs | money: 'EUR' }}
+            {{ rangeTotals().costs | money: 'EUR' }}
         </p>
     </div>
 </div>

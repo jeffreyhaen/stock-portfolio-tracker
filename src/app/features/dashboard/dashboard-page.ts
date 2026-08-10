@@ -9,20 +9,25 @@ import { PriceBar, buildMarketValueSeries } from '../../domain/market-value';
 import { holdingStats } from '../../domain/holdings';
 import { timeWeightedReturn } from '../../domain/twr';
 import { Transaction } from '../../domain/types';
-import { buildValuation } from '../../domain/valuation';
+import { buildValuation, rangeTotals } from '../../domain/valuation';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
 import { transactionTypeLabel } from '../../shared/transaction-type';
 import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
 
-type Range = 'all' | '3y' | '1y' | 'ytd';
+type Range = 'all' | 'mtd' | '1y' | '3y' | '6m' | 'ytd' | '1m' | '1w' | '1d';
 
 const RANGES: { id: Range; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: '3y', label: '3Y' },
-    { id: '1y', label: '1Y' },
+    { id: '1d', label: '1D' },
+    { id: '1w', label: '1W' },
+    { id: '1m', label: '1M' },
+    { id: 'mtd', label: 'MTD' },
     { id: 'ytd', label: 'YTD' },
+    { id: '6m', label: '6M' },
+    { id: '1y', label: '1Y' },
+    { id: '3y', label: '3Y' },
+    { id: 'all', label: 'All' },
 ];
 
 function cutoffFor(range: Range, today: string): string | null {
@@ -33,8 +38,19 @@ function cutoffFor(range: Range, today: string): string | null {
     if (range === 'ytd') {
         return `${jaar}-01-01`;
     }
-    const jaren = range === '3y' ? 3 : 1;
-    const datum = new Date(Date.UTC(jaar - jaren, maand - 1, dag));
+    if (range === 'mtd') {
+        return `${jaar}-${String(maand).padStart(2, '0')}-01`;
+    }
+    const cfg: Record<Exclude<Range, 'all' | 'mtd' | 'ytd'>, { j: number; m: number; d: number }> = {
+        '1d': { j: 0, m: 0, d: 1 },
+        '1w': { j: 0, m: 0, d: 7 },
+        '1m': { j: 0, m: 1, d: 0 },
+        '6m': { j: 0, m: 6, d: 0 },
+        '1y': { j: 1, m: 0, d: 0 },
+        '3y': { j: 3, m: 0, d: 0 },
+    };
+    const c = cfg[range];
+    const datum = new Date(Date.UTC(jaar - c.j, maand - 1 - c.m, dag - c.d));
     return datum.toISOString().slice(0, 10);
 }
 
@@ -58,6 +74,11 @@ interface RecentTransactionView {
 interface CashBalanceView {
     readonly currency: string;
     readonly balance: Decimal;
+}
+
+interface RangeResult {
+    readonly result: Decimal;
+    readonly resultPct: Decimal;
 }
 
 @Component({
@@ -137,6 +158,31 @@ export class DashboardPage {
             .map((p) => ({ ...p, flow: new Decimal(0) }));
     });
 
+    readonly rangeCutoff = computed(() => cutoffFor(this.range(), this.today));
+
+    readonly rangeTotals = computed(() =>
+        rangeTotals(this.context.transactions(), this.marketData.fxResolver(), this.rangeCutoff()),
+    );
+
+    readonly rangeResult = computed<RangeResult | null>(() => {
+        const punten = this.seriesPunten();
+        if (punten.length === 0) {
+            return null;
+        }
+        const first = punten[0];
+        const last = punten[punten.length - 1];
+        if (first.value === null || last.value === null) {
+            return null;
+        }
+        const netInvestedInRange = last.netInvested.minus(first.netInvested);
+        const result = last.value.minus(first.value).minus(netInvestedInRange);
+        const denominator = first.value.plus(netInvestedInRange);
+        if (denominator.isZero()) {
+            return { result, resultPct: new Decimal(0) };
+        }
+        return { result, resultPct: result.div(denominator).times(100) };
+    });
+
     readonly chartSeries = computed<ChartSeries[]>(() => {
         const punten = this.seriesPunten();
         const valuePoints = punten
@@ -213,21 +259,21 @@ export class DashboardPage {
     readonly incomeTooltip = computed(() =>
         this.flowTooltip(
             'Sum of dividends, dividend tax, capital gain distributions and interest income',
-            this.valuation().totals.incomePerCurrency,
-            this.valuation().totals.missingFxIncome,
+            this.rangeTotals().incomePerCurrency,
+            this.rangeTotals().missingFxIncome,
         ),
     );
 
     readonly costsTooltip = computed(() =>
         this.flowTooltip(
             'Sum of broker, connection, transaction-tax, external fees and interest charges',
-            this.valuation().totals.costsPerCurrency,
-            this.valuation().totals.missingFxCosts,
+            this.rangeTotals().costsPerCurrency,
+            this.rangeTotals().missingFxCosts,
         ),
     );
 
     private flowTooltip(label: string, perCurrency: ReadonlyMap<string, Decimal>, missing: number): string {
-        const base = `${label} in your reporting currency (EUR). Non-EUR amounts are converted using historical FX rates; amounts without a known rate are excluded.`;
+        const base = `${label} in your reporting currency (EUR) for the selected range. Non-EUR amounts are converted using historical FX rates; amounts without a known rate are excluded.`;
         const currencies = [...perCurrency.keys()];
         const hasNonEur = currencies.some((c) => c !== 'EUR');
         if (!hasNonEur && missing === 0) {

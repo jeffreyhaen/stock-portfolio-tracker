@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import Decimal from 'decimal.js';
 import Dexie from 'dexie';
+import { kiesTickerKandidaat } from '../domain/ticker-match';
 import { PortfolioDatabase } from './db';
 import { FxService } from './fx.service';
 import { MarketDataService } from './market-data.service';
@@ -11,6 +12,11 @@ export interface RefreshReport {
     readonly quotesMislukt: string[];
     readonly historieBijgewerkt: string[];
     readonly fxBijgewerkt: boolean;
+}
+
+export interface AutoLinkReport {
+    readonly gelinkt: { isin: string; symbol: string }[];
+    readonly geenKandidaat: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -53,6 +59,40 @@ export class QuoteSyncService {
             this.marketData.refreshing.set(false);
         }
         await this.marketData.reload();
+    }
+
+    async autoLink(vanafDatum: string): Promise<AutoLinkReport> {
+        const securities = await this.db.securities.toArray();
+        const ongelinkt = securities.filter((s) => s.tickerVoorKoers === null || s.tickerVoorKoers === undefined);
+        const gelinkt: { isin: string; symbol: string }[] = [];
+        const geenKandidaat: string[] = [];
+        for (const security of ongelinkt) {
+            try {
+                const isinZoek = kiesTickerKandidaat(await this.provider.search(security.isin), security.handelsvaluta);
+                let keuze = isinZoek.kandidaat;
+                if (!isinZoek.viaValutaMatch && security.handelsvaluta !== null) {
+                    const naamZoek = kiesTickerKandidaat(
+                        await this.provider.search(security.naam),
+                        security.handelsvaluta,
+                    );
+                    if (naamZoek.viaValutaMatch) {
+                        keuze = naamZoek.kandidaat;
+                    }
+                }
+                if (keuze === null) {
+                    geenKandidaat.push(security.isin);
+                    continue;
+                }
+                await this.linkTicker(security.isin, keuze.symbol);
+                gelinkt.push({ isin: security.isin, symbol: keuze.symbol });
+            } catch {
+                geenKandidaat.push(security.isin);
+            }
+        }
+        if (gelinkt.length > 0) {
+            await this.refreshAll(vanafDatum);
+        }
+        return { gelinkt, geenKandidaat };
     }
 
     async unlinkTicker(isin: string): Promise<void> {

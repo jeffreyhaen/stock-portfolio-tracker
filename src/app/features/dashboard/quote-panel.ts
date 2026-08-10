@@ -44,6 +44,28 @@ export class QuotePanelComponent {
     readonly edits = signal<Record<string, { invoer: string; ongeldig: boolean }>>({});
     readonly searches = signal<Record<string, SearchState>>({});
     readonly saving = signal(false);
+    readonly autoLinking = signal(false);
+    readonly autoLinkResult = signal<string | null>(null);
+
+    async autoLink(): Promise<void> {
+        if (this.autoLinking()) {
+            return;
+        }
+        this.autoLinking.set(true);
+        this.autoLinkResult.set(null);
+        try {
+            const rapport = await this.quoteSync.autoLink(this.vanafDatum());
+            const delen = [`${rapport.gelinkt.length} linked`];
+            if (rapport.geenKandidaat.length > 0) {
+                delen.push(`${rapport.geenKandidaat.length} without a match (manual search or anchor prices)`);
+            }
+            this.autoLinkResult.set(delen.join(', '));
+        } catch (fout) {
+            this.autoLinkResult.set(`Auto-link failed: ${String((fout as Error).message ?? fout)}`);
+        } finally {
+            this.autoLinking.set(false);
+        }
+    }
 
     readonly rows = computed<QuoteRow[]>(() => {
         const securities = this.marketData.securities();

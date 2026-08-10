@@ -7,11 +7,18 @@
                 open positions.
             </p>
         </div>
-        <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveManual()">
-            Save manual prices
-        </button>
+        <div class="flex items-center gap-2">
+            <button type="button" class="btn btn-outline btn-sm" [disabled]="autoLinking()" (click)="autoLink()">
+                {{ autoLinking() ? 'Linking…' : 'Auto-link tickers' }}
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveManual()">
+                Save manual prices
+            </button>
+        </div>
     </div>
-    @if (rows().length === 0) {
+    @if (autoLinkResult() !== null) {
+    <p class="mt-2 text-sm text-base-content/60">{{ autoLinkResult() }}</p>
+    } @if (rows().length === 0) {
     <p class="mt-4 text-sm text-base-content/60">No open positions.</p>
     } @else {
     <div class="mt-4 overflow-x-auto">

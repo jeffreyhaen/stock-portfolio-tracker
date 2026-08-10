@@ -1,12 +1,18 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { ImportService } from '../../data/import.service';
 import { PortfolioContext } from '../../data/portfolio-context';
-import { ImportRapport, StoredImportBatch } from '../../data/stored-types';
+import { ImportRapport, StoredImportBatch, StoredPortfolio } from '../../data/stored-types';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
+import { TableSort } from '../../shared/sort';
+import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog';
+import { SortThComponent } from '../../shared/ui/sort-th';
+
+type BatchSortKey = 'importedAt' | 'file' | 'rows' | 'added' | 'duplicates' | 'unknown';
 
 @Component({
     selector: 'app-import-page',
-    imports: [NlNumberPipe],
+    imports: [RouterLink, NlNumberPipe, SortThComponent, ConfirmDialogComponent],
     templateUrl: './import-page.html',
 })
 export class ImportPage {
@@ -22,6 +28,23 @@ export class ImportPage {
     readonly report = signal<ImportRapport | null>(null);
     readonly error = signal<string | null>(null);
     readonly batches = signal<StoredImportBatch[]>([]);
+
+    readonly batchesSort = new TableSort<BatchSortKey, StoredImportBatch>(
+        {
+            importedAt: (batch) => batch.geimporteerdOp,
+            file: (batch) => batch.bestandsnaam,
+            rows: (batch) => batch.aantalRegels,
+            added: (batch) => batch.rapport.toegevoegd,
+            duplicates: (batch) => batch.rapport.overgeslagenDuplicaten,
+            unknown: (batch) => batch.rapport.onbekendeTypen,
+        },
+        'importedAt',
+        'desc',
+    );
+
+    readonly sortedBatches = computed(() => this.batchesSort.apply(this.batches()));
+
+    readonly pendingDelete = signal<StoredPortfolio | null>(null);
 
     constructor() {
         effect(() => {
@@ -46,6 +69,33 @@ export class ImportPage {
         this.context.select(id);
         this.report.set(null);
         this.error.set(null);
+    }
+
+    async deletePortfolio(portfolio: StoredPortfolio): Promise<void> {
+        if (this.busy()) {
+            return;
+        }
+        this.pendingDelete.set(portfolio);
+    }
+
+    async bevestigVerwijderen(): Promise<void> {
+        const portfolio = this.pendingDelete();
+        if (portfolio === null || this.busy()) {
+            return;
+        }
+        this.busy.set(true);
+        try {
+            await this.context.deletePortfolio(portfolio.id);
+            this.report.set(null);
+            this.error.set(null);
+        } finally {
+            this.pendingDelete.set(null);
+            this.busy.set(false);
+        }
+    }
+
+    annuleerVerwijderen(): void {
+        this.pendingDelete.set(null);
     }
 
     async onFileInput(event: Event): Promise<void> {

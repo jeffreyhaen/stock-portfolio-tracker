@@ -7,6 +7,10 @@ import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
 import { transactionTypeBadgeClass, transactionTypeLabel } from '../../shared/transaction-type';
+import { TableSort } from '../../shared/sort';
+import { SortThComponent } from '../../shared/ui/sort-th';
+
+type SortKey = 'date' | 'type' | 'description' | 'quantity' | 'amount';
 
 interface TransactionView {
     readonly id: string;
@@ -26,7 +30,7 @@ const PAGINA_GROOTTE = 100;
 
 @Component({
     selector: 'app-transactions-page',
-    imports: [RouterLink, MoneyPipe, NlDatePipe, NlNumberPipe],
+    imports: [RouterLink, MoneyPipe, NlDatePipe, NlNumberPipe, SortThComponent],
     templateUrl: './transactions-page.html',
 })
 export class TransactionsPage {
@@ -36,15 +40,21 @@ export class TransactionsPage {
     readonly typeFilter = signal('ALL');
     readonly zichtbareAantallen = signal(PAGINA_GROOTTE);
 
-    private readonly gesorteerd = computed(() =>
-        [...this.context.transactions()].sort(
-            (a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time) || b.rowIndex - a.rowIndex,
-        ),
+    readonly sort = new TableSort<SortKey, Transaction>(
+        {
+            date: (txn) => `${txn.date}T${txn.time}#${String(txn.rowIndex).padStart(8, '0')}`,
+            type: (txn) => transactionTypeLabel(txn.type),
+            description: (txn) => (txn.product === '' ? txn.description : txn.product),
+            quantity: (txn) => txn.quantity,
+            amount: (txn) => txn.mutation,
+        },
+        'date',
+        'desc',
     );
 
     readonly beschikbareTypen = computed(() => {
         const typen = new Set<TransactionType>();
-        for (const txn of this.gesorteerd()) {
+        for (const txn of this.context.transactions()) {
             typen.add(txn.type);
         }
         return [...typen].sort((a, b) => transactionTypeLabel(a).localeCompare(transactionTypeLabel(b)));
@@ -53,7 +63,7 @@ export class TransactionsPage {
     private readonly gefilterd = computed(() => {
         const zoek = this.search().trim().toLowerCase();
         const typeFilter = this.typeFilter();
-        return this.gesorteerd().filter((txn) => {
+        return this.context.transactions().filter((txn) => {
             if (typeFilter !== 'ALL' && txn.type !== typeFilter) {
                 return false;
             }
@@ -68,10 +78,12 @@ export class TransactionsPage {
         });
     });
 
+    private readonly gesorteerd = computed(() => this.sort.apply(this.gefilterd()));
+
     readonly totaalAantal = computed(() => this.gefilterd().length);
 
     readonly transactions = computed<TransactionView[]>(() =>
-        this.gefilterd()
+        this.gesorteerd()
             .slice(0, this.zichtbareAantallen())
             .map((txn) => toView(txn)),
     );

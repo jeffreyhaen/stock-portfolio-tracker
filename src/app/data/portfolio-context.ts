@@ -17,19 +17,39 @@ export class PortfolioContext {
 
     readonly portfolios = this.portfoliosState.asReadonly();
     readonly selectedPortfolioId = signal('');
+    readonly ready: Promise<void>;
     readonly selectedPortfolio = computed(
         () => this.portfolios().find((p) => p.id === this.selectedPortfolioId()) ?? null,
     );
     readonly transactions = computed(() => this.storedTransactions().map(fromStored));
 
     constructor() {
-        void this.herstelSelectie();
+        this.ready = this.herstelSelectie();
     }
 
     async create(naam: string, rapportagevaluta: string): Promise<StoredPortfolio> {
         const portfolio = await this.portfolioRepository.create(naam, rapportagevaluta);
         await this.refresh();
         return portfolio;
+    }
+
+    async deletePortfolio(id: string): Promise<void> {
+        await this.portfolioRepository.delete(id);
+        const wasGeselecteerd = this.selectedPortfolioId() === id;
+        if (wasGeselecteerd) {
+            await this.db.settings.delete(SELECTIE_SLEUTEL);
+        }
+        this.portfoliosState.set(await this.portfolioRepository.list());
+        if (!wasGeselecteerd) {
+            return;
+        }
+        const eerste = this.portfolios()[0];
+        if (eerste === undefined) {
+            this.selectedPortfolioId.set('');
+            this.storedTransactions.set([]);
+        } else {
+            this.select(eerste.id);
+        }
     }
 
     select(id: string): void {

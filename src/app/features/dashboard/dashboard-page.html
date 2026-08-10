@@ -36,14 +36,6 @@
             }
         </div>
         <div class="flex items-center gap-3">
-            <button
-                type="button"
-                class="btn btn-outline btn-sm"
-                [disabled]="marketData.refreshing()"
-                (click)="refreshQuotes()"
-            >
-                {{ marketData.refreshing() ? 'Refreshing…' : 'Refresh quotes' }}
-            </button>
             <div class="flex gap-1">
                 @for (optie of ranges; track optie.id) {
                 <button
@@ -119,7 +111,91 @@
     </div>
 </div>
 
-<div class="mt-6">
-    <app-quote-panel [holdings]="holdings()" [vanafDatum]="eersteDatum()" />
+<div class="mt-6 grid gap-4">
+    <section class="rounded-xl border border-base-300 bg-base-100 p-6">
+        <div class="flex items-center justify-between">
+            <h2 class="text-base font-semibold">Top holdings</h2>
+            <a
+                [routerLink]="['/portfolio', portfolioId(), 'holdings']"
+                class="text-xs font-medium text-primary hover:underline"
+                >View all</a
+            >
+        </div>
+        @if (topHoldings().length === 0) {
+        <p class="mt-4 text-sm text-base-content/60">No open positions.</p>
+        } @else {
+        <ul class="mt-2 divide-y divide-base-200">
+            @for (holding of topHoldings(); track holding.isin) {
+            <li class="flex items-center justify-between gap-3 py-2">
+                <div class="min-w-0">
+                    <p class="truncate text-sm font-medium">{{ holding.product }}</p>
+                    <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                        {{ holding.quantity | nlNumber: 4 : 0 }} shares
+                    </p>
+                </div>
+                <div class="shrink-0 text-right">
+                    <p class="text-sm font-medium tabular-nums">{{ holding.valueEur | money: 'EUR' }}</p>
+                    @if (holding.weightPct !== null) {
+                    <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                        {{ holding.weightPct | nlNumber: 1 }}%
+                    </p>
+                    }
+                </div>
+            </li>
+            }
+        </ul>
+        }
+    </section>
+
+    <section class="rounded-xl border border-base-300 bg-base-100 p-6">
+        <div class="flex items-center justify-between">
+            <h2 class="text-base font-semibold">Recent transactions</h2>
+            <a
+                [routerLink]="['/portfolio', portfolioId(), 'transactions']"
+                class="text-xs font-medium text-primary hover:underline"
+                >View all</a
+            >
+        </div>
+        @if (recentTransactions().length === 0) {
+        <p class="mt-4 text-sm text-base-content/60">No transactions.</p>
+        } @else {
+        <ul class="mt-2 divide-y divide-base-200">
+            @for (txn of recentTransactions(); track txn.id) {
+            <li class="flex items-center justify-between gap-3 py-2">
+                <div class="min-w-0">
+                    <p class="truncate text-sm font-medium">{{ txn.product || txn.label }}</p>
+                    <p class="text-[0.8125rem] text-base-content/60">{{ txn.date | nlDate }} · {{ txn.label }}</p>
+                </div>
+                <p class="shrink-0 text-sm font-medium tabular-nums">
+                    {{ txn.mutation | money: txn.mutationCurrency }}
+                </p>
+            </li>
+            }
+        </ul>
+        }
+    </section>
+
+    <section class="rounded-xl border border-base-300 bg-base-100 p-6">
+        <div class="flex items-center justify-between">
+            <h2 class="text-base font-semibold">Cash</h2>
+            <a
+                [routerLink]="['/portfolio', portfolioId(), 'cash']"
+                class="text-xs font-medium text-primary hover:underline"
+                >View all</a
+            >
+        </div>
+        @if (cashBalances().length === 0) {
+        <p class="mt-4 text-sm text-base-content/60">No cash balances.</p>
+        } @else {
+        <ul class="mt-2 divide-y divide-base-200">
+            @for (row of cashBalances(); track row.currency) {
+            <li class="flex items-center justify-between gap-3 py-2">
+                <p class="font-mono text-sm text-base-content/60">{{ row.currency }}</p>
+                <p class="text-sm font-medium tabular-nums">{{ row.balance | money: row.currency }}</p>
+            </li>
+            }
+        </ul>
+        }
+    </section>
 </div>
 }

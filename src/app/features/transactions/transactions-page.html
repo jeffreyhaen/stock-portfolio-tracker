@@ -35,11 +35,11 @@
         <table class="table table-sm w-full">
             <thead>
                 <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                    <th class="text-right">Quantity</th>
-                    <th class="text-right">Amount</th>
+                    <th><app-sort-th [sort]="sort" sortKey="date">Date</app-sort-th></th>
+                    <th><app-sort-th [sort]="sort" sortKey="type">Type</app-sort-th></th>
+                    <th><app-sort-th [sort]="sort" sortKey="description">Description</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="quantity">Quantity</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="amount">Amount</app-sort-th></th>
                 </tr>
             </thead>
             <tbody>

@@ -6,6 +6,8 @@ import Decimal from 'decimal.js';
 import { holdingPeriodDays, holdingStats } from '../../domain/holdings';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
+import { TableSort } from '../../shared/sort';
+import { SortThComponent } from '../../shared/ui/sort-th';
 
 interface HoldingView {
     readonly isin: string;
@@ -24,7 +26,7 @@ interface HoldingView {
 
 @Component({
     selector: 'app-holdings-page',
-    imports: [RouterLink, MoneyPipe, NlNumberPipe],
+    imports: [RouterLink, MoneyPipe, NlNumberPipe, SortThComponent],
     templateUrl: './holdings-page.html',
 })
 export class HoldingsPage {
@@ -33,11 +35,29 @@ export class HoldingsPage {
 
     private readonly today = new Date().toISOString().slice(0, 10);
 
+    readonly sort = new TableSort<
+        'security' | 'quantity' | 'periodDays' | 'netInvested' | 'perShare' | 'valueEur' | 'pnlNative' | 'pnlPct',
+        HoldingView
+    >(
+        {
+            security: (h) => h.product,
+            quantity: (h) => h.quantity,
+            periodDays: (h) => h.periodDays,
+            netInvested: (h) => h.netInvested,
+            perShare: (h) => h.netInvestedPerShare,
+            valueEur: (h) => h.valueEur,
+            pnlNative: (h) => h.pnlNative,
+            pnlPct: (h) => h.pnlPct,
+        },
+        'valueEur',
+        'desc',
+    );
+
     constructor() {
         void this.marketData.reload();
     }
 
-    readonly holdings = computed<HoldingView[]>(() => {
+    private readonly ongesorteerd = computed<HoldingView[]>(() => {
         const quotes = this.marketData.quoteMap();
         const fx = this.marketData.fxResolver();
         const today = this.today;
@@ -70,4 +90,6 @@ export class HoldingsPage {
             };
         });
     });
+
+    readonly holdings = computed(() => this.sort.apply(this.ongesorteerd()));
 }

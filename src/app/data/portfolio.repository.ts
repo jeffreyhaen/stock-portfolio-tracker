@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import Dexie from 'dexie';
 import { PortfolioDatabase } from './db';
 import { StoredPortfolio } from './stored-types';
 
@@ -20,5 +21,16 @@ export class PortfolioRepository {
         };
         await this.db.portfolios.add(portfolio);
         return portfolio;
+    }
+
+    async delete(id: string): Promise<void> {
+        await this.db.transaction('rw', [this.db.portfolios, this.db.transactions, this.db.importBatches], async () => {
+            await this.db.transactions
+                .where('[portfolioId+datum]')
+                .between([id, Dexie.minKey], [id, Dexie.maxKey])
+                .delete();
+            await this.db.importBatches.where('portfolioId').equals(id).delete();
+            await this.db.portfolios.delete(id);
+        });
     }
 }

@@ -100,14 +100,50 @@
         }
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
-        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Income</p>
-        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ valuation().totals.income | money: 'EUR' }}</p>
-        <p class="mt-1 text-[0.8125rem] text-base-content/60">Dividends and interest, net of tax</p>
+        <div class="flex items-center gap-1">
+            <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Income</p>
+            <span
+                tabindex="0"
+                class="tooltip tooltip-bottom cursor-help text-base-content/60"
+                role="img"
+                aria-label="More info"
+                [attr.data-tip]="incomeTooltip()"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM10 8a1 1 0 0 0-1 1v3a1 1 0 1 0 2 0V9a1 1 0 0 0-1-1Zm0-3a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" clip-rule="evenodd" />
+                </svg>
+            </span>
+        </div>
+        <p
+            class="mt-1 text-2xl font-semibold tabular-nums"
+            [class.text-success]="!valuation().totals.income?.isNegative()"
+            [class.text-error]="valuation().totals.income?.isNegative()"
+        >
+            {{ valuation().totals.income | money: 'EUR' }}
+        </p>
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
-        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Total costs</p>
-        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ valuation().totals.costs | money: 'EUR' }}</p>
-        <p class="mt-1 text-[0.8125rem] text-base-content/60">Broker and connection fees</p>
+        <div class="flex items-center gap-1">
+            <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Costs</p>
+            <span
+                tabindex="0"
+                class="tooltip tooltip-bottom cursor-help text-base-content/60"
+                role="img"
+                aria-label="More info"
+                [attr.data-tip]="costsTooltip()"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM10 8a1 1 0 0 0-1 1v3a1 1 0 1 0 2 0V9a1 1 0 0 0-1-1Zm0-3a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" clip-rule="evenodd" />
+                </svg>
+            </span>
+        </div>
+        <p
+            class="mt-1 text-2xl font-semibold tabular-nums"
+            [class.text-success]="!valuation().totals.costs?.isNegative()"
+            [class.text-error]="valuation().totals.costs?.isNegative()"
+        >
+            {{ valuation().totals.costs | money: 'EUR' }}
+        </p>
     </div>
 </div>
 

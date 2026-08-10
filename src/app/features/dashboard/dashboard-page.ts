@@ -174,9 +174,7 @@ export class DashboardPage {
                     valueEur = rate === null ? null : h.quantity.times(quote.prijs).times(rate);
                 }
                 const weightPct =
-                    valueEur === null || totaal === null || totaal.isZero()
-                        ? null
-                        : valueEur.div(totaal).times(100);
+                    valueEur === null || totaal === null || totaal.isZero() ? null : valueEur.div(totaal).times(100);
                 return { isin: h.isin, product: h.product, quantity: h.quantity, valueEur, weightPct };
             })
             .sort((a, b) => {
@@ -211,4 +209,44 @@ export class DashboardPage {
             .map((positie) => ({ currency: positie.currency, balance: positie.amount }))
             .sort((a, b) => b.balance.comparedTo(a.balance)),
     );
+
+    readonly incomeTooltip = computed(() =>
+        this.flowTooltip(
+            'Sum of dividends, dividend tax, capital gain distributions and interest income',
+            this.valuation().totals.incomePerCurrency,
+            this.valuation().totals.missingFxIncome,
+        ),
+    );
+
+    readonly costsTooltip = computed(() =>
+        this.flowTooltip(
+            'Sum of broker, connection, transaction-tax, external fees and interest charges',
+            this.valuation().totals.costsPerCurrency,
+            this.valuation().totals.missingFxCosts,
+        ),
+    );
+
+    private flowTooltip(label: string, perCurrency: ReadonlyMap<string, Decimal>, missing: number): string {
+        const base = `${label} in your reporting currency (EUR). Non-EUR amounts are converted using historical FX rates; amounts without a known rate are excluded.`;
+        const currencies = [...perCurrency.keys()];
+        const hasNonEur = currencies.some((c) => c !== 'EUR');
+        if (!hasNonEur && missing === 0) {
+            return base;
+        }
+        const breakdown = [...perCurrency.entries()]
+            .map(([cur, val]) => `${cur} ${formatMoney(val, cur)}`)
+            .join(' · ');
+        const missingNote =
+            missing > 0 ? ` · ${missing} flow${missing === 1 ? '' : 's'} skipped (missing FX)` : '';
+        return `${base} Per currency: ${breakdown}${missingNote}.`;
+    }
+}
+
+function formatMoney(value: Decimal, currency: string): string {
+    return new Intl.NumberFormat('nl-NL', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value.toNumber());
 }

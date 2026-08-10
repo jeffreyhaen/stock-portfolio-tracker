@@ -178,7 +178,7 @@
 @if (pendingDelete(); as portfolio) {
 <app-confirm-dialog
     titel="Delete portfolio?"
-    beschrijving="Delete portfolio &quot;{{ portfolio.naam }}&quot;? All imported transactions and import history for this portfolio are removed. This cannot be undone."
+    beschrijving='Delete portfolio "{{ portfolio.naam }}"? All imported transactions and import history for this portfolio are removed. This cannot be undone.'
     bevestigLabel="Delete"
     annuleerLabel="Cancel"
     [gevaarlijk]="true"

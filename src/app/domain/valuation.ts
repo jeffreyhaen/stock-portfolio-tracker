@@ -29,6 +29,10 @@ export interface PortfolioTotals {
     readonly netInvested: Decimal;
     readonly costs: Decimal;
     readonly income: Decimal;
+    readonly incomePerCurrency: ReadonlyMap<string, Decimal>;
+    readonly costsPerCurrency: ReadonlyMap<string, Decimal>;
+    readonly missingFxIncome: number;
+    readonly missingFxCosts: number;
     readonly cashEur: Decimal;
     readonly value: Decimal | null;
     readonly result: Decimal | null;
@@ -59,6 +63,10 @@ export function buildValuation(
     let netInvested = new Decimal(0);
     let costs = new Decimal(0);
     let income = new Decimal(0);
+    const incomePerCurrency = new Map<string, Decimal>();
+    const costsPerCurrency = new Map<string, Decimal>();
+    let missingFxIncome = 0;
+    let missingFxCosts = 0;
     let cashEur = new Decimal(0);
     let nietEurExterneFlows = 0;
 
@@ -105,11 +113,37 @@ export function buildValuation(
                 nietEurExterneFlows += 1;
             }
         }
-        if (COST_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === 'EUR') {
-            costs = costs.plus(txn.mutation.abs());
+        if (COST_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency !== null) {
+            costsPerCurrency.set(
+                txn.mutationCurrency,
+                (costsPerCurrency.get(txn.mutationCurrency) ?? new Decimal(0)).plus(txn.mutation),
+            );
+            if (txn.mutationCurrency === 'EUR') {
+                costs = costs.plus(txn.mutation);
+            } else {
+                const rate = fx(txn.mutationCurrency, txn.date);
+                if (rate !== null) {
+                    costs = costs.plus(txn.mutation.times(rate));
+                } else {
+                    missingFxCosts++;
+                }
+            }
         }
-        if (INCOME_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === 'EUR') {
-            income = income.plus(txn.mutation);
+        if (INCOME_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency !== null) {
+            incomePerCurrency.set(
+                txn.mutationCurrency,
+                (incomePerCurrency.get(txn.mutationCurrency) ?? new Decimal(0)).plus(txn.mutation),
+            );
+            if (txn.mutationCurrency === 'EUR') {
+                income = income.plus(txn.mutation);
+            } else {
+                const rate = fx(txn.mutationCurrency, txn.date);
+                if (rate !== null) {
+                    income = income.plus(txn.mutation.times(rate));
+                } else {
+                    missingFxIncome++;
+                }
+            }
         }
         if (txn.balanceCurrency === 'EUR' && txn.balance !== null) {
             cashEur = txn.balance;
@@ -143,7 +177,19 @@ export function buildValuation(
 
     return {
         punten,
-        totals: { netInvested, costs, income, cashEur, value, result, resultPct },
+        totals: {
+            netInvested,
+            costs,
+            income,
+            incomePerCurrency,
+            costsPerCurrency,
+            missingFxIncome,
+            missingFxCosts,
+            cashEur,
+            value,
+            result,
+            resultPct,
+        },
         ontbrekendQuotes,
         ontbrekendeFx: [...ontbrekendeFx],
         nietEurExterneFlows,

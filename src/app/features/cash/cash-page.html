@@ -12,9 +12,13 @@
     <table class="mt-4 table table-sm w-full">
         <thead>
             <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-                <th>Currency</th>
-                <th class="text-right">Balance</th>
-                <th class="text-right">Balance in reporting currency</th>
+                <th><app-sort-th [sort]="balancesSort" sortKey="currency">Currency</app-sort-th></th>
+                <th class="text-right"><app-sort-th [sort]="balancesSort" sortKey="balance">Balance</app-sort-th></th>
+                <th class="text-right">
+                    <app-sort-th [sort]="balancesSort" sortKey="balanceReporting"
+                        >Balance in reporting currency</app-sort-th
+                    >
+                </th>
             </tr>
         </thead>
         <tbody>
@@ -47,10 +51,12 @@
     <table class="mt-4 table table-sm w-full">
         <thead>
             <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-                <th>Currency</th>
-                <th class="text-right">Deposits</th>
-                <th class="text-right">Withdrawals</th>
-                <th class="text-right">Net invested</th>
+                <th><app-sort-th [sort]="flowsSort" sortKey="currency">Currency</app-sort-th></th>
+                <th class="text-right"><app-sort-th [sort]="flowsSort" sortKey="deposits">Deposits</app-sort-th></th>
+                <th class="text-right">
+                    <app-sort-th [sort]="flowsSort" sortKey="withdrawals">Withdrawals</app-sort-th>
+                </th>
+                <th class="text-right"><app-sort-th [sort]="flowsSort" sortKey="net">Net invested</app-sort-th></th>
             </tr>
         </thead>
         <tbody>

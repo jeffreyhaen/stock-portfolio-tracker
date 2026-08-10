@@ -12,11 +12,18 @@
         <table class="table table-sm w-full">
             <thead>
                 <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-                    <th>Security</th>
-                    <th class="text-right">Position<br />Holding period</th>
-                    <th class="text-right">Net cash invested<br />per share</th>
-                    <th class="text-right">Value<br />in EUR</th>
-                    <th class="text-right">P&L<br />native</th>
+                    <th><app-sort-th [sort]="sort" sortKey="security">Security</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="quantity">Quantity</app-sort-th></th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="sort" sortKey="periodDays">Holding period</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="sort" sortKey="netInvested">Net invested</app-sort-th>
+                    </th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="perShare">Per share</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="valueEur">Value (EUR)</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="pnlNative">P&amp;L</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="pnlPct">P&amp;L %</app-sort-th></th>
                 </tr>
             </thead>
             <tbody>
@@ -28,16 +35,22 @@
                     </td>
                     <td class="text-right">
                         <p class="text-sm font-medium tabular-nums">{{ holding.quantity | nlNumber: 4 : 0 }}</p>
+                    </td>
+                    <td class="text-right">
                         @if (holding.periodDays !== null) {
-                        <p class="text-[0.8125rem] text-base-content/60">{{ holding.periodDays | nlNumber: 0 }} days</p>
+                        <p class="text-sm tabular-nums">{{ holding.periodDays | nlNumber: 0 }} days</p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
                         }
                     </td>
                     <td class="text-right">
                         <p class="text-sm font-medium tabular-nums">
                             {{ holding.netInvested | money: holding.currency }}
                         </p>
-                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">
-                            {{ holding.netInvestedPerShare | money: holding.currency }}/share
+                    </td>
+                    <td class="text-right">
+                        <p class="text-sm tabular-nums text-base-content/80">
+                            {{ holding.netInvestedPerShare | money: holding.currency }}
                         </p>
                     </td>
                     <td class="text-right">
@@ -56,15 +69,20 @@
                         >
                             {{ holding.pnlNative | money: holding.currency }}
                         </p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                    <td class="text-right">
                         @if (holding.pnlPct !== null) {
                         <p
-                            class="text-[0.8125rem] tabular-nums"
-                            [class.text-success]="!holding.pnlNative.isNegative()"
-                            [class.text-error]="holding.pnlNative.isNegative()"
+                            class="text-sm tabular-nums"
+                            [class.text-success]="!holding.pnlPct.isNegative()"
+                            [class.text-error]="holding.pnlPct.isNegative()"
                         >
                             {{ holding.pnlPct | nlNumber: 2 }}%
                         </p>
-                        } } @else {
+                        } @else {
                         <p class="text-sm text-base-content/60">–</p>
                         }
                     </td>

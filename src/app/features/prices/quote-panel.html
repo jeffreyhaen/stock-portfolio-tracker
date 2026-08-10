@@ -8,6 +8,14 @@
             </p>
         </div>
         <div class="flex items-center gap-2">
+            <button
+                type="button"
+                class="btn btn-outline btn-sm"
+                [disabled]="marketData.refreshing()"
+                (click)="refreshQuotes()"
+            >
+                {{ marketData.refreshing() ? 'Refreshing…' : 'Refresh quotes' }}
+            </button>
             <button type="button" class="btn btn-outline btn-sm" [disabled]="autoLinking()" (click)="autoLink()">
                 {{ autoLinking() ? 'Linking…' : 'Auto-link tickers' }}
             </button>
@@ -25,9 +33,9 @@
         <table class="table table-sm w-full">
             <thead>
                 <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-                    <th>Security</th>
-                    <th>Ticker</th>
-                    <th class="text-right">Quote</th>
+                    <th><app-sort-th [sort]="sort" sortKey="security">Security</app-sort-th></th>
+                    <th><app-sort-th [sort]="sort" sortKey="ticker">Ticker</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="quote">Quote</app-sort-th></th>
                     <th class="text-right">Manual price (EUR)</th>
                 </tr>
             </thead>

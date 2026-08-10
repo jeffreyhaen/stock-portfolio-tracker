@@ -9,6 +9,8 @@ import { HoldingStats } from '../../domain/holdings';
 import { parseNlNumber } from '../../domain/numbers';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
+import { TableSort } from '../../shared/sort';
+import { SortThComponent } from '../../shared/ui/sort-th';
 
 interface QuoteRow {
     readonly isin: string;
@@ -30,7 +32,7 @@ interface SearchState {
 
 @Component({
     selector: 'app-quote-panel',
-    imports: [MoneyPipe, NlDatePipe],
+    imports: [MoneyPipe, NlDatePipe, SortThComponent],
     templateUrl: './quote-panel.html',
 })
 export class QuotePanelComponent {
@@ -40,6 +42,15 @@ export class QuotePanelComponent {
     readonly marketData = inject(MarketDataService);
     private readonly quoteService = inject(QuoteService);
     private readonly quoteSync = inject(QuoteSyncService);
+
+    readonly sort = new TableSort<'security' | 'ticker' | 'quote', QuoteRow>(
+        {
+            security: (row) => row.product,
+            ticker: (row) => row.security?.tickerVoorKoers ?? null,
+            quote: (row) => (row.quote === null ? null : new Decimal(row.quote.prijs)),
+        },
+        'security',
+    );
 
     readonly edits = signal<Record<string, { invoer: string; ongeldig: boolean }>>({});
     readonly searches = signal<Record<string, SearchState>>({});
@@ -73,12 +84,7 @@ export class QuotePanelComponent {
         const stale = this.marketData.staleIsins();
         const edits = this.edits();
         const openIsins = new Set(this.holdings().map((h) => h.isin));
-        const gesorteerd = [...securities].sort((a, b) => {
-            const aOpen = openIsins.has(a.isin) ? 0 : 1;
-            const bOpen = openIsins.has(b.isin) ? 0 : 1;
-            return aOpen - bOpen || a.naam.localeCompare(b.naam);
-        });
-        return gesorteerd.map((security) => {
+        const gebouwd = securities.map((security) => {
             const quote = quotes.find((q) => q.sleutel === security.isin) ?? null;
             const edit = edits[security.isin];
             return {
@@ -92,7 +98,14 @@ export class QuotePanelComponent {
                 ongeldig: edit?.ongeldig ?? false,
             };
         });
+        const open = gebouwd.filter((row) => row.open);
+        const gesloten = gebouwd.filter((row) => !row.open);
+        return [...this.sort.apply(open), ...this.sort.apply(gesloten)];
     });
+
+    async refreshQuotes(): Promise<void> {
+        await this.quoteSync.refreshAll(this.vanafDatum());
+    }
 
     searchState(isin: string): SearchState {
         return this.searches()[isin] ?? { query: '', suggesties: [], searching: false, error: null };

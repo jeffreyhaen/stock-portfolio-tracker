@@ -1,37 +1,50 @@
 <header class="border-b border-base-300 bg-base-100">
     <nav class="mx-auto flex h-14 max-w-[1200px] items-center gap-6 px-6">
         <span class="text-base font-semibold">Stock Portfolio</span>
+        @if (portfolioId() !== '') {
         <a
-            routerLink="/dashboard"
+            [routerLink]="['/portfolio', portfolioId(), 'dashboard']"
             routerLinkActive="bg-[#e6effe] text-primary"
             [routerLinkActiveOptions]="{ exact: true }"
             class="rounded-field px-3 py-1.5 text-sm text-[#283848] hover:bg-base-200"
             >Dashboard</a
         >
         <a
-            routerLink="/holdings"
+            [routerLink]="['/portfolio', portfolioId(), 'holdings']"
             routerLinkActive="bg-[#e6effe] text-primary"
             class="rounded-field px-3 py-1.5 text-sm text-[#283848] hover:bg-base-200"
             >Holdings</a
         >
         <a
-            routerLink="/cash"
+            [routerLink]="['/portfolio', portfolioId(), 'cash']"
             routerLinkActive="bg-[#e6effe] text-primary"
             class="rounded-field px-3 py-1.5 text-sm text-[#283848] hover:bg-base-200"
             >Cash</a
         >
         <a
-            routerLink="/transactions"
+            [routerLink]="['/portfolio', portfolioId(), 'transactions']"
             routerLinkActive="bg-[#e6effe] text-primary"
             class="rounded-field px-3 py-1.5 text-sm text-[#283848] hover:bg-base-200"
             >Transactions</a
         >
+        <a
+            [routerLink]="['/portfolio', portfolioId(), 'prices']"
+            routerLinkActive="bg-[#e6effe] text-primary"
+            class="rounded-field px-3 py-1.5 text-sm text-[#283848] hover:bg-base-200"
+            >Prices</a
+        >
+        }
         <a
             routerLink="/import"
             routerLinkActive="bg-[#e6effe] text-primary"
             class="rounded-field px-3 py-1.5 text-sm text-[#283848] hover:bg-base-200"
             >Import</a
         >
+        @if (portfolioNaam() !== '') {
+        <span class="ml-auto rounded-full bg-base-200 px-3 py-1 text-xs font-medium text-base-content/70">{{
+            portfolioNaam()
+        }}</span>
+        }
     </nav>
 </header>
 

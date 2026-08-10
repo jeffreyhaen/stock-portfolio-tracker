@@ -1,12 +1,17 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { ImportService } from '../../data/import.service';
 import { PortfolioContext } from '../../data/portfolio-context';
-import { ImportRapport, StoredImportBatch } from '../../data/stored-types';
+import { ImportRapport, StoredImportBatch, StoredPortfolio } from '../../data/stored-types';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
+import { TableSort } from '../../shared/sort';
+import { SortThComponent } from '../../shared/ui/sort-th';
+
+type BatchSortKey = 'importedAt' | 'file' | 'rows' | 'added' | 'duplicates' | 'unknown';
 
 @Component({
     selector: 'app-import-page',
-    imports: [NlNumberPipe],
+    imports: [RouterLink, NlNumberPipe, SortThComponent],
     templateUrl: './import-page.html',
 })
 export class ImportPage {
@@ -22,6 +27,21 @@ export class ImportPage {
     readonly report = signal<ImportRapport | null>(null);
     readonly error = signal<string | null>(null);
     readonly batches = signal<StoredImportBatch[]>([]);
+
+    readonly batchesSort = new TableSort<BatchSortKey, StoredImportBatch>(
+        {
+            importedAt: (batch) => batch.geimporteerdOp,
+            file: (batch) => batch.bestandsnaam,
+            rows: (batch) => batch.aantalRegels,
+            added: (batch) => batch.rapport.toegevoegd,
+            duplicates: (batch) => batch.rapport.overgeslagenDuplicaten,
+            unknown: (batch) => batch.rapport.onbekendeTypen,
+        },
+        'importedAt',
+        'desc',
+    );
+
+    readonly sortedBatches = computed(() => this.batchesSort.apply(this.batches()));
 
     constructor() {
         effect(() => {
@@ -44,6 +64,21 @@ export class ImportPage {
 
     onPortfolioChange(id: string): void {
         this.context.select(id);
+        this.report.set(null);
+        this.error.set(null);
+    }
+
+    async deletePortfolio(portfolio: StoredPortfolio): Promise<void> {
+        if (this.busy()) {
+            return;
+        }
+        const bevestigd = confirm(
+            `Delete portfolio "${portfolio.naam}"? All imported transactions and import history for this portfolio are removed. This cannot be undone.`,
+        );
+        if (!bevestigd) {
+            return;
+        }
+        await this.context.deletePortfolio(portfolio.id);
         this.report.set(null);
         this.error.set(null);
     }

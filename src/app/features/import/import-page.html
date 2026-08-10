@@ -3,24 +3,46 @@
 
 <div class="mt-6 flex flex-col gap-6">
     <section class="rounded-xl border border-base-300 bg-base-100 p-6">
-        <h2 class="text-base font-semibold">Portfolio</h2>
-        @if (portfolios().length > 0) {
-        <div class="mt-4 flex items-center gap-3">
-            <label class="text-xs font-medium uppercase tracking-wide text-base-content/60" for="portfolio-select"
-                >Portfolio</label
-            >
-            <select
-                id="portfolio-select"
-                class="select select-bordered select-sm"
-                [value]="selectedPortfolioId()"
-                (change)="onPortfolioChange($any($event.target).value)"
-            >
-                @for (portfolio of portfolios(); track portfolio.id) {
-                <option [value]="portfolio.id">{{ portfolio.naam }}</option>
-                }
-            </select>
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-base font-semibold">Portfolios</h2>
+                <p class="mt-1 text-sm text-base-content/60">
+                    Click a name to choose the import target, open a dashboard, or delete a portfolio.
+                </p>
+            </div>
+            @if (portfolios().length > 0) {
             <button class="btn btn-outline btn-sm" (click)="showCreateForm.set(true)">New portfolio</button>
+            }
         </div>
+        @if (portfolios().length > 0) {
+        <ul class="mt-4 flex flex-col gap-2">
+            @for (portfolio of portfolios(); track portfolio.id) {
+            <li
+                class="flex items-center gap-3 rounded-lg border px-4 py-3"
+                [class.border-primary]="portfolio.id === selectedPortfolioId()"
+                [class.border-base-300]="portfolio.id !== selectedPortfolioId()"
+            >
+                <button
+                    type="button"
+                    class="text-sm font-medium hover:underline"
+                    (click)="onPortfolioChange(portfolio.id)"
+                >
+                    {{ portfolio.naam }}
+                </button>
+                @if (portfolio.id === selectedPortfolioId()) {
+                <span class="badge badge-primary badge-xs">import target</span>
+                }
+                <span class="ml-auto flex items-center gap-2">
+                    <a [routerLink]="['/portfolio', portfolio.id, 'dashboard']" class="btn btn-outline btn-xs"
+                        >Dashboard</a
+                    >
+                    <button type="button" class="btn btn-ghost btn-xs text-error" (click)="deletePortfolio(portfolio)">
+                        Delete
+                    </button>
+                </span>
+            </li>
+            }
+        </ul>
         } @else {
         <p class="mt-2 text-sm text-base-content/60">No portfolios yet. Create one to start importing.</p>
         } @if (showCreateForm() || portfolios().length === 0) {
@@ -124,16 +146,20 @@
         <table class="mt-4 table table-sm">
             <thead>
                 <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-                    <th>Imported at</th>
-                    <th>File</th>
-                    <th class="text-right">Rows</th>
-                    <th class="text-right">Added</th>
-                    <th class="text-right">Duplicates</th>
-                    <th class="text-right">Unknown</th>
+                    <th><app-sort-th [sort]="batchesSort" sortKey="importedAt">Imported at</app-sort-th></th>
+                    <th><app-sort-th [sort]="batchesSort" sortKey="file">File</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="batchesSort" sortKey="rows">Rows</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="batchesSort" sortKey="added">Added</app-sort-th></th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="batchesSort" sortKey="duplicates">Duplicates</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="batchesSort" sortKey="unknown">Unknown</app-sort-th>
+                    </th>
                 </tr>
             </thead>
             <tbody>
-                @for (batch of batches(); track batch.id) {
+                @for (batch of sortedBatches(); track batch.id) {
                 <tr class="hover">
                     <td>{{ formatDateTime(batch.geimporteerdOp) }}</td>
                     <td>{{ batch.bestandsnaam }}</td>

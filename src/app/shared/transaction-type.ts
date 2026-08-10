@@ -42,9 +42,9 @@ const PRESENTATIE: Record<TransactionType, TypePresentatie> = {
 };
 
 export function transactionTypeLabel(type: TransactionType): string {
-    return PRESENTATIE[type].label;
+    return PRESENTATIE[type]?.label ?? 'Unknown';
 }
 
 export function transactionTypeBadgeClass(type: TransactionType): string {
-    return PRESENTATIE[type].badgeClass;
+    return PRESENTATIE[type]?.badgeClass ?? SOFT_GREY;
 }

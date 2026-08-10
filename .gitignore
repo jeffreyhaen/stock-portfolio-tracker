@@ -50,3 +50,5 @@ Thumbs.db
 # Lavish review-artifacts (sessie-state)
 /.lavish/
 
+# Coding agents
+.pi/extensions/emdash-hook.ts

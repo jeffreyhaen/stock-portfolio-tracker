@@ -8,7 +8,15 @@
         <a routerLink="/import" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
     </div>
 </section>
-} @else {
+} @else { @if (marketData.offline()) {
+<div class="alert alert-warning mt-6" role="alert">
+    <span class="text-sm">
+        Quote proxy unreachable — showing last known prices. @if (marketData.laatsteRefresh() !== null) { Last
+        successful refresh: {{ marketData.laatsteRefresh() | nlDate }}. }
+    </span>
+</div>
+}
+
 <section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -24,24 +32,34 @@
             </p>
             } } @else {
             <p class="text-4xl font-semibold tabular-nums">–</p>
-            <p class="mt-1 text-sm text-base-content/60">Enter manual prices below to see the portfolio value.</p>
+            <p class="mt-1 text-sm text-base-content/60">Link tickers or enter manual prices below to see the value.</p>
             }
         </div>
-        <div class="flex gap-1">
-            @for (optie of ranges; track optie.id) {
+        <div class="flex items-center gap-3">
             <button
                 type="button"
-                class="rounded-full px-3 py-1 text-xs font-medium"
-                [class.border]="range() === optie.id"
-                [class.border-base-300]="range() === optie.id"
-                [class.bg-base-100]="range() === optie.id"
-                [class.text-primary]="range() === optie.id"
-                [class.text-base-content/60]="range() !== optie.id"
-                (click)="range.set(optie.id)"
+                class="btn btn-outline btn-sm"
+                [disabled]="marketData.refreshing()"
+                (click)="refreshQuotes()"
             >
-                {{ optie.label }}
+                {{ marketData.refreshing() ? 'Refreshing…' : 'Refresh quotes' }}
             </button>
-            }
+            <div class="flex gap-1">
+                @for (optie of ranges; track optie.id) {
+                <button
+                    type="button"
+                    class="rounded-full px-3 py-1 text-xs font-medium"
+                    [class.border]="range() === optie.id"
+                    [class.border-base-300]="range() === optie.id"
+                    [class.bg-base-100]="range() === optie.id"
+                    [class.text-primary]="range() === optie.id"
+                    [class.text-base-content/60]="range() !== optie.id"
+                    (click)="range.set(optie.id)"
+                >
+                    {{ optie.label }}
+                </button>
+                }
+            </div>
         </div>
     </div>
     <div class="mt-4">
@@ -49,7 +67,7 @@
     </div>
 </section>
 
-<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Net invested</p>
         <p class="mt-1 text-2xl font-semibold tabular-nums">{{ valuation().totals.netInvested | money: 'EUR' }}</p>
@@ -70,7 +88,23 @@
         </p>
         } @else {
         <p class="mt-1 text-2xl font-semibold tabular-nums">–</p>
-        <p class="mt-1 text-[0.8125rem] text-base-content/60">Needs manual prices</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Needs prices</p>
+        }
+    </div>
+    <div class="rounded-xl border border-base-100 bg-base-100 p-4 border-base-300">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Return (TWR)</p>
+        @if (twr().twr !== null) {
+        <p
+            class="mt-1 text-2xl font-semibold tabular-nums"
+            [class.text-success]="!twr().twr?.isNegative()"
+            [class.text-error]="twr().twr?.isNegative()"
+        >
+            {{ twr().twrPct | nlNumber: 2 }}%
+        </p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Time-weighted, {{ range() | uppercase }} range</p>
+        } @else {
+        <p class="mt-1 text-2xl font-semibold tabular-nums">–</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Needs price history</p>
         }
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
@@ -85,58 +119,7 @@
     </div>
 </div>
 
-<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
-    <div class="flex items-center justify-between">
-        <div>
-            <h2 class="text-lg font-semibold">Manual prices</h2>
-            <p class="mt-1 text-sm text-base-content/60">
-                Prices in EUR per share, used for the portfolio value until live quotes arrive.
-            </p>
-        </div>
-        <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="savePrices()">
-            Save prices
-        </button>
-    </div>
-    @if (priceRows().length === 0) {
-    <p class="mt-4 text-sm text-base-content/60">No open positions.</p>
-    } @else {
-    <div class="mt-4 overflow-x-auto">
-        <table class="table table-sm w-full">
-            <thead>
-                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-                    <th>Security</th>
-                    <th class="text-right">Price (EUR)</th>
-                    <th class="text-right">Updated</th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (row of priceRows(); track row.isin) {
-                <tr class="hover">
-                    <td>
-                        <p class="text-sm font-medium">{{ row.product }}</p>
-                        <p class="font-mono text-[0.8125rem] text-base-content/60">{{ row.isin }}</p>
-                    </td>
-                    <td class="text-right">
-                        <input
-                            type="text"
-                            inputmode="decimal"
-                            class="input input-sm input-bordered w-32 text-right tabular-nums"
-                            [class.input-error]="row.ongeldig"
-                            [value]="row.invoer"
-                            (input)="onPriceInput(row.isin, $any($event.target).value)"
-                        />
-                        @if (row.ongeldig) {
-                        <p class="mt-1 text-[0.8125rem] text-error">Not a valid number</p>
-                        }
-                    </td>
-                    <td class="text-right text-[0.8125rem] text-base-content/60">
-                        {{ row.quote === null ? '–' : (row.quote.tijdstip | nlDate) }}
-                    </td>
-                </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-    }
-</section>
+<div class="mt-6">
+    <app-quote-panel [holdings]="holdings()" [vanafDatum]="eersteDatum()" />
+</div>
 }

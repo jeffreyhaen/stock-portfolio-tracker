@@ -4,10 +4,12 @@ import {
     StoredFxRate,
     StoredImportBatch,
     StoredPortfolio,
+    StoredPriceBar,
     StoredQuote,
     StoredSecurity,
     StoredSecurityAlias,
     StoredSetting,
+    StoredSplitEvent,
     StoredTransaction,
 } from './stored-types';
 
@@ -19,6 +21,8 @@ export class PortfolioDatabase extends Dexie {
     securityAliases!: Table<StoredSecurityAlias, string>;
     quoteCache!: Table<StoredQuote, string>;
     fxCache!: Table<StoredFxRate, [string, string]>;
+    priceHistory!: Table<StoredPriceBar, [string, string]>;
+    splitEvents!: Table<StoredSplitEvent, [string, string]>;
     settings!: Table<StoredSetting, string>;
 
     constructor(options?: DexieOptions) {
@@ -32,6 +36,12 @@ export class PortfolioDatabase extends Dexie {
             quoteCache: 'sleutel',
             fxCache: '[paar+datum]',
             settings: 'sleutel',
+        });
+        this.version(2).stores({
+            priceHistory: '[isin+datum], isin',
+        });
+        this.version(3).stores({
+            splitEvents: '[isin+datum]',
         });
     }
 }

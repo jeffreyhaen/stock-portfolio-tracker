@@ -1,26 +1,21 @@
+import { UpperCasePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import Decimal from 'decimal.js';
+import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
-import { QuoteService } from '../../data/quote.service';
-import { StoredQuote } from '../../data/stored-types';
+import { QuoteSyncService } from '../../data/quote-sync.service';
+import { PriceBar, buildMarketValueSeries } from '../../domain/market-value';
 import { holdingStats } from '../../domain/holdings';
-import { parseNlNumber } from '../../domain/numbers';
+import { timeWeightedReturn } from '../../domain/twr';
 import { buildValuation } from '../../domain/valuation';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
 import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
+import { QuotePanelComponent } from './quote-panel';
 
 type Range = 'all' | '3y' | '1y' | 'ytd';
-
-interface PriceRow {
-    readonly isin: string;
-    readonly product: string;
-    readonly quote: StoredQuote | null;
-    readonly invoer: string;
-    readonly ongeldig: boolean;
-}
 
 const RANGES: { id: Range; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -44,69 +39,95 @@ function cutoffFor(range: Range, today: string): string | null {
 
 @Component({
     selector: 'app-dashboard-page',
-    imports: [RouterLink, MoneyPipe, NlDatePipe, NlNumberPipe, ValueChartComponent],
+    imports: [RouterLink, MoneyPipe, NlDatePipe, NlNumberPipe, UpperCasePipe, ValueChartComponent, QuotePanelComponent],
     templateUrl: './dashboard-page.html',
 })
 export class DashboardPage {
     private readonly context = inject(PortfolioContext);
-    private readonly quoteService = inject(QuoteService);
+    private readonly quoteSync = inject(QuoteSyncService);
+    readonly marketData = inject(MarketDataService);
 
     readonly ranges = RANGES;
     readonly range = signal<Range>('all');
-    readonly quotes = signal<StoredQuote[]>([]);
-    readonly edits = signal<Record<string, { invoer: string; ongeldig: boolean }>>({});
-    readonly saving = signal(false);
 
     private readonly today = new Date().toISOString().slice(0, 10);
 
     constructor() {
-        void this.loadQuotes();
+        void this.marketData.reload();
     }
 
     readonly isEmpty = computed(() => this.context.transactions().length === 0);
 
-    private readonly quoteMap = computed<ReadonlyMap<string, Decimal>>(() => {
-        const map = new Map<string, Decimal>();
-        for (const quote of this.quotes()) {
-            if (quote.valuta === 'EUR') {
-                map.set(quote.sleutel, new Decimal(quote.prijs));
-            }
+    readonly holdings = computed(() => holdingStats(this.context.transactions()));
+
+    readonly eersteDatum = computed(() => {
+        const txns = this.context.transactions();
+        if (txns.length === 0) {
+            return this.today;
+        }
+        return txns.reduce((min, t) => (t.date < min ? t.date : min), txns[0].date);
+    });
+
+    readonly valuation = computed(() =>
+        buildValuation(
+            this.context.transactions(),
+            this.marketData.quoteMap(),
+            this.marketData.fxResolver(),
+            this.today,
+        ),
+    );
+
+    private readonly barsMap = computed<ReadonlyMap<string, PriceBar[]>>(() => {
+        const map = new Map<string, PriceBar[]>();
+        for (const bar of this.marketData.priceHistory()) {
+            const lijst = map.get(bar.isin) ?? [];
+            lijst.push({ datum: bar.datum, slotkoers: new Decimal(bar.slotkoers), valuta: bar.valuta });
+            map.set(bar.isin, lijst);
+        }
+        for (const lijst of map.values()) {
+            lijst.sort((a, b) => a.datum.localeCompare(b.datum));
         }
         return map;
     });
 
-    readonly valuation = computed(() => buildValuation(this.context.transactions(), this.quoteMap(), this.today));
+    readonly heeftHistorie = computed(() => this.marketData.priceHistory().length > 0);
 
-    readonly priceRows = computed<PriceRow[]>(() => {
-        const quotes = this.quotes();
-        const edits = this.edits();
-        return holdingStats(this.context.transactions()).map((h) => {
-            const quote = quotes.find((q) => q.sleutel === h.isin) ?? null;
-            const edit = edits[h.isin];
-            return {
-                isin: h.isin,
-                product: h.product,
-                quote,
-                invoer: edit?.invoer ?? (quote === null ? '' : new Decimal(quote.prijs).toString()),
-                ongeldig: edit?.ongeldig ?? false,
-            };
-        });
+    readonly marketSeries = computed(() =>
+        buildMarketValueSeries(
+            this.context.transactions(),
+            this.barsMap(),
+            this.marketData.fxResolver(),
+            this.splitsMap(),
+        ),
+    );
+
+    private readonly splitsMap = computed(() => {
+        const map = new Map<string, { datum: string; factor: Decimal }[]>();
+        for (const split of this.marketData.splitEvents()) {
+            const lijst = map.get(split.isin) ?? [];
+            lijst.push({ datum: split.datum, factor: new Decimal(split.factor) });
+            map.set(split.isin, lijst);
+        }
+        return map;
+    });
+
+    private readonly seriesPunten = computed(() => {
+        const cutoff = cutoffFor(this.range(), this.today);
+        if (this.heeftHistorie()) {
+            return this.marketSeries().punten.filter((p) => cutoff === null || p.datum >= cutoff);
+        }
+        return this.valuation()
+            .punten.filter((p) => cutoff === null || p.datum >= cutoff)
+            .map((p) => ({ ...p, flow: new Decimal(0) }));
     });
 
     readonly chartSeries = computed<ChartSeries[]>(() => {
-        const cutoff = cutoffFor(this.range(), this.today);
-        const punten = this.valuation().punten.filter((p) => cutoff === null || p.datum >= cutoff);
+        const punten = this.seriesPunten();
         const valuePoints = punten
             .filter((p) => p.value !== null)
             .map((p) => ({ time: p.datum, value: p.value?.toNumber() ?? 0 }));
         return [
-            {
-                name: 'Value',
-                color: '#0068f0',
-                dashed: false,
-                fill: true,
-                points: valuePoints,
-            },
+            { name: 'Value', color: '#0068f0', dashed: false, fill: true, points: valuePoints },
             {
                 name: 'Net invested',
                 color: '#94a3b8',
@@ -117,48 +138,9 @@ export class DashboardPage {
         ];
     });
 
-    async loadQuotes(): Promise<void> {
-        this.quotes.set(await this.quoteService.list());
-    }
+    readonly twr = computed(() => timeWeightedReturn(this.seriesPunten()));
 
-    onPriceInput(isin: string, invoer: string): void {
-        this.edits.update((edits) => ({ ...edits, [isin]: { invoer, ongeldig: false } }));
-    }
-
-    async savePrices(): Promise<void> {
-        if (this.saving()) {
-            return;
-        }
-        const edits: Record<string, { invoer: string; ongeldig: boolean }> = {};
-        for (const row of this.priceRows()) {
-            if (row.invoer.trim() === '') {
-                continue;
-            }
-            try {
-                parseNlNumber(row.invoer);
-            } catch {
-                edits[row.isin] = { invoer: row.invoer, ongeldig: true };
-            }
-        }
-        if (Object.keys(edits).length > 0) {
-            this.edits.update((huidig) => ({ ...huidig, ...edits }));
-            return;
-        }
-        this.saving.set(true);
-        try {
-            for (const row of this.priceRows()) {
-                const ingevoerd = row.invoer.trim();
-                const prijs = ingevoerd === '' ? null : parseNlNumber(ingevoerd);
-                if (prijs === null && row.quote !== null) {
-                    await this.quoteService.remove(row.isin);
-                } else if (prijs !== null && row.quote?.prijs !== prijs.toString()) {
-                    await this.quoteService.save(row.isin, prijs, 'EUR');
-                }
-            }
-            this.edits.set({});
-            await this.loadQuotes();
-        } finally {
-            this.saving.set(false);
-        }
+    async refreshQuotes(): Promise<void> {
+        await this.quoteSync.refreshAll(this.eersteDatum());
     }
 }

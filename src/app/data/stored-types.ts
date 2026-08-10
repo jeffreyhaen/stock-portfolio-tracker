@@ -75,12 +75,26 @@ export interface StoredQuote {
     prijs: string;
     valuta: string;
     tijdstip: string;
+    bron?: 'manual' | 'yahoo';
 }
 
 export interface StoredFxRate {
     paar: string;
     datum: string;
     koers: string;
+}
+
+export interface StoredPriceBar {
+    isin: string;
+    datum: string;
+    slotkoers: string;
+    valuta: string;
+}
+
+export interface StoredSplitEvent {
+    isin: string;
+    datum: string;
+    factor: string;
 }
 
 export interface StoredSetting {

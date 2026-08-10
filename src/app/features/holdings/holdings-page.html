@@ -15,6 +15,8 @@
                     <th>Security</th>
                     <th class="text-right">Position<br />Holding period</th>
                     <th class="text-right">Net cash invested<br />per share</th>
+                    <th class="text-right">Value<br />in EUR</th>
+                    <th class="text-right">P&L<br />native</th>
                 </tr>
             </thead>
             <tbody>
@@ -37,6 +39,34 @@
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                             {{ holding.netInvestedPerShare | money: holding.currency }}/share
                         </p>
+                    </td>
+                    <td class="text-right">
+                        @if (holding.valueEur !== null) {
+                        <p class="text-sm font-medium tabular-nums">{{ holding.valueEur | money: 'EUR' }}</p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                    <td class="text-right">
+                        @if (holding.pnlNative !== null) {
+                        <p
+                            class="text-sm font-medium tabular-nums"
+                            [class.text-success]="!holding.pnlNative.isNegative()"
+                            [class.text-error]="holding.pnlNative.isNegative()"
+                        >
+                            {{ holding.pnlNative | money: holding.currency }}
+                        </p>
+                        @if (holding.pnlPct !== null) {
+                        <p
+                            class="text-[0.8125rem] tabular-nums"
+                            [class.text-success]="!holding.pnlNative.isNegative()"
+                            [class.text-error]="holding.pnlNative.isNegative()"
+                        >
+                            {{ holding.pnlPct | nlNumber: 2 }}%
+                        </p>
+                        } } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
                     </td>
                 </tr>
                 }

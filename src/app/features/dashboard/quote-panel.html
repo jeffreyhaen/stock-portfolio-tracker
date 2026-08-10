@@ -1,0 +1,124 @@
+<section class="rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-lg font-semibold">Prices</h2>
+            <p class="mt-1 text-sm text-base-content/60">
+                Link a ticker per security (open and closed, for the historical chart) or enter a manual EUR price for
+                open positions.
+            </p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" [disabled]="saving()" (click)="saveManual()">
+            Save manual prices
+        </button>
+    </div>
+    @if (rows().length === 0) {
+    <p class="mt-4 text-sm text-base-content/60">No open positions.</p>
+    } @else {
+    <div class="mt-4 overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                    <th>Security</th>
+                    <th>Ticker</th>
+                    <th class="text-right">Quote</th>
+                    <th class="text-right">Manual price (EUR)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (row of rows(); track row.isin) {
+                <tr class="hover align-top">
+                    <td>
+                        <p class="text-sm font-medium">
+                            {{ row.product }} @if (!row.open) {
+                            <span class="badge badge-ghost badge-xs ml-1">closed</span>
+                            }
+                        </p>
+                        <p class="font-mono text-[0.8125rem] text-base-content/60">{{ row.isin }}</p>
+                    </td>
+                    <td>
+                        @if (row.security?.tickerVoorKoers !== null && row.security?.tickerVoorKoers !== undefined) {
+                        <span class="inline-flex items-center gap-2">
+                            <span class="badge badge-outline badge-sm font-mono"
+                                >{{ row.security?.tickerVoorKoers }}</span
+                            >
+                            <button
+                                type="button"
+                                class="text-xs text-base-content/60 underline"
+                                (click)="unlink(row.isin)"
+                            >
+                                unlink
+                            </button>
+                        </span>
+                        } @else {
+                        <div class="flex items-center gap-2">
+                            <input
+                                type="text"
+                                class="input input-sm input-bordered w-36 font-mono"
+                                placeholder="search…"
+                                [value]="searchState(row.isin).query"
+                                (input)="onSearchInput(row.isin, $any($event.target).value)"
+                            />
+                            <button
+                                type="button"
+                                class="btn btn-ghost btn-xs"
+                                [disabled]="searchState(row.isin).searching"
+                                (click)="find(row.isin, row.product)"
+                            >
+                                Find
+                            </button>
+                        </div>
+                        @if (searchState(row.isin).error !== null) {
+                        <p class="mt-1 text-[0.8125rem] text-error">{{ searchState(row.isin).error }}</p>
+                        } @if (searchState(row.isin).suggesties.length > 0) {
+                        <ul class="mt-1 space-y-0.5">
+                            @for (sug of searchState(row.isin).suggesties; track sug.symbol) {
+                            <li>
+                                <button
+                                    type="button"
+                                    class="text-left text-[0.8125rem] text-primary hover:underline"
+                                    (click)="link(row.isin, sug.symbol)"
+                                >
+                                    <span class="font-mono font-medium">{{ sug.symbol }}</span>
+                                    <span class="text-base-content/60"> — {{ sug.name }} ({{ sug.exchange }})</span>
+                                </button>
+                            </li>
+                            }
+                        </ul>
+                        } }
+                    </td>
+                    <td class="text-right tabular-nums">
+                        @if (row.quote !== null) {
+                        <p class="text-sm font-medium">{{ row.quote.prijs | money: row.quote.valuta }}</p>
+                        <p class="text-[0.8125rem] text-base-content/60">
+                            {{ row.quote.tijdstip | nlDate }} @if (row.quote.bron !== 'yahoo') { · manual }
+                        </p>
+                        @if (row.stale) {
+                        <span class="badge badge-warning badge-xs mt-1">outdated</span>
+                        } } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                    <td class="text-right">
+                        @if (row.open && (row.security?.tickerVoorKoers === null || row.security?.tickerVoorKoers ===
+                        undefined)) {
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            class="input input-sm input-bordered w-32 text-right tabular-nums"
+                            [class.input-error]="row.ongeldig"
+                            [value]="row.invoer"
+                            (input)="onPriceInput(row.isin, $any($event.target).value)"
+                        />
+                        @if (row.ongeldig) {
+                        <p class="mt-1 text-[0.8125rem] text-error">Not a valid number</p>
+                        } } @else {
+                        <span class="text-sm text-base-content/60">–</span>
+                        }
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    }
+</section>

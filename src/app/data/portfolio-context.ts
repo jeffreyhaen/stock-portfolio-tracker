@@ -45,6 +45,23 @@ export class PortfolioContext {
         await this.refreshTransactions();
     }
 
+    async herstelSelectieUitLijst(): Promise<void> {
+        const [opgeslagen, portfolios] = await Promise.all([
+            this.db.settings.get(SELECTIE_SLEUTEL),
+            this.portfolioRepository.list(),
+        ]);
+        this.portfoliosState.set(portfolios);
+        const gevonden = portfolios.find((p) => p.id === opgeslagen?.waarde);
+        if (gevonden !== undefined) {
+            this.select(gevonden.id);
+        } else if (portfolios.length > 0) {
+            this.select(portfolios[0].id);
+        } else {
+            this.selectedPortfolioId.set('');
+            this.storedTransactions.set([]);
+        }
+    }
+
     private async refreshTransactions(): Promise<void> {
         const portfolioId = this.selectedPortfolioId();
         this.storedTransactions.set(
@@ -58,16 +75,6 @@ export class PortfolioContext {
     }
 
     private async herstelSelectie(): Promise<void> {
-        const [opgeslagen, portfolios] = await Promise.all([
-            this.db.settings.get(SELECTIE_SLEUTEL),
-            this.portfolioRepository.list(),
-        ]);
-        this.portfoliosState.set(portfolios);
-        const gevonden = portfolios.find((p) => p.id === opgeslagen?.waarde);
-        if (gevonden !== undefined) {
-            this.select(gevonden.id);
-        } else if (portfolios.length > 0) {
-            this.select(portfolios[0].id);
-        }
+        await this.herstelSelectieUitLijst();
     }
 }

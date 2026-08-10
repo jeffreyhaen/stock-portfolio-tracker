@@ -101,3 +101,59 @@ export interface StoredSetting {
     sleutel: string;
     waarde: string;
 }
+
+export interface BackupBundle {
+    schemaVersion: number;
+    appVersion: string;
+    exportedAt: string;
+    totals: {
+        portfolios: number;
+        transactions: number;
+        securities: number;
+        securityAliases: number;
+        importBatches: number;
+        quoteCache: number;
+        fxCache: number;
+        priceHistory: number;
+        splitEvents: number;
+        settings: number;
+    };
+    data: {
+        portfolios: StoredPortfolio[];
+        transactions: StoredTransaction[];
+        securities: StoredSecurity[];
+        securityAliases: StoredSecurityAlias[];
+        importBatches: StoredImportBatch[];
+        quoteCache: StoredQuote[];
+        fxCache: StoredFxRate[];
+        priceHistory: StoredPriceBar[];
+        splitEvents: StoredSplitEvent[];
+        settings: StoredSetting[];
+    };
+}
+
+export interface BackupImportReport {
+    schemaVersion: number;
+    toegevoegd: {
+        portfolios: number;
+        transactions: number;
+        securities: number;
+        securityAliases: number;
+        importBatches: number;
+        quoteCache: number;
+        fxCache: number;
+        priceHistory: number;
+        splitEvents: number;
+        settings: number;
+    };
+}
+
+export class BackupError extends Error {
+    constructor(
+        message: string,
+        readonly code: 'unsupported-version' | 'malformed' | 'incompatible',
+    ) {
+        super(message);
+        this.name = 'BackupError';
+    }
+}

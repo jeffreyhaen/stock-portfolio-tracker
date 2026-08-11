@@ -83,7 +83,7 @@ export class QuotePanelComponent {
         const quotes = this.marketData.quotes();
         const stale = this.marketData.staleIsins();
         const edits = this.edits();
-        const openIsins = new Set(this.holdings().map((h) => h.isin));
+        const openIsins = new Set(this.holdings().filter((h) => h.open).map((h) => h.isin));
         const gebouwd = securities.map((security) => {
             const quote = quotes.find((q) => q.sleutel === security.isin) ?? null;
             const edit = edits[security.isin];
@@ -133,8 +133,8 @@ export class QuotePanelComponent {
         }
     }
 
-    async link(isin: string, symbol: string): Promise<void> {
-        await this.quoteSync.linkTicker(isin, symbol);
+    async link(isin: string, symbol: string, exchange?: string): Promise<void> {
+        await this.quoteSync.linkTicker(isin, symbol, exchange);
         this.searches.update((s) => {
             const rest = { ...s };
             delete rest[isin];

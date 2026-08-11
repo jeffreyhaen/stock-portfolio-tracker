@@ -1,82 +1,171 @@
 <h1 class="text-3xl font-bold">Holdings</h1>
-<p class="mt-1 text-sm text-base-content/60">Open positions, cost basis per current open position.</p>
+<p class="mt-1 text-sm text-base-content/60">Open and closed positions, valued in {{ rapportagevaluta() }}.</p>
 
 <section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
-    @if (holdings().length === 0) {
+    @if (holdings().length === 0 && filter() === 'open' && aantalGesloten() === 0) {
     <div class="py-10 text-center">
         <p class="text-sm text-base-content/60">No holdings yet.</p>
         <a routerLink="/import" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
     </div>
     } @else {
+    <div class="mb-4 flex gap-2">
+        <button
+            type="button"
+            class="btn btn-sm"
+            [class.btn-primary]="filter() === 'open'"
+            [class.btn-ghost]="filter() !== 'open'"
+            (click)="setFilter('open')"
+        >
+            Open ({{ aantalOpen() }})
+        </button>
+        <button
+            type="button"
+            class="btn btn-sm"
+            [class.btn-primary]="filter() === 'gesloten'"
+            [class.btn-ghost]="filter() !== 'gesloten'"
+            (click)="setFilter('gesloten')"
+        >
+            Closed ({{ aantalGesloten() }})
+        </button>
+        <button
+            type="button"
+            class="btn btn-sm"
+            [class.btn-primary]="filter() === 'alle'"
+            [class.btn-ghost]="filter() !== 'alle'"
+            (click)="setFilter('alle')"
+        >
+            All ({{ aantalOpen() + aantalGesloten() }})
+        </button>
+    </div>
     <div class="overflow-x-auto">
         <table class="table table-sm w-full">
             <thead>
-                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                <tr class="align-top text-xs font-medium uppercase tracking-wide text-base-content/60">
                     <th><app-sort-th [sort]="sort" sortKey="security">Security</app-sort-th></th>
-                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="quantity">Quantity</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="allocation">Allocation</app-sort-th></th>
                     <th class="text-right">
+                        <app-sort-th [sort]="sort" sortKey="quantity">Quantity</app-sort-th><br />
                         <app-sort-th [sort]="sort" sortKey="periodDays">Holding period</app-sort-th>
                     </th>
                     <th class="text-right">
-                        <app-sort-th [sort]="sort" sortKey="netInvested">Net invested</app-sort-th>
+                        <app-sort-th [sort]="sort" sortKey="netInvested">Net invested</app-sort-th><br />
+                        <app-sort-th [sort]="sort" sortKey="perShare">Per share</app-sort-th>
                     </th>
-                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="perShare">Per share</app-sort-th></th>
-                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="valueEur">Value (EUR)</app-sort-th></th>
-                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="pnlNative">P&amp;L</app-sort-th></th>
-                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="pnlPct">P&amp;L %</app-sort-th></th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="sort" sortKey="value">Value</app-sort-th><br />
+                        <app-sort-th [sort]="sort" sortKey="valuePerShare">Per share</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="sort" sortKey="pnl">P&amp;L</app-sort-th><br />
+                        <app-sort-th [sort]="sort" sortKey="pnlTotal">Incl. realized</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="sort" sortKey="pnlPct">P&amp;L %</app-sort-th><br />
+                        <app-sort-th [sort]="sort" sortKey="pnlYear">Per year</app-sort-th>
+                    </th>
                 </tr>
             </thead>
             <tbody>
                 @for (holding of holdings(); track holding.isin) {
-                <tr class="hover">
+                <tr class="hover align-top" [class.text-base-content\/60]="!holding.open">
                     <td>
-                        <p class="text-sm font-medium">{{ holding.product }}</p>
-                        <p class="font-mono text-[0.8125rem] text-base-content/60">{{ holding.isin }}</p>
+                        <p class="text-sm font-medium" [class.text-base-content]="holding.open">
+                            {{ holding.product }}
+                            @if (!holding.open) {
+                            <span class="badge badge-ghost badge-sm ml-1">closed</span>
+                            }
+                        </p>
+                        <p class="font-mono text-[0.8125rem] text-base-content/60">
+                            {{ holding.isin }}
+                            @if (holding.ticker !== null) {
+                            <span class="font-sans"
+                                >· {{ holding.beurs !== null ? holding.beurs + ':' : '' }}{{ holding.ticker }}</span
+                            >
+                            }
+                        </p>
                     </td>
                     <td class="text-right">
-                        <p class="text-sm font-medium tabular-nums">{{ holding.quantity | nlNumber: 4 : 0 }}</p>
-                    </td>
-                    <td class="text-right">
-                        @if (holding.periodDays !== null) {
-                        <p class="text-sm tabular-nums">{{ holding.periodDays | nlNumber: 0 }} days</p>
+                        @if (holding.allocationPct !== null) {
+                        <p class="text-sm font-medium tabular-nums">{{ holding.allocationPct | nlNumber: 2 }}%</p>
+                        <div class="ml-auto mt-1 h-[3px] w-16 overflow-hidden rounded-full bg-base-300">
+                            <div
+                                class="h-full rounded-full bg-primary"
+                                [style.width.%]="holding.allocationPct.toNumber()"
+                            ></div>
+                        </div>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
                         }
                     </td>
                     <td class="text-right">
-                        <p class="text-sm font-medium tabular-nums">
-                            {{ holding.netInvested | money: holding.currency }}
+                        @if (holding.open) {
+                        <p class="text-sm font-medium tabular-nums">{{ holding.quantity | nlNumber: 4 : 0 }}</p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                        @if (holding.periodDays !== null) {
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                            {{ holding.periodDays | nlNumber: 0 }} days
                         </p>
+                        }
                     </td>
                     <td class="text-right">
-                        <p class="text-sm tabular-nums text-base-content/80">
-                            {{ holding.netInvestedPerShare | money: holding.currency }}
+                        @if (holding.netInvested !== null) {
+                        <p class="text-sm font-medium tabular-nums">
+                            {{ holding.netInvested | money: rapportagevaluta() }}
                         </p>
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                            {{ holding.netInvestedPerShare | money: rapportagevaluta() }}/share
+                        </p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
                     </td>
                     <td class="text-right">
                         @if (holding.valueEur !== null) {
-                        <p class="text-sm font-medium tabular-nums">{{ holding.valueEur | money: 'EUR' }}</p>
+                        <p class="text-sm font-medium tabular-nums">{{ holding.valueEur | money: rapportagevaluta() }}</p>
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                            {{ holding.valuePerShareEur | money: rapportagevaluta() }}/share
+                        </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
                         }
                     </td>
                     <td class="text-right">
-                        @if (holding.pnlNative !== null) {
-                        <p
-                            class="text-sm font-medium tabular-nums"
-                            [class.text-success]="!holding.pnlNative.isNegative() && !holding.pnlNative.isZero()"
-                            [class.text-error]="holding.pnlNative.isNegative()"
-                        >
-                            {{ holding.pnlNative | money: holding.currency }}
-                        </p>
+                        @if (holding.open) {
+                            @if (holding.pnlEur !== null) {
+                            <p
+                                class="text-sm font-medium tabular-nums"
+                                [class.text-success]="!holding.pnlEur.isNegative() && !holding.pnlEur.isZero()"
+                                [class.text-error]="holding.pnlEur.isNegative()"
+                            >
+                                {{ holding.pnlEur | money: rapportagevaluta() }}
+                            </p>
+                            <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                                {{ holding.pnlInclRealized | money: rapportagevaluta() }}
+                            </p>
+                            } @else {
+                            <p class="text-sm text-base-content/60">–</p>
+                            }
                         } @else {
-                        <p class="text-sm text-base-content/60">–</p>
+                            @if (holding.realizedPnl !== null) {
+                            <p
+                                class="text-sm font-medium tabular-nums"
+                                [class.text-success]="!holding.realizedPnl.isNegative() && !holding.realizedPnl.isZero()"
+                                [class.text-error]="holding.realizedPnl.isNegative()"
+                            >
+                                {{ holding.realizedPnl | money: rapportagevaluta() }}
+                            </p>
+                            <p class="text-[0.8125rem] text-base-content/60">realized</p>
+                            } @else {
+                            <p class="text-sm text-base-content/60">–</p>
+                            }
                         }
                     </td>
                     <td class="text-right">
                         @if (holding.pnlPct !== null) {
                         <p
-                            class="text-sm tabular-nums"
+                            class="text-sm font-medium tabular-nums"
                             [class.text-success]="!holding.pnlPct.isNegative() && !holding.pnlPct.isZero()"
                             [class.text-error]="holding.pnlPct.isNegative()"
                         >
@@ -84,6 +173,15 @@
                         </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
+                        }
+                        @if (holding.pnlPctYear !== null) {
+                        <p
+                            class="text-[0.8125rem] tabular-nums"
+                            [class.text-success]="!holding.pnlPctYear.isNegative() && !holding.pnlPctYear.isZero()"
+                            [class.text-error]="holding.pnlPctYear.isNegative()"
+                        >
+                            {{ holding.pnlPctYear | nlNumber: 1 }}%/year
+                        </p>
                         }
                     </td>
                 </tr>

@@ -91,7 +91,7 @@
                                 <button
                                     type="button"
                                     class="text-left text-[0.8125rem] text-primary hover:underline"
-                                    (click)="link(row.isin, sug.symbol)"
+                                    (click)="link(row.isin, sug.symbol, sug.exchange)"
                                 >
                                     <span class="font-mono font-medium">{{ sug.symbol }}</span>
                                     <span class="text-base-content/60"> — {{ sug.name }} ({{ sug.exchange }})</span>

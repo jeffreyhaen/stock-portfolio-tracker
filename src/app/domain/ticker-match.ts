@@ -18,6 +18,34 @@ const EXCHANGE_VOOR_VALUTA: Record<string, string[]> = {
     CAD: ['Toronto', 'TSXV'],
 };
 
+const BEURS_DISPLAY: [RegExp, string][] = [
+    [/tsx venture|^tsxv/i, 'TSXV'],
+    [/toronto|^tsx/i, 'TSX'],
+    [/nasdaq/i, 'NASDAQ'],
+    [/nyse american/i, 'NYSE American'],
+    [/nyse\s?arca/i, 'NYSE Arca'],
+    [/new york|^nyse/i, 'NYSE'],
+    [/xetra|frankfurt/i, 'XETRA'],
+    [/amsterdam/i, 'Euronext Amsterdam'],
+    [/brussels/i, 'Euronext Brussels'],
+    [/paris/i, 'Euronext Paris'],
+    [/lisbon/i, 'Euronext Lisbon'],
+    [/london|^lse/i, 'LSE'],
+    [/milan|borsa italiana/i, 'Borsa Italiana'],
+    [/madrid/i, 'Bolsa de Madrid'],
+    [/vienna/i, 'Wiener Börse'],
+    [/six|snp/i, 'SIX'],
+];
+
+export function beursDisplayNaam(exchange: string): string {
+    for (const [patroon, naam] of BEURS_DISPLAY) {
+        if (patroon.test(exchange)) {
+            return naam;
+        }
+    }
+    return exchange;
+}
+
 export interface TickerKeuze {
     readonly kandidaat: TickerSuggestion | null;
     readonly viaValutaMatch: boolean;

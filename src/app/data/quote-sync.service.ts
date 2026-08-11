@@ -30,8 +30,11 @@ export class QuoteSyncService {
         return this.provider.search(query);
     }
 
-    async linkTicker(isin: string, symbol: string): Promise<void> {
-        await this.db.securities.update(isin, { tickerVoorKoers: symbol });
+    async linkTicker(isin: string, symbol: string, exchange?: string): Promise<void> {
+        await this.db.securities.update(isin, {
+            tickerVoorKoers: symbol,
+            ...(exchange !== undefined ? { beurs: exchange } : {}),
+        });
     }
 
     async refreshSecurity(isin: string, vanafDatum: string): Promise<void> {
@@ -83,7 +86,7 @@ export class QuoteSyncService {
                     geenKandidaat.push(security.isin);
                     continue;
                 }
-                await this.linkTicker(security.isin, keuze.symbol);
+                await this.linkTicker(security.isin, keuze.symbol, keuze.exchange);
                 gelinkt.push({ isin: security.isin, symbol: keuze.symbol });
             } catch {
                 geenKandidaat.push(security.isin);
@@ -96,7 +99,7 @@ export class QuoteSyncService {
     }
 
     async unlinkTicker(isin: string): Promise<void> {
-        await this.db.securities.update(isin, { tickerVoorKoers: null });
+        await this.db.securities.update(isin, { tickerVoorKoers: null, beurs: null });
         await this.db.priceHistory.where('isin').equals(isin).delete();
         const quote = await this.db.quoteCache.get(isin);
         if (quote?.bron === 'yahoo') {

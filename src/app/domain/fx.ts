@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { Transaction } from './types';
 
 export type FxResolver = (valuta: string, datum: string) => Decimal | null;
 
@@ -6,6 +7,28 @@ export interface FxRateInput {
     readonly paar: string;
     readonly datum: string;
     readonly koers: string;
+}
+
+export function mutationInRapportagevaluta(
+    txn: Pick<Transaction, 'mutation' | 'mutationCurrency' | 'tradeCurrency' | 'fxRate' | 'date'>,
+    rapportagevaluta: string,
+    fxFallback?: FxResolver,
+): Decimal | null {
+    if (txn.mutation === null) {
+        return null;
+    }
+    const valuta = txn.mutationCurrency ?? txn.tradeCurrency;
+    if (valuta === null || valuta === '') {
+        return null;
+    }
+    if (valuta === rapportagevaluta) {
+        return txn.mutation;
+    }
+    if (txn.fxRate !== null && !txn.fxRate.isZero()) {
+        return txn.mutation.div(txn.fxRate);
+    }
+    const koers = fxFallback?.(valuta, txn.date) ?? null;
+    return koers === null ? null : txn.mutation.times(koers);
 }
 
 export function buildFxResolver(rates: readonly FxRateInput[], rapportagevaluta = 'EUR'): FxResolver {

@@ -64,7 +64,7 @@
                         @if (holding.pnlNative !== null) {
                         <p
                             class="text-sm font-medium tabular-nums"
-                            [class.text-success]="!holding.pnlNative.isNegative()"
+                            [class.text-success]="!holding.pnlNative.isNegative() && !holding.pnlNative.isZero()"
                             [class.text-error]="holding.pnlNative.isNegative()"
                         >
                             {{ holding.pnlNative | money: holding.currency }}
@@ -77,7 +77,7 @@
                         @if (holding.pnlPct !== null) {
                         <p
                             class="text-sm tabular-nums"
-                            [class.text-success]="!holding.pnlPct.isNegative()"
+                            [class.text-success]="!holding.pnlPct.isNegative() && !holding.pnlPct.isZero()"
                             [class.text-error]="holding.pnlPct.isNegative()"
                         >
                             {{ holding.pnlPct | nlNumber: 2 }}%

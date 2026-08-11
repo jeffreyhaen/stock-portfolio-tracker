@@ -1,4 +1,3 @@
-import { UpperCasePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import Decimal from 'decimal.js';
@@ -15,6 +14,7 @@ import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
 import { transactionTypeLabel } from '../../shared/transaction-type';
+import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
 import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
 
 type Range = 'all' | 'mtd' | '1y' | '3y' | '6m' | 'ytd' | '1m' | '1w' | '1d';
@@ -84,7 +84,7 @@ interface RangeResult {
 
 @Component({
     selector: 'app-dashboard-page',
-    imports: [RouterLink, MoneyPipe, NlDatePipe, NlNumberPipe, UpperCasePipe, ValueChartComponent],
+    imports: [RouterLink, MoneyPipe, NlDatePipe, NlNumberPipe, InfoTooltipComponent, ValueChartComponent],
     templateUrl: './dashboard-page.html',
 })
 export class DashboardPage {
@@ -257,6 +257,25 @@ export class DashboardPage {
             .sort((a, b) => b.balance.comparedTo(a.balance)),
     );
 
+    readonly netInvestedTooltip = computed(() =>
+        this.range() === 'all'
+            ? 'Deposits minus withdrawals.'
+            : 'Deposits minus withdrawals within the selected range.',
+    );
+
+    readonly resultTooltip = computed(() => {
+        const base = 'Result in your reporting currency (EUR) for the selected range.';
+        const result = this.rangeResult();
+        if (result === null) {
+            return base;
+        }
+        return `${base} ${formatPct(result.resultPct)}% on capital in range.`;
+    });
+
+    readonly twrTooltip = computed(
+        () => `Time-weighted return over the selected range (${this.range().toUpperCase()}).`,
+    );
+
     readonly incomeTooltip = computed(() =>
         this.flowTooltip(
             'Sum of dividends, dividend tax, capital gain distributions and interest income',
@@ -287,4 +306,11 @@ export class DashboardPage {
             missing > 0 ? ` · ${missing} flow${missing === 1 ? '' : 's'} skipped (missing FX)` : '';
         return `${base} Per currency: ${breakdown}${missingNote}.`;
     }
+}
+
+function formatPct(value: Decimal): string {
+    return new Intl.NumberFormat('nl-NL', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value.toNumber());
 }

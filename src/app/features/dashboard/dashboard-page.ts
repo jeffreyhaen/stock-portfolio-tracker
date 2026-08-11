@@ -10,6 +10,7 @@ import { holdingStats } from '../../domain/holdings';
 import { timeWeightedReturn } from '../../domain/twr';
 import { Transaction } from '../../domain/types';
 import { buildValuation, rangeTotals } from '../../domain/valuation';
+import { formatMoney } from '../../shared/money';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
@@ -286,13 +287,4 @@ export class DashboardPage {
             missing > 0 ? ` · ${missing} flow${missing === 1 ? '' : 's'} skipped (missing FX)` : '';
         return `${base} Per currency: ${breakdown}${missingNote}.`;
     }
-}
-
-function formatMoney(value: Decimal, currency: string): string {
-    return new Intl.NumberFormat('nl-NL', {
-        style: 'currency',
-        currency,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(value.toNumber());
 }

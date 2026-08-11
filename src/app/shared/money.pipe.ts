@@ -1,5 +1,6 @@
 import { Pipe, PipeTransform } from '@angular/core';
 import Decimal from 'decimal.js';
+import { formatMoney } from './money';
 
 @Pipe({ name: 'money', standalone: true })
 export class MoneyPipe implements PipeTransform {
@@ -8,16 +9,7 @@ export class MoneyPipe implements PipeTransform {
             return '–';
         }
         try {
-            const decimal = value instanceof Decimal ? value : new Decimal(value);
-            if (decimal.isNaN()) {
-                return '–';
-            }
-            return new Intl.NumberFormat('nl-NL', {
-                style: 'currency',
-                currency,
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            }).format(decimal.toNumber());
+            return formatMoney(value, currency);
         } catch {
             return '–';
         }

@@ -100,7 +100,6 @@ export function holdingStats(
             }
             if (rest.isZero()) {
                 accum.cost = new Decimal(0);
-                accum.firstBuyDate = null;
                 accum.closedAt = txn.date;
             }
         }

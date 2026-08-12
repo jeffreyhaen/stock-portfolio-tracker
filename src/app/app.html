@@ -1,6 +1,9 @@
 <header class="border-b border-base-300 bg-base-100">
     <nav class="mx-auto flex h-14 max-w-[1200px] items-center gap-6 px-6">
-        <span class="text-base font-semibold">Stock Portfolio</span>
+        <a routerLink="/" class="flex items-center gap-2 text-base font-semibold">
+            <img src="logo.png" alt="Stock Portfolio" class="h-8 w-8 rounded-field object-cover" />
+            <span>Stock Portfolio</span>
+        </a>
         @if (portfolioId() !== '') {
         <a
             [routerLink]="['/portfolio', portfolioId(), 'dashboard']"

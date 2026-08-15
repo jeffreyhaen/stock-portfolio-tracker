@@ -1,5 +1,4 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { ImportService } from '../../data/import.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { ImportReport, StoredImportBatch, StoredPortfolio } from '../../data/stored-types';
@@ -11,11 +10,11 @@ import { SortThComponent } from '../../shared/ui/sort-th';
 type BatchSortKey = 'importedAt' | 'file' | 'rows' | 'added' | 'duplicates' | 'unknown';
 
 @Component({
-    selector: 'app-import-page',
-    imports: [RouterLink, LocalizedNumberPipe, SortThComponent, ConfirmDialogComponent],
-    templateUrl: './import-page.html',
+    selector: 'app-portfolios-page',
+    imports: [LocalizedNumberPipe, SortThComponent, ConfirmDialogComponent],
+    templateUrl: './portfolios-page.html',
 })
-export class ImportPage {
+export class PortfoliosPage {
     private readonly importService = inject(ImportService);
     readonly context = inject(PortfolioContext);
 
@@ -45,6 +44,9 @@ export class ImportPage {
     readonly sortedBatches = computed(() => this.batchesSort.apply(this.batches()));
 
     readonly pendingDelete = signal<StoredPortfolio | null>(null);
+    readonly editingPortfolioId = signal<string | null>(null);
+    readonly editingPortfolioName = signal('');
+    readonly errorTitle = signal('Import failed');
 
     constructor() {
         effect(() => {
@@ -67,8 +69,40 @@ export class ImportPage {
 
     onPortfolioChange(id: string): void {
         this.context.select(id);
+        this.cancelRename();
         this.report.set(null);
         this.error.set(null);
+    }
+
+    startRename(portfolio: StoredPortfolio): void {
+        if (this.busy()) {
+            return;
+        }
+        this.editingPortfolioId.set(portfolio.id);
+        this.editingPortfolioName.set(portfolio.name);
+    }
+
+    cancelRename(): void {
+        this.editingPortfolioId.set(null);
+        this.editingPortfolioName.set('');
+    }
+
+    async renamePortfolio(portfolio: StoredPortfolio): Promise<void> {
+        const name = this.editingPortfolioName().trim();
+        if (this.busy() || this.editingPortfolioId() !== portfolio.id || name === '') {
+            return;
+        }
+        this.busy.set(true);
+        this.error.set(null);
+        try {
+            await this.context.renamePortfolio(portfolio.id, name);
+            this.cancelRename();
+        } catch (error: unknown) {
+            this.errorTitle.set('Portfolio rename failed');
+            this.error.set(error instanceof Error ? error.message : String(error));
+        } finally {
+            this.busy.set(false);
+        }
     }
 
     async deletePortfolio(portfolio: StoredPortfolio): Promise<void> {
@@ -86,6 +120,9 @@ export class ImportPage {
         this.busy.set(true);
         try {
             await this.context.deletePortfolio(portfolio.id);
+            if (this.editingPortfolioId() === portfolio.id) {
+                this.cancelRename();
+            }
             this.report.set(null);
             this.error.set(null);
         } finally {
@@ -135,6 +172,7 @@ export class ImportPage {
             return;
         }
         this.busy.set(true);
+        this.errorTitle.set('Import failed');
         this.error.set(null);
         this.report.set(null);
         try {

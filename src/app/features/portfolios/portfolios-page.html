@@ -1,5 +1,5 @@
-<h1 class="text-3xl font-bold">Import</h1>
-<p class="mt-1 text-sm text-base-content/60">Import a DEGIRO account export (CSV) into a portfolio.</p>
+<h1 class="text-3xl font-bold">Portfolios</h1>
+<p class="mt-1 text-sm text-base-content/60">Select a portfolio and import DEGIRO account exports (CSV) into it.</p>
 
 <div class="mt-6 flex flex-col gap-6">
     <section class="rounded-xl border border-base-300 bg-base-100 p-6">
@@ -7,7 +7,7 @@
             <div>
                 <h2 class="text-base font-semibold">Portfolios</h2>
                 <p class="mt-1 text-sm text-base-content/60">
-                    Click a name to choose the import target, open a dashboard, or delete a portfolio.
+                    Select a portfolio as the import target, rename it, or delete it.
                 </p>
             </div>
             @if (portfolios().length > 0) {
@@ -18,27 +18,64 @@
         <ul class="mt-4 flex flex-col gap-2">
             @for (portfolio of portfolios(); track portfolio.id) {
             <li
-                class="flex items-center gap-3 rounded-lg border px-4 py-3"
+                class="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors hover:bg-base-200"
                 [class.border-primary]="portfolio.id === selectedPortfolioId()"
                 [class.border-base-300]="portfolio.id !== selectedPortfolioId()"
+                [attr.aria-pressed]="portfolio.id === selectedPortfolioId()"
+                role="button"
+                tabindex="0"
+                (click)="onPortfolioChange(portfolio.id)"
+                (keydown.enter)="onPortfolioChange(portfolio.id)"
             >
-                <button
-                    type="button"
-                    class="text-sm font-medium hover:underline"
-                    (click)="onPortfolioChange(portfolio.id)"
-                >
-                    {{ portfolio.name }}
-                </button>
+                <span class="text-sm font-medium">{{ portfolio.name }}</span>
                 @if (portfolio.id === selectedPortfolioId()) {
-                <span class="badge badge-primary badge-xs">import target</span>
+                <span class="badge badge-primary badge-xs">Selected</span>
                 }
                 <span class="ml-auto flex items-center gap-2">
-                    <a [routerLink]="['/portfolio', portfolio.id, 'dashboard']" class="btn btn-outline btn-xs"
-                        >Dashboard</a
+                    @if (editingPortfolioId() === portfolio.id) {
+                    <input
+                        class="input input-bordered input-xs w-44"
+                        type="text"
+                        aria-label="Portfolio name"
+                        [value]="editingPortfolioName()"
+                        (input)="editingPortfolioName.set($any($event.target).value)"
+                        (keydown.enter)="renamePortfolio(portfolio)"
+                        (keydown.escape)="cancelRename()"
+                    />
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-xs"
+                        [disabled]="busy() || editingPortfolioName().trim() === ''"
+                        (click)="$event.stopPropagation(); renamePortfolio(portfolio)"
                     >
-                    <button type="button" class="btn btn-ghost btn-xs text-error" (click)="deletePortfolio(portfolio)">
+                        Save
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-ghost btn-xs"
+                        [disabled]="busy()"
+                        (click)="$event.stopPropagation(); cancelRename()"
+                    >
+                        Cancel
+                    </button>
+                    } @else {
+                    <button
+                        type="button"
+                        class="btn btn-ghost btn-xs"
+                        [disabled]="busy()"
+                        (click)="$event.stopPropagation(); startRename(portfolio)"
+                    >
+                        Rename
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-ghost btn-xs text-error"
+                        [disabled]="busy()"
+                        (click)="$event.stopPropagation(); deletePortfolio(portfolio)"
+                    >
                         Delete
                     </button>
+                    }
                 </span>
             </li>
             }
@@ -94,7 +131,7 @@
 
     @if (error(); as errorMessage) {
     <section class="rounded-xl border border-error/40 bg-[#fdeaea] p-6">
-        <h2 class="text-base font-semibold text-[#901010]">Import failed</h2>
+        <h2 class="text-base font-semibold text-[#901010]">{{ errorTitle() }}</h2>
         <p class="mt-2 font-mono text-sm text-[#901010]">{{ errorMessage }}</p>
     </section>
     } @if (report(); as report) {

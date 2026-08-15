@@ -33,6 +33,11 @@ export class PortfolioContext {
         return portfolio;
     }
 
+    async renamePortfolio(id: string, name: string): Promise<void> {
+        await this.portfolioRepository.rename(id, name);
+        await this.refresh();
+    }
+
     async deletePortfolio(id: string): Promise<void> {
         await this.portfolioRepository.delete(id);
         const wasSelected = this.selectedPortfolioId() === id;

@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { CashPage } from './features/cash/cash-page';
 import { DashboardPage } from './features/dashboard/dashboard-page';
 import { HoldingsPage } from './features/holdings/holdings-page';
-import { ImportPage } from './features/import/import-page';
+import { PortfoliosPage } from './features/portfolios/portfolios-page';
 import { PortfolioRedirectComponent } from './features/portfolio/portfolio-redirect';
 import { PortfolioShellComponent } from './features/portfolio/portfolio-shell';
 import { PricesPage } from './features/prices/prices-page';
@@ -19,7 +19,8 @@ const portfolioRoutes: Routes = [
 ];
 
 export const routes: Routes = [
-    { path: 'import', component: ImportPage },
+    { path: 'portfolios', component: PortfoliosPage },
+    { path: 'import', pathMatch: 'full', redirectTo: 'portfolios' },
     { path: 'settings', component: SettingsPage },
     { path: 'portfolio/:portfolioId', component: PortfolioShellComponent, children: portfolioRoutes },
     { path: 'dashboard', component: PortfolioRedirectComponent, data: { target: 'dashboard' } },

@@ -23,6 +23,17 @@ export class PortfolioRepository {
         return portfolio;
     }
 
+    async rename(id: string, name: string): Promise<void> {
+        const trimmedName = name.trim();
+        if (trimmedName === '') {
+            throw new Error('Portfolio name cannot be empty.');
+        }
+        const updated = await this.db.portfolios.update(id, { name: trimmedName });
+        if (updated === 0) {
+            throw new Error('Portfolio not found.');
+        }
+    }
+
     async delete(id: string): Promise<void> {
         await this.db.transaction('rw', [this.db.portfolios, this.db.transactions, this.db.importBatches], async () => {
             await this.db.transactions

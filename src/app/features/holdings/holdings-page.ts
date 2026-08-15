@@ -4,7 +4,7 @@ import { PortfolioContext } from '../../data/portfolio-context';
 import { MarketDataService } from '../../data/market-data.service';
 import Decimal from 'decimal.js';
 import { holdingPeriodDays, holdingStats } from '../../domain/holdings';
-import { exchangeDisplayName } from '../../domain/ticker-match';
+import { exchangeCode, stripYahooSuffix } from '../../domain/ticker-match';
 import { cashflowsPerIsin, cashflowWindowDays, MIN_ANNUALIZED_RETURN_DAYS, xirr } from '../../domain/xirr';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
@@ -130,8 +130,11 @@ export class HoldingsPage {
                 isin: h.isin,
                 product: h.product,
                 open: h.open,
-                ticker: security?.quoteTicker ?? null,
-                exchange: security?.exchange ? exchangeDisplayName(security.exchange) : null,
+                ticker:
+                    security?.quoteTicker !== null && security?.quoteTicker !== undefined
+                        ? stripYahooSuffix(security.quoteTicker)
+                        : null,
+                exchange: security?.exchange ? exchangeCode(security.exchange) : null,
                 quantity: h.quantity,
                 periodDays:
                     h.firstBuyDate === null

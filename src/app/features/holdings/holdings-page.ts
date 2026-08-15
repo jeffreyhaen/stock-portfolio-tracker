@@ -5,7 +5,7 @@ import { MarketDataService } from '../../data/market-data.service';
 import Decimal from 'decimal.js';
 import { holdingPeriodDays, holdingStats } from '../../domain/holdings';
 import { beursDisplayNaam } from '../../domain/ticker-match';
-import { cashflowsPerIsin, xirr } from '../../domain/xirr';
+import { cashflowsPerIsin, cashflowWindowDagen, MIN_PERIODE_DAGEN_JAARRENDEMENT, xirr } from '../../domain/xirr';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlNumberPipe } from '../../shared/nl-number.pipe';
 import { TableSort } from '../../shared/sort';
@@ -118,8 +118,12 @@ export class HoldingsPage {
             const flows = cashflows.get(h.isin) ?? [];
             if (flows !== null) {
                 const eindwaarde = h.open && valueEur !== null ? [{ datum: today, bedrag: valueEur }] : [];
-                const r = xirr([...flows, ...eindwaarde]);
-                pnlPctYear = r === null ? null : r.times(100);
+                const alle = [...flows, ...eindwaarde];
+                const r = xirr(alle);
+                pnlPctYear =
+                    r === null || cashflowWindowDagen(alle) < MIN_PERIODE_DAGEN_JAARRENDEMENT
+                        ? null
+                        : r.times(100);
             }
             let geslotenPct: Decimal | null = null;
             if (!h.open && h.realizedPnl !== null && h.grossInvested !== null && !h.grossInvested.isZero()) {

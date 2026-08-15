@@ -9,6 +9,7 @@ import { holdingStats } from '../../domain/holdings';
 import { timeWeightedReturn } from '../../domain/twr';
 import { Transaction } from '../../domain/types';
 import { buildValuation, rangeTotals } from '../../domain/valuation';
+import { Cashflow, cashflowWindowDagen, MIN_PERIODE_DAGEN_JAARRENDEMENT, portfolioCashflows, xirr } from '../../domain/xirr';
 import { formatMoney } from '../../shared/money';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
@@ -17,7 +18,7 @@ import { transactionTypeLabel } from '../../shared/transaction-type';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
 import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
 
-type Range = 'all' | 'mtd' | '1y' | '3y' | '6m' | 'ytd' | '1m' | '1w' | '1d';
+type Range = 'all' | 'mtd' | '1y' | '3y' | '6m' | 'ytd' | '1m' | '1w' | '1d' | 'custom';
 
 const RANGES: { id: Range; label: string }[] = [
     { id: '1d', label: '1D' },
@@ -32,7 +33,7 @@ const RANGES: { id: Range; label: string }[] = [
 ];
 
 function cutoffFor(range: Range, today: string): string | null {
-    if (range === 'all') {
+    if (range === 'all' || range === 'custom') {
         return null;
     }
     const [jaar, maand, dag] = today.split('-').map(Number);
@@ -42,7 +43,7 @@ function cutoffFor(range: Range, today: string): string | null {
     if (range === 'mtd') {
         return `${jaar}-${String(maand).padStart(2, '0')}-01`;
     }
-    const cfg: Record<Exclude<Range, 'all' | 'mtd' | 'ytd'>, { j: number; m: number; d: number }> = {
+    const cfg: Record<Exclude<Range, 'all' | 'mtd' | 'ytd' | 'custom'>, { j: number; m: number; d: number }> = {
         '1d': { j: 0, m: 0, d: 1 },
         '1w': { j: 0, m: 0, d: 7 },
         '1m': { j: 0, m: 1, d: 0 },
@@ -95,6 +96,13 @@ export class DashboardPage {
 
     readonly ranges = RANGES;
     readonly range = signal<Range>('all');
+
+    readonly customOpen = signal(false);
+    readonly customVan = signal<string | null>(null);
+    readonly customTot = signal<string | null>(null);
+    readonly customVanDraft = signal('');
+    readonly customTotDraft = signal('');
+    readonly maxDatum = new Date().toISOString().slice(0, 10);
 
     private readonly today = new Date().toISOString().slice(0, 10);
 
@@ -150,20 +158,27 @@ export class DashboardPage {
     });
 
     private readonly seriesPunten = computed(() => {
-        const cutoff = cutoffFor(this.range(), this.today);
+        const { van, tot } = this.grenzen();
+        const binnen = (datum: string) => (van === null || datum >= van) && (tot === null || datum <= tot);
         if (this.heeftHistorie()) {
-            return this.marketSeries().punten.filter((p) => cutoff === null || p.datum >= cutoff);
+            return this.marketSeries().punten.filter((p) => binnen(p.datum));
         }
         return this.valuation()
-            .punten.filter((p) => cutoff === null || p.datum >= cutoff)
+            .punten.filter((p) => binnen(p.datum))
             .map((p) => ({ ...p, flow: new Decimal(0) }));
     });
 
-    readonly rangeCutoff = computed(() => cutoffFor(this.range(), this.today));
+    readonly grenzen = computed<{ van: string | null; tot: string | null }>(() => {
+        if (this.range() === 'custom') {
+            return { van: this.customVan(), tot: this.customTot() };
+        }
+        return { van: cutoffFor(this.range(), this.today), tot: null };
+    });
 
-    readonly rangeTotals = computed(() =>
-        rangeTotals(this.context.transactions(), this.marketData.fxResolver(), this.rangeCutoff()),
-    );
+    readonly rangeTotals = computed(() => {
+        const { van, tot } = this.grenzen();
+        return rangeTotals(this.context.transactions(), this.marketData.fxResolver(), van, tot);
+    });
 
     readonly rangeResult = computed<RangeResult | null>(() => {
         const punten = this.seriesPunten();
@@ -272,8 +287,82 @@ export class DashboardPage {
         return `${base} ${formatPct(result.resultPct)}% on capital in range.`;
     });
 
+    readonly xirrPerYear = computed<{ pct: Decimal; perYear: boolean } | null>(() => {
+        const punten = this.seriesPunten().filter((p) => p.value !== null);
+        if (punten.length === 0) {
+            return null;
+        }
+        const first = punten[0];
+        const last = punten[punten.length - 1];
+        const windowDagen = cashflowWindowDagen([
+            { datum: first.datum, bedrag: new Decimal(0) },
+            { datum: last.datum, bedrag: new Decimal(0) },
+        ]);
+        if (windowDagen < MIN_PERIODE_DAGEN_JAARRENDEMENT) {
+            const rr = this.rangeResult();
+            return rr === null ? null : { pct: rr.resultPct, perYear: false };
+        }
+        const { van, tot } = this.grenzen();
+        const txns = this.context
+            .transactions()
+            .filter((t) => (van === null || t.date >= van) && (tot === null || t.date <= tot));
+        const extern = portfolioCashflows(txns, { fxFallback: this.marketData.fxResolver() });
+        if (extern === null || first.value === null || last.value === null) {
+            return null;
+        }
+        const flows: Cashflow[] = [
+            ...(van === null ? [] : [{ datum: first.datum, bedrag: first.value.neg() }]),
+            ...extern,
+            { datum: last.datum, bedrag: last.value },
+        ];
+        const r = xirr(flows);
+        return r === null ? null : { pct: r.times(100), perYear: true };
+    });
+
+    readonly customLabel = computed(() => {
+        const van = this.customVan();
+        const tot = this.customTot();
+        if (this.range() !== 'custom' || van === null || tot === null) {
+            return 'Custom';
+        }
+        return `${formatDatumKort(van)} – ${formatDatumKort(tot)}`;
+    });
+
+    readonly customGeldig = computed(() => {
+        const van = this.customVanDraft();
+        const tot = this.customTotDraft();
+        return van !== '' && tot !== '' && van <= tot && tot <= this.maxDatum;
+    });
+
+    openCustom(): void {
+        const txns = this.context.transactions();
+        const eerste = txns.reduce((min, t) => (t.date < min ? t.date : min), this.maxDatum);
+        this.customVanDraft.set(this.customVan() ?? eerste);
+        this.customTotDraft.set(this.customTot() ?? this.maxDatum);
+        this.customOpen.set(true);
+    }
+
+    pasCustomToe(): void {
+        if (!this.customGeldig()) {
+            return;
+        }
+        this.customVan.set(this.customVanDraft());
+        this.customTot.set(this.customTotDraft());
+        this.range.set('custom');
+        this.customOpen.set(false);
+    }
+
+    private readonly rangeLabel = computed(() =>
+        this.range() === 'custom' ? `custom (${this.customLabel()})` : this.range().toUpperCase(),
+    );
+
     readonly twrTooltip = computed(
-        () => `Time-weighted return over the selected range (${this.range().toUpperCase()}).`,
+        () => `Time-weighted return over the selected range (${this.rangeLabel()}).`,
+    );
+
+    readonly xirrPerYearTooltip = computed(
+        () =>
+            `Money-weighted return (XIRR) over the selected range (${this.rangeLabel()}): the annualized return based on the timing and size of your deposits and withdrawals. Ranges shorter than a year show the absolute result instead, without annualizing.`,
     );
 
     readonly incomeTooltip = computed(() =>
@@ -306,6 +395,15 @@ export class DashboardPage {
             missing > 0 ? ` · ${missing} flow${missing === 1 ? '' : 's'} skipped (missing FX)` : '';
         return `${base} Per currency: ${breakdown}${missingNote}.`;
     }
+}
+
+function formatDatumKort(datum: string): string {
+    return new Intl.DateTimeFormat('nl-NL', {
+        day: 'numeric',
+        month: 'short',
+        year: '2-digit',
+        timeZone: 'UTC',
+    }).format(new Date(`${datum}T00:00:00Z`));
 }
 
 function formatPct(value: Decimal): string {

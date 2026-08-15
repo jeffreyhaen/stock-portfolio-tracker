@@ -65,6 +65,7 @@ export function rangeTotals(
     transactions: readonly Transaction[],
     fx: FxResolver,
     cutoff: string | null,
+    tot: string | null = null,
 ): RangeTotals {
     let netInvested = new Decimal(0);
     let income = new Decimal(0);
@@ -76,6 +77,9 @@ export function rangeTotals(
 
     for (const txn of transactions) {
         if (cutoff !== null && txn.date < cutoff) {
+            continue;
+        }
+        if (tot !== null && txn.date > tot) {
             continue;
         }
         if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === 'EUR') {

@@ -182,6 +182,8 @@
                         >
                             {{ holding.pnlPctYear | nlNumber: 1 }}%/year
                         </p>
+                        } @else {
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">-/year</p>
                         }
                     </td>
                 </tr>

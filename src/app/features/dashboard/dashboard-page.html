@@ -51,6 +51,56 @@
                     {{ optie.label }}
                 </button>
                 }
+                <span class="relative">
+                    <button
+                        type="button"
+                        class="rounded-full px-3 py-1 text-xs font-medium"
+                        [class.border]="range() === 'custom'"
+                        [class.border-base-300]="range() === 'custom'"
+                        [class.bg-base-100]="range() === 'custom'"
+                        [class.text-primary]="range() === 'custom'"
+                        [class.text-base-content/60]="range() !== 'custom'"
+                        (click)="openCustom()"
+                    >
+                        {{ customLabel() }} ▾
+                    </button>
+                    @if (customOpen()) {
+                    <div
+                        class="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-base-300 bg-base-100 p-3 shadow-lg"
+                    >
+                        <div class="flex items-center gap-2">
+                            <input
+                                type="date"
+                                class="input input-xs input-bordered w-full"
+                                [value]="customVanDraft()"
+                                [max]="maxDatum"
+                                (input)="customVanDraft.set($any($event.target).value)"
+                            />
+                            <span class="text-xs text-base-content/60">to</span>
+                            <input
+                                type="date"
+                                class="input input-xs input-bordered w-full"
+                                [value]="customTotDraft()"
+                                [max]="maxDatum"
+                                (input)="customTotDraft.set($any($event.target).value)"
+                            />
+                        </div>
+                        <div class="mt-2 flex justify-end gap-2">
+                            <button type="button" class="btn btn-ghost btn-xs" (click)="customOpen.set(false)">
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-primary btn-xs"
+                                [disabled]="!customGeldig()"
+                                (click)="pasCustomToe()"
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                    }
+                </span>
             </div>
         </div>
     </div>
@@ -59,13 +109,13 @@
     </div>
 </section>
 
-<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <div class="flex items-center gap-1">
             <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Net invested</p>
             <app-info-tooltip [text]="netInvestedTooltip()" />
         </div>
-        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ rangeTotals().netInvested | money: 'EUR' }}</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ rangeTotals().netInvested | money: 'EUR' }}</p>
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <div class="flex items-center gap-1">
@@ -74,14 +124,14 @@
         </div>
         @if (rangeResult() !== null) {
         <p
-            class="mt-1 text-2xl font-semibold tabular-nums"
+            class="mt-1 text-xl font-semibold tabular-nums"
             [class.text-success]="!rangeResult()?.result?.isNegative() && !rangeResult()?.result?.isZero()"
             [class.text-error]="rangeResult()?.result?.isNegative()"
         >
             {{ rangeResult()?.result | money: 'EUR' }}
         </p>
         } @else {
-        <p class="mt-1 text-2xl font-semibold tabular-nums">–</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
         <p class="mt-1 text-[0.8125rem] text-base-content/60">Needs prices</p>
         }
     </div>
@@ -92,15 +142,36 @@
         </div>
         @if (twr().twr !== null) {
         <p
-            class="mt-1 text-2xl font-semibold tabular-nums"
+            class="mt-1 text-xl font-semibold tabular-nums"
             [class.text-success]="!twr().twr?.isNegative() && !twr().twr?.isZero()"
             [class.text-error]="twr().twr?.isNegative()"
         >
             {{ twr().twrPct | nlNumber: 2 }}%
         </p>
         } @else {
-        <p class="mt-1 text-2xl font-semibold tabular-nums">–</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
         <p class="mt-1 text-[0.8125rem] text-base-content/60">Needs price history</p>
+        }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <div class="flex items-center gap-1">
+            <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Return (XIRR)</p>
+            <app-info-tooltip [text]="xirrPerYearTooltip()" />
+        </div>
+        @if (xirrPerYear() !== null) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!xirrPerYear()?.pct?.isNegative() && !xirrPerYear()?.pct?.isZero()"
+            [class.text-error]="xirrPerYear()?.pct?.isNegative()"
+        >
+            {{ xirrPerYear()?.pct | nlNumber: 2 }}%
+            @if (xirrPerYear()?.perYear) {
+            <span class="text-sm font-normal text-base-content/60">/year</span>
+            }
+        </p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Needs prices</p>
         }
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
@@ -109,7 +180,7 @@
             <app-info-tooltip [text]="incomeTooltip()" />
         </div>
         <p
-            class="mt-1 text-2xl font-semibold tabular-nums"
+            class="mt-1 text-xl font-semibold tabular-nums"
             [class.text-success]="!rangeTotals().income?.isNegative() && !rangeTotals().income?.isZero()"
             [class.text-error]="rangeTotals().income?.isNegative()"
         >
@@ -122,7 +193,7 @@
             <app-info-tooltip [text]="costsTooltip()" />
         </div>
         <p
-            class="mt-1 text-2xl font-semibold tabular-nums"
+            class="mt-1 text-xl font-semibold tabular-nums"
             [class.text-success]="!rangeTotals().costs?.isNegative() && !rangeTotals().costs?.isZero()"
             [class.text-error]="rangeTotals().costs?.isNegative()"
         >

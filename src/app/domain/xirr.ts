@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
 import { FxResolver, mutationInRapportagevaluta } from './fx';
-import { Transaction } from './types';
+import { Transaction, TransactionTypes as T } from './types';
 
 export interface Cashflow {
     readonly datum: string;
@@ -106,6 +106,46 @@ export function holdingCashflows(
         flows.push({ datum: txn.date, bedrag });
     }
     return flows;
+}
+
+const EXTERNAL_TYPES = new Set<string>([T.Deposit, T.Withdrawal]);
+
+export function portfolioCashflows(
+    transactions: readonly Transaction[],
+    options: CashflowOptions = {},
+): Cashflow[] | null {
+    const { rapportagevaluta = 'EUR', fxFallback } = options;
+    const flows: Cashflow[] = [];
+    for (const txn of transactions) {
+        if (!EXTERNAL_TYPES.has(txn.type) || txn.mutation === null) {
+            continue;
+        }
+        const bedrag = mutationInRapportagevaluta(txn, rapportagevaluta, fxFallback);
+        if (bedrag === null) {
+            return null;
+        }
+        flows.push({ datum: txn.date, bedrag: bedrag.neg() });
+    }
+    return flows;
+}
+
+export const MIN_PERIODE_DAGEN_JAARRENDEMENT = 365;
+
+export function cashflowWindowDagen(flows: readonly Cashflow[]): number {
+    if (flows.length < 2) {
+        return 0;
+    }
+    let min = flows[0].datum;
+    let max = flows[0].datum;
+    for (const f of flows) {
+        if (f.datum < min) {
+            min = f.datum;
+        }
+        if (f.datum > max) {
+            max = f.datum;
+        }
+    }
+    return dagenTussen(min, max);
 }
 
 function dagenTussen(van: string, tot: string): number {

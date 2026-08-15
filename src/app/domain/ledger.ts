@@ -1,23 +1,23 @@
 import Decimal from 'decimal.js';
 import { classifyDescription } from './classify';
-import { parseNlDate, parseNlNumber } from './numbers';
+import { parseLocalizedDate, parseLocalizedNumber } from './numbers';
 import { ImportWarning, RawCsvRow, Transaction, TransactionTypes } from './types';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function toRawRow(columns: readonly string[], rowIndex: number): RawCsvRow {
     return {
-        datum: columns[0],
-        tijd: columns[1],
-        valutadatum: columns[2],
+        date: columns[0],
+        time: columns[1],
+        valueDate: columns[2],
         product: columns[3],
         isin: columns[4],
-        omschrijving: columns[5],
+        description: columns[5],
         fx: columns[6],
-        mutatieCurrency: columns[7],
-        mutatie: columns[8],
-        saldoCurrency: columns[9],
-        saldo: columns[10],
+        mutationCurrency: columns[7],
+        mutation: columns[8],
+        balanceCurrency: columns[9],
+        balance: columns[10],
         orderId: columns[11],
         rowIndex,
     };
@@ -35,40 +35,40 @@ function fnv1a(input: string): string {
 export function fingerprintOf(row: RawCsvRow): string {
     return fnv1a(
         [
-            row.datum,
-            row.tijd,
+            row.date,
+            row.time,
             row.product,
             row.isin,
-            row.omschrijving,
+            row.description,
             row.fx,
-            row.mutatieCurrency,
-            row.mutatie,
-            row.saldoCurrency,
-            row.saldo,
+            row.mutationCurrency,
+            row.mutation,
+            row.balanceCurrency,
+            row.balance,
             row.orderId,
         ].join(''),
     );
 }
 
 function optionalNumber(raw: string): Decimal | null {
-    return raw.trim() === '' ? null : parseNlNumber(raw);
+    return raw.trim() === '' ? null : parseLocalizedNumber(raw);
 }
 
 export function toTransaction(row: RawCsvRow, warnings: ImportWarning[]): Transaction {
-    const classification = classifyDescription(row.omschrijving);
+    const classification = classifyDescription(row.description);
     if (classification.type === TransactionTypes.Unknown) {
         warnings.push({
             rowIndex: row.rowIndex,
-            description: row.omschrijving,
-            reason: 'Onbekende omschrijving — telt niet mee in posities of flows',
+            description: row.description,
+            reason: 'Unknown description — excluded from positions and flows',
         });
     }
     const fingerprint = fingerprintOf(row);
     return {
         id: fingerprint,
-        date: parseNlDate(row.datum),
-        time: row.tijd,
-        valueDate: parseNlDate(row.valutadatum),
+        date: parseLocalizedDate(row.date),
+        time: row.time,
+        valueDate: parseLocalizedDate(row.valueDate),
         rowIndex: row.rowIndex,
         product: row.product,
         isin: row.isin.trim() === '' ? null : row.isin,
@@ -77,13 +77,13 @@ export function toTransaction(row: RawCsvRow, warnings: ImportWarning[]): Transa
         quantity: classification.quantity,
         price: classification.price,
         tradeCurrency: classification.tradeCurrency,
-        mutation: optionalNumber(row.mutatie),
-        mutationCurrency: row.mutatieCurrency.trim() === '' ? null : row.mutatieCurrency,
-        balance: optionalNumber(row.saldo),
-        balanceCurrency: row.saldoCurrency.trim() === '' ? null : row.saldoCurrency,
+        mutation: optionalNumber(row.mutation),
+        mutationCurrency: row.mutationCurrency.trim() === '' ? null : row.mutationCurrency,
+        balance: optionalNumber(row.balance),
+        balanceCurrency: row.balanceCurrency.trim() === '' ? null : row.balanceCurrency,
         fxRate: optionalNumber(row.fx),
         orderId: UUID.test(row.orderId) ? row.orderId : null,
-        description: row.omschrijving,
+        description: row.description,
         fingerprint,
     };
 }

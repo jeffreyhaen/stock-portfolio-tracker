@@ -5,7 +5,7 @@ import { fromStored } from './mappers';
 import { PortfolioRepository } from './portfolio.repository';
 import { StoredPortfolio, StoredTransaction } from './stored-types';
 
-const SELECTIE_SLEUTEL = 'geselecteerdePortefeuille';
+const SELECTION_KEY = 'selectedPortfolio';
 
 @Injectable({ providedIn: 'root' })
 export class PortfolioContext {
@@ -24,38 +24,38 @@ export class PortfolioContext {
     readonly transactions = computed(() => this.storedTransactions().map(fromStored));
 
     constructor() {
-        this.ready = this.herstelSelectie();
+        this.ready = this.restoreSelection();
     }
 
-    async create(naam: string, rapportagevaluta: string): Promise<StoredPortfolio> {
-        const portfolio = await this.portfolioRepository.create(naam, rapportagevaluta);
+    async create(name: string, reportingCurrency: string): Promise<StoredPortfolio> {
+        const portfolio = await this.portfolioRepository.create(name, reportingCurrency);
         await this.refresh();
         return portfolio;
     }
 
     async deletePortfolio(id: string): Promise<void> {
         await this.portfolioRepository.delete(id);
-        const wasGeselecteerd = this.selectedPortfolioId() === id;
-        if (wasGeselecteerd) {
-            await this.db.settings.delete(SELECTIE_SLEUTEL);
+        const wasSelected = this.selectedPortfolioId() === id;
+        if (wasSelected) {
+            await this.db.settings.delete(SELECTION_KEY);
         }
         this.portfoliosState.set(await this.portfolioRepository.list());
-        if (!wasGeselecteerd) {
+        if (!wasSelected) {
             return;
         }
-        const eerste = this.portfolios()[0];
-        if (eerste === undefined) {
+        const first = this.portfolios()[0];
+        if (first === undefined) {
             this.selectedPortfolioId.set('');
             this.storedTransactions.set([]);
         } else {
-            this.select(eerste.id);
+            this.select(first.id);
         }
     }
 
     select(id: string): void {
         this.selectedPortfolioId.set(id);
         if (id !== '') {
-            void this.db.settings.put({ sleutel: SELECTIE_SLEUTEL, waarde: id });
+            void this.db.settings.put({ key: SELECTION_KEY, value: id });
         }
         void this.refreshTransactions();
     }
@@ -65,15 +65,15 @@ export class PortfolioContext {
         await this.refreshTransactions();
     }
 
-    async herstelSelectieUitLijst(): Promise<void> {
-        const [opgeslagen, portfolios] = await Promise.all([
-            this.db.settings.get(SELECTIE_SLEUTEL),
+    async restoreSelectionFromList(): Promise<void> {
+        const [stored, portfolios] = await Promise.all([
+            this.db.settings.get(SELECTION_KEY),
             this.portfolioRepository.list(),
         ]);
         this.portfoliosState.set(portfolios);
-        const gevonden = portfolios.find((p) => p.id === opgeslagen?.waarde);
-        if (gevonden !== undefined) {
-            this.select(gevonden.id);
+        const found = portfolios.find((p) => p.id === stored?.value);
+        if (found !== undefined) {
+            this.select(found.id);
         } else if (portfolios.length > 0) {
             this.select(portfolios[0].id);
         } else {
@@ -88,13 +88,13 @@ export class PortfolioContext {
             portfolioId === ''
                 ? []
                 : await this.db.transactions
-                      .where('[portfolioId+datum]')
+                      .where('[portfolioId+date]')
                       .between([portfolioId, Dexie.minKey], [portfolioId, Dexie.maxKey])
                       .toArray(),
         );
     }
 
-    private async herstelSelectie(): Promise<void> {
-        await this.herstelSelectieUitLijst();
+    private async restoreSelection(): Promise<void> {
+        await this.restoreSelectionFromList();
     }
 }

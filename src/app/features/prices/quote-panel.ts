@@ -6,10 +6,10 @@ import { QuoteSyncService } from '../../data/quote-sync.service';
 import { TickerSuggestion } from '../../data/quote-provider';
 import { StoredQuote, StoredSecurity } from '../../data/stored-types';
 import { HoldingStats } from '../../domain/holdings';
-import { parseNlNumber } from '../../domain/numbers';
-import { beursCode, stripYahooSuffix } from '../../domain/ticker-match';
+import { parseLocalizedNumber } from '../../domain/numbers';
+import { exchangeCode, stripYahooSuffix } from '../../domain/ticker-match';
 import { MoneyPipe } from '../../shared/money.pipe';
-import { NlDatePipe } from '../../shared/nl-date.pipe';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { TableSort } from '../../shared/sort';
 import { SortThComponent } from '../../shared/ui/sort-th';
 
@@ -20,27 +20,27 @@ interface QuoteRow {
     readonly security: StoredSecurity | null;
     readonly quote: StoredQuote | null;
     readonly stale: boolean;
-    readonly invoer: string;
-    readonly ongeldig: boolean;
-    readonly beursCode: string | null;
+    readonly input: string;
+    readonly invalid: boolean;
+    readonly exchangeCode: string | null;
     readonly tickerDisplay: string;
 }
 
 interface SearchState {
     readonly query: string;
-    readonly suggesties: TickerSuggestion[];
+    readonly suggestions: TickerSuggestion[];
     readonly searching: boolean;
     readonly error: string | null;
 }
 
 @Component({
     selector: 'app-quote-panel',
-    imports: [MoneyPipe, NlDatePipe, SortThComponent],
+    imports: [MoneyPipe, LocalizedDatePipe, SortThComponent],
     templateUrl: './quote-panel.html',
 })
 export class QuotePanelComponent {
     readonly holdings = input.required<readonly HoldingStats[]>();
-    readonly vanafDatum = input.required<string>();
+    readonly fromDate = input.required<string>();
 
     readonly marketData = inject(MarketDataService);
     private readonly quoteService = inject(QuoteService);
@@ -49,13 +49,13 @@ export class QuotePanelComponent {
     readonly sort = new TableSort<'security' | 'ticker' | 'quote', QuoteRow>(
         {
             security: (row) => row.product,
-            ticker: (row) => row.security?.tickerVoorKoers ?? null,
-            quote: (row) => (row.quote === null ? null : new Decimal(row.quote.prijs)),
+            ticker: (row) => row.security?.quoteTicker ?? null,
+            quote: (row) => (row.quote === null ? null : new Decimal(row.quote.price)),
         },
         'security',
     );
 
-    readonly edits = signal<Record<string, { invoer: string; ongeldig: boolean }>>({});
+    readonly edits = signal<Record<string, { input: string; invalid: boolean }>>({});
     readonly searches = signal<Record<string, SearchState>>({});
     readonly saving = signal(false);
     readonly autoLinking = signal(false);
@@ -68,14 +68,14 @@ export class QuotePanelComponent {
         this.autoLinking.set(true);
         this.autoLinkResult.set(null);
         try {
-            const rapport = await this.quoteSync.autoLink(this.vanafDatum());
-            const delen = [`${rapport.gelinkt.length} linked`];
-            if (rapport.geenKandidaat.length > 0) {
-                delen.push(`${rapport.geenKandidaat.length} without a match (manual search or anchor prices)`);
+            const report = await this.quoteSync.autoLink(this.fromDate());
+            const parts = [`${report.linked.length} linked`];
+            if (report.noCandidate.length > 0) {
+                parts.push(`${report.noCandidate.length} without a match (manual search or anchor prices)`);
             }
-            this.autoLinkResult.set(delen.join(', '));
-        } catch (fout) {
-            this.autoLinkResult.set(`Auto-link failed: ${String((fout as Error).message ?? fout)}`);
+            this.autoLinkResult.set(parts.join(', '));
+        } catch (error) {
+            this.autoLinkResult.set(`Auto-link failed: ${String((error as Error).message ?? error)}`);
         } finally {
             this.autoLinking.set(false);
         }
@@ -91,44 +91,44 @@ export class QuotePanelComponent {
                 .filter((h) => h.open)
                 .map((h) => h.isin),
         );
-        const gebouwd = securities.map((security) => {
-            const quote = quotes.find((q) => q.sleutel === security.isin) ?? null;
+        const rows = securities.map((security) => {
+            const quote = quotes.find((q) => q.key === security.isin) ?? null;
             const edit = edits[security.isin];
-            const code = security.beurs !== null ? beursCode(security.beurs) : null;
+            const code = security.exchange !== null ? exchangeCode(security.exchange) : null;
             const tickerDisplay =
-                security.tickerVoorKoers !== null && security.tickerVoorKoers !== undefined
-                    ? stripYahooSuffix(security.tickerVoorKoers)
+                security.quoteTicker !== null && security.quoteTicker !== undefined
+                    ? stripYahooSuffix(security.quoteTicker)
                     : '';
             return {
                 isin: security.isin,
-                product: security.naam,
+                product: security.name,
                 open: openIsins.has(security.isin),
                 security,
                 quote,
                 stale: stale.has(security.isin),
-                invoer: edit?.invoer ?? (quote?.bron !== 'yahoo' && quote ? new Decimal(quote.prijs).toString() : ''),
-                ongeldig: edit?.ongeldig ?? false,
-                beursCode: code,
+                input: edit?.input ?? (quote?.source !== 'yahoo' && quote ? new Decimal(quote.price).toString() : ''),
+                invalid: edit?.invalid ?? false,
+                exchangeCode: code,
                 tickerDisplay,
             };
         });
-        const open = gebouwd.filter((row) => row.open);
-        const gesloten = gebouwd.filter((row) => !row.open);
-        return [...this.sort.apply(open), ...this.sort.apply(gesloten)];
+        const open = rows.filter((row) => row.open);
+        const closed = rows.filter((row) => !row.open);
+        return [...this.sort.apply(open), ...this.sort.apply(closed)];
     });
 
     async refreshQuotes(): Promise<void> {
-        await this.quoteSync.refreshAll(this.vanafDatum());
+        await this.quoteSync.refreshAll(this.fromDate());
     }
 
     searchState(isin: string): SearchState {
-        return this.searches()[isin] ?? { query: '', suggesties: [], searching: false, error: null };
+        return this.searches()[isin] ?? { query: '', suggestions: [], searching: false, error: null };
     }
 
     onSearchInput(isin: string, query: string): void {
         this.searches.update((s) => ({
             ...s,
-            [isin]: { ...this.searchState(isin), query, suggesties: [], error: null },
+            [isin]: { ...this.searchState(isin), query, suggestions: [], error: null },
         }));
     }
 
@@ -137,12 +137,12 @@ export class QuotePanelComponent {
         const query = state.query.trim() === '' ? fallbackQuery : state.query.trim();
         this.searches.update((s) => ({ ...s, [isin]: { ...state, query, searching: true, error: null } }));
         try {
-            const suggesties = await this.quoteSync.searchTicker(query);
-            this.searches.update((s) => ({ ...s, [isin]: { query, suggesties, searching: false, error: null } }));
-        } catch (fout) {
+            const suggestions = await this.quoteSync.searchTicker(query);
+            this.searches.update((s) => ({ ...s, [isin]: { query, suggestions, searching: false, error: null } }));
+        } catch (error) {
             this.searches.update((s) => ({
                 ...s,
-                [isin]: { query, suggesties: [], searching: false, error: String((fout as Error).message ?? fout) },
+                [isin]: { query, suggestions: [], searching: false, error: String((error as Error).message ?? error) },
             }));
         }
     }
@@ -154,49 +154,49 @@ export class QuotePanelComponent {
             delete rest[isin];
             return rest;
         });
-        await this.quoteSync.refreshSecurity(isin, this.vanafDatum());
+        await this.quoteSync.refreshSecurity(isin, this.fromDate());
     }
 
     async unlink(isin: string): Promise<void> {
         await this.quoteSync.unlinkTicker(isin);
     }
 
-    onPriceInput(isin: string, invoer: string): void {
-        this.edits.update((e) => ({ ...e, [isin]: { invoer, ongeldig: false } }));
+    onPriceInput(isin: string, input: string): void {
+        this.edits.update((e) => ({ ...e, [isin]: { input, invalid: false } }));
     }
 
     async saveManual(): Promise<void> {
         if (this.saving()) {
             return;
         }
-        const edits: Record<string, { invoer: string; ongeldig: boolean }> = {};
+        const edits: Record<string, { input: string; invalid: boolean }> = {};
         for (const row of this.rows()) {
-            if (!row.open || row.security?.tickerVoorKoers != null || row.invoer.trim() === '') {
+            if (!row.open || row.security?.quoteTicker != null || row.input.trim() === '') {
                 continue;
             }
             try {
-                parseNlNumber(row.invoer);
+                parseLocalizedNumber(row.input);
             } catch {
-                edits[row.isin] = { invoer: row.invoer, ongeldig: true };
+                edits[row.isin] = { input: row.input, invalid: true };
             }
         }
         if (Object.keys(edits).length > 0) {
-            this.edits.update((huidig) => ({ ...huidig, ...edits }));
+            this.edits.update((current) => ({ ...current, ...edits }));
             return;
         }
         this.saving.set(true);
         try {
             for (const row of this.rows()) {
-                if (!row.open || row.security?.tickerVoorKoers != null) {
+                if (!row.open || row.security?.quoteTicker != null) {
                     continue;
                 }
-                const ingevoerd = row.invoer.trim();
-                const prijs = ingevoerd === '' ? null : parseNlNumber(ingevoerd);
-                const bestaand = this.marketData.quotes().find((q) => q.sleutel === row.isin);
-                if (prijs === null && bestaand !== undefined && bestaand.bron !== 'yahoo') {
+                const entered = row.input.trim();
+                const price = entered === '' ? null : parseLocalizedNumber(entered);
+                const existing = this.marketData.quotes().find((q) => q.key === row.isin);
+                if (price === null && existing !== undefined && existing.source !== 'yahoo') {
                     await this.quoteService.remove(row.isin);
-                } else if (prijs !== null && bestaand?.prijs !== prijs.toString()) {
-                    await this.quoteService.save(row.isin, prijs, 'EUR');
+                } else if (price !== null && existing?.price !== price.toString()) {
+                    await this.quoteService.save(row.isin, price, 'EUR');
                 }
             }
             this.edits.set({});

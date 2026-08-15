@@ -12,5 +12,5 @@ export class App {
     private readonly context = inject(PortfolioContext);
 
     readonly portfolioId = this.context.selectedPortfolioId;
-    readonly portfolioNaam = computed(() => this.context.selectedPortfolio()?.naam ?? '');
+    readonly portfolioName = computed(() => this.context.selectedPortfolio()?.name ?? '');
 }

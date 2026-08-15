@@ -9,14 +9,14 @@ export class TransactionRepository {
 
     async allForPortfolio(portfolioId: string): Promise<StoredTransaction[]> {
         return this.db.transactions
-            .where('[portfolioId+datum]')
+            .where('[portfolioId+date]')
             .between([portfolioId, Dexie.minKey], [portfolioId, Dexie.maxKey])
             .toArray();
     }
 
     async countForPortfolio(portfolioId: string): Promise<number> {
         return this.db.transactions
-            .where('[portfolioId+datum]')
+            .where('[portfolioId+date]')
             .between([portfolioId, Dexie.minKey], [portfolioId, Dexie.maxKey])
             .count();
     }

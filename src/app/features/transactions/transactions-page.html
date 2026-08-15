@@ -16,12 +16,12 @@
             (change)="onTypeFilter($any($event.target).value)"
         >
             <option value="ALL">All types</option>
-            @for (type of beschikbareTypen(); track type) {
+            @for (type of availableTypes(); track type) {
             <option [value]="type">{{ typeLabel(type) }}</option>
             }
         </select>
         <span class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-            {{ totaalAantal() | nlNumber: 0 }} rows
+            {{ totalCount() | localizedNumber: 0 }} rows
         </span>
     </div>
 
@@ -49,7 +49,7 @@
                 @for (txn of transactions(); track txn.id) {
                 <tr class="hover">
                     <td class="align-top">
-                        <p class="text-sm">{{ txn.date | nlDate }}</p>
+                        <p class="text-sm">{{ txn.date | localizedDate }}</p>
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">{{ txn.time }}</p>
                     </td>
                     <td class="align-top">
@@ -65,7 +65,7 @@
                     </td>
                     <td class="text-right align-top">
                         @if (txn.quantity !== null) {
-                        <p class="text-sm font-medium tabular-nums">{{ txn.quantity | nlNumber: 4 : 0 }}</p>
+                        <p class="text-sm font-medium tabular-nums">{{ txn.quantity | localizedNumber: 4 : 0 }}</p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
                         }
@@ -74,7 +74,7 @@
                         <p class="text-sm font-medium tabular-nums">
                             {{ txn.mutationReporting | money: txn.mutationReportingCurrency }}
                         </p>
-                        @if (txn.toonOrigineleMutatie) {
+                        @if (txn.showOriginalMutation) {
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                             {{ txn.mutation | money: txn.mutationCurrency }}
                         </p>
@@ -85,10 +85,10 @@
             </tbody>
         </table>
     </div>
-    @if (heeftMeer()) {
+    @if (hasMore()) {
     <div class="mt-4 text-center">
-        <button class="btn btn-outline btn-sm" (click)="toonMeer()">
-            Show more ({{ (totaalAantal() - zichtbareAantallen()) | nlNumber: 0 }} remaining)
+        <button class="btn btn-outline btn-sm" (click)="showMore()">
+            Show more ({{ (totalCount() - visibleCount()) | localizedNumber: 0 }} remaining)
         </button>
     </div>
     } }

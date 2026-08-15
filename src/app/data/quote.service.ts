@@ -11,12 +11,12 @@ export class QuoteService {
         return this.db.quoteCache.toArray();
     }
 
-    async save(isin: string, prijs: Decimal, valuta: string): Promise<void> {
+    async save(isin: string, price: Decimal, currency: string): Promise<void> {
         await this.db.quoteCache.put({
-            sleutel: isin,
-            prijs: prijs.toString(),
-            valuta,
-            tijdstip: new Date().toISOString(),
+            key: isin,
+            price: price.toString(),
+            currency,
+            timestamp: new Date().toISOString(),
         });
     }
 

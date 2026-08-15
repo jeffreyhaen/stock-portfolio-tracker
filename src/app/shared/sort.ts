@@ -56,12 +56,12 @@ export class TableSort<K extends string, T> implements SortController {
         const accessor = this.accessors[key];
         const factor = direction === 'asc' ? 1 : -1;
         return [...rows].sort((a, b) => {
-            const waardeA = accessor(a);
-            const waardeB = accessor(b);
-            if (waardeA === null || waardeB === null) {
-                return compareSortPrimitives(waardeA, waardeB);
+            const valueA = accessor(a);
+            const valueB = accessor(b);
+            if (valueA === null || valueB === null) {
+                return compareSortPrimitives(valueA, valueB);
             }
-            return factor * compareSortPrimitives(waardeA, waardeB);
+            return factor * compareSortPrimitives(valueA, valueB);
         });
     }
 }

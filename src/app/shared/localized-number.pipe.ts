@@ -1,8 +1,8 @@
 import { Pipe, PipeTransform } from '@angular/core';
 import Decimal from 'decimal.js';
 
-@Pipe({ name: 'nlNumber', standalone: true })
-export class NlNumberPipe implements PipeTransform {
+@Pipe({ name: 'localizedNumber', standalone: true })
+export class LocalizedNumberPipe implements PipeTransform {
     transform(
         value: Decimal | string | number | null | undefined,
         maxDecimals = 2,

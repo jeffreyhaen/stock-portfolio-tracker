@@ -31,9 +31,9 @@ export class YahooQuoteProvider extends QuoteProvider {
         const data = await this.getJson<Record<string, ProxyQuote>>(`/api/quote?symbols=${encodeURIComponent(symbol)}`);
         const entry = data[symbol.toUpperCase()];
         if (entry === undefined || entry.error !== undefined || entry.price === undefined) {
-            throw new Error(entry?.error ?? `geen koers voor ${symbol}`);
+            throw new Error(entry?.error ?? `No quote for ${symbol}`);
         }
-        return { prijs: String(entry.price), valuta: entry.currency ?? 'EUR', datum: entry.time ?? '' };
+        return { price: String(entry.price), currency: entry.currency ?? 'EUR', date: entry.time ?? '' };
     }
 
     override async quotes(symbols: readonly string[]): Promise<Record<string, QuoteResult | { error: string }>> {
@@ -47,12 +47,12 @@ export class YahooQuoteProvider extends QuoteProvider {
         for (const symbol of symbols) {
             const entry = data[symbol.toUpperCase()];
             if (entry === undefined || entry.error !== undefined || entry.price === undefined) {
-                result[symbol] = { error: entry?.error ?? `geen koers voor ${symbol}` };
+                result[symbol] = { error: entry?.error ?? `No quote for ${symbol}` };
             } else {
                 result[symbol] = {
-                    prijs: String(entry.price),
-                    valuta: entry.currency ?? 'EUR',
-                    datum: entry.time ?? '',
+                    price: String(entry.price),
+                    currency: entry.currency ?? 'EUR',
+                    date: entry.time ?? '',
                 };
             }
         }
@@ -65,9 +65,9 @@ export class YahooQuoteProvider extends QuoteProvider {
             bars: { date: string; close: number }[];
             splits?: { date: string; factor: number }[];
         }>(`/api/history?symbol=${encodeURIComponent(symbol)}&from=${from}&to=${to}`);
-        const bars: DayBarDto[] = data.bars.map((bar) => ({ datum: bar.date, slotkoers: String(bar.close) }));
-        const splits = (data.splits ?? []).map((s) => ({ datum: s.date, factor: String(s.factor) }));
-        return { valuta: data.currency ?? 'EUR', bars, splits };
+        const bars: DayBarDto[] = data.bars.map((bar) => ({ date: bar.date, close: String(bar.close) }));
+        const splits = (data.splits ?? []).map((s) => ({ date: s.date, factor: String(s.factor) }));
+        return { currency: data.currency ?? 'EUR', bars, splits };
     }
 
     async search(query: string): Promise<TickerSuggestion[]> {

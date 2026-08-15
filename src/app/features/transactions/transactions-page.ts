@@ -3,11 +3,11 @@ import { RouterLink } from '@angular/router';
 import Decimal from 'decimal.js';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
-import { mutationInRapportagevaluta } from '../../domain/fx';
+import { mutationInReportingCurrency } from '../../domain/fx';
 import { Transaction, TransactionType } from '../../domain/types';
 import { MoneyPipe } from '../../shared/money.pipe';
-import { NlDatePipe } from '../../shared/nl-date.pipe';
-import { NlNumberPipe } from '../../shared/nl-number.pipe';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
+import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { transactionTypeBadgeClass, transactionTypeLabel } from '../../shared/transaction-type';
 import { TableSort } from '../../shared/sort';
 import { SortThComponent } from '../../shared/ui/sort-th';
@@ -29,14 +29,14 @@ interface TransactionView {
     readonly mutationCurrency: string | null;
     readonly mutationReporting: Decimal | null;
     readonly mutationReportingCurrency: string | null;
-    readonly toonOrigineleMutatie: boolean;
+    readonly showOriginalMutation: boolean;
 }
 
 const PAGINA_GROOTTE = 100;
 
 @Component({
     selector: 'app-transactions-page',
-    imports: [RouterLink, MoneyPipe, NlDatePipe, NlNumberPipe, SortThComponent],
+    imports: [RouterLink, MoneyPipe, LocalizedDatePipe, LocalizedNumberPipe, SortThComponent],
     templateUrl: './transactions-page.html',
 })
 export class TransactionsPage {
@@ -45,13 +45,13 @@ export class TransactionsPage {
 
     readonly search = signal('');
     readonly typeFilter = signal('ALL');
-    readonly zichtbareAantallen = signal(PAGINA_GROOTTE);
+    readonly visibleCount = signal(PAGINA_GROOTTE);
 
     constructor() {
         void this.marketData.reload();
     }
 
-    readonly rapportagevaluta = computed(() => this.context.selectedPortfolio()?.rapportagevaluta ?? 'EUR');
+    readonly reportingCurrency = computed(() => this.context.selectedPortfolio()?.reportingCurrency ?? 'EUR');
 
     readonly sort = new TableSort<SortKey, TransactionView>(
         {
@@ -65,7 +65,7 @@ export class TransactionsPage {
         'desc',
     );
 
-    readonly beschikbareTypen = computed(() => {
+    readonly availableTypes = computed(() => {
         const typen = new Set<TransactionType>();
         for (const txn of this.context.transactions()) {
             typen.add(txn.type);
@@ -73,44 +73,44 @@ export class TransactionsPage {
         return [...typen].sort((a, b) => transactionTypeLabel(a).localeCompare(transactionTypeLabel(b)));
     });
 
-    private readonly gefilterd = computed(() => {
-        const zoek = this.search().trim().toLowerCase();
+    private readonly filtered = computed(() => {
+        const search = this.search().trim().toLowerCase();
         const typeFilter = this.typeFilter();
         return this.context.transactions().filter((txn) => {
             if (typeFilter !== 'ALL' && txn.type !== typeFilter) {
                 return false;
             }
-            if (zoek === '') {
+            if (search === '') {
                 return true;
             }
             return (
-                txn.product.toLowerCase().includes(zoek) ||
-                txn.description.toLowerCase().includes(zoek) ||
-                (txn.isin ?? '').toLowerCase().includes(zoek)
+                txn.product.toLowerCase().includes(search) ||
+                txn.description.toLowerCase().includes(search) ||
+                (txn.isin ?? '').toLowerCase().includes(search)
             );
         });
     });
 
-    private readonly gesorteerd = computed(() => this.sort.apply(this.toView(this.gefilterd())));
+    private readonly sorted = computed(() => this.sort.apply(this.toView(this.filtered())));
 
-    readonly totaalAantal = computed(() => this.gefilterd().length);
+    readonly totalCount = computed(() => this.filtered().length);
 
-    readonly transactions = computed<TransactionView[]>(() => this.gesorteerd().slice(0, this.zichtbareAantallen()));
+    readonly transactions = computed<TransactionView[]>(() => this.sorted().slice(0, this.visibleCount()));
 
-    readonly heeftMeer = computed(() => this.totaalAantal() > this.zichtbareAantallen());
+    readonly hasMore = computed(() => this.totalCount() > this.visibleCount());
 
     onSearch(value: string): void {
         this.search.set(value);
-        this.zichtbareAantallen.set(PAGINA_GROOTTE);
+        this.visibleCount.set(PAGINA_GROOTTE);
     }
 
     onTypeFilter(value: string): void {
         this.typeFilter.set(value);
-        this.zichtbareAantallen.set(PAGINA_GROOTTE);
+        this.visibleCount.set(PAGINA_GROOTTE);
     }
 
-    toonMeer(): void {
-        this.zichtbareAantallen.update((n) => n + PAGINA_GROOTTE);
+    showMore(): void {
+        this.visibleCount.update((n) => n + PAGINA_GROOTTE);
     }
 
     typeLabel(type: TransactionType): string {
@@ -118,24 +118,24 @@ export class TransactionsPage {
     }
 
     private toView(transactions: readonly Transaction[]): TransactionView[] {
-        const rapportagevaluta = this.rapportagevaluta();
+        const reportingCurrency = this.reportingCurrency();
         const fx = this.marketData.fxResolver();
-        return transactions.map((txn) => toView(txn, rapportagevaluta, fx));
+        return transactions.map((txn) => toView(txn, reportingCurrency, fx));
     }
 }
 
 function toView(
     txn: Transaction,
-    rapportagevaluta: string,
-    fx: (valuta: string, datum: string) => Decimal | null,
+    reportingCurrency: string,
+    fx: (currency: string, date: string) => Decimal | null,
 ): TransactionView {
-    const mutationReporting = mutationInRapportagevaluta(txn, rapportagevaluta, fx);
+    const mutationReporting = mutationInReportingCurrency(txn, reportingCurrency, fx);
     const mutationCurrency = txn.mutationCurrency;
     const afwijkend =
         txn.mutation !== null &&
         mutationCurrency !== null &&
         mutationCurrency !== '' &&
-        mutationCurrency !== rapportagevaluta;
+        mutationCurrency !== reportingCurrency;
     return {
         id: txn.id,
         rowIndex: txn.rowIndex,
@@ -150,7 +150,7 @@ function toView(
         mutation: txn.mutation,
         mutationCurrency,
         mutationReporting,
-        mutationReportingCurrency: rapportagevaluta,
-        toonOrigineleMutatie: afwijkend,
+        mutationReportingCurrency: reportingCurrency,
+        showOriginalMutation: afwijkend,
     };
 }

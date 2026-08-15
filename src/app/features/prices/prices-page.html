@@ -13,12 +13,12 @@
 } @else { @if (marketData.offline()) {
 <div class="alert alert-warning mt-6" role="alert">
     <span class="text-sm">
-        Quote proxy unreachable — showing last known prices. @if (marketData.laatsteRefresh() !== null) { Last
-        successful refresh: {{ marketData.laatsteRefresh() | nlDate }}. }
+        Quote proxy unreachable — showing last known prices. @if (marketData.lastRefresh() !== null) { Last successful
+        refresh: {{ marketData.lastRefresh() | localizedDate }}. }
     </span>
 </div>
 }
 <div class="mt-6">
-    <app-quote-panel [holdings]="holdings()" [vanafDatum]="eersteDatum()" />
+    <app-quote-panel [holdings]="holdings()" [fromDate]="firstDate()" />
 </div>
 }

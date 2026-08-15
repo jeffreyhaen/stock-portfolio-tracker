@@ -1,4 +1,4 @@
-import { parseNlNumber } from './numbers';
+import { parseLocalizedNumber } from './numbers';
 import { Classification, CorporateAction, TransactionTypes as T, TransactionType } from './types';
 
 const TRADE =
@@ -12,8 +12,8 @@ const CAPITAL_GAIN = /^[A-Z]{3} Distribution Capital Gain$/;
 const CORPORATE_ACTIONS: Record<string, CorporateAction> = {
     'STOCK SPLIT': 'STOCK_SPLIT',
     'SPIN-OFF': 'SPIN_OFF',
-    PRODUCTWIJZIGING: 'PRODUCTWIJZIGING',
-    'WIJZIGING ISIN': 'WIJZIGING_ISIN',
+    PRODUCTWIJZIGING: 'PRODUCT_CHANGE',
+    'WIJZIGING ISIN': 'ISIN_CHANGE',
 };
 
 const EXACT: Record<string, TransactionType> = {
@@ -56,8 +56,8 @@ export function classifyDescription(description: string): Classification {
         return {
             type,
             corporateAction,
-            quantity: parseNlNumber(trade[3]),
-            price: parseNlNumber(trade[4]),
+            quantity: parseLocalizedNumber(trade[3]),
+            price: parseLocalizedNumber(trade[4]),
             tradeCurrency: trade[5],
         };
     }
@@ -67,8 +67,8 @@ export function classifyDescription(description: string): Classification {
         return {
             type: mmf[1] === 'Koop' ? T.MmfConversionBuy : T.MmfConversionSell,
             corporateAction: null,
-            quantity: parseNlNumber(mmf[2]),
-            price: parseNlNumber(mmf[3]),
+            quantity: parseLocalizedNumber(mmf[2]),
+            price: parseLocalizedNumber(mmf[3]),
             tradeCurrency: mmf[4],
         };
     }

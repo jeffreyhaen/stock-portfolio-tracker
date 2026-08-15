@@ -15,12 +15,12 @@ const INCOME_TYPES = new Set<string>([T.Dividend, T.DividendTax, T.CapitalGainDi
 const EXTERNAL_TYPES = new Set<string>([T.Deposit, T.Withdrawal]);
 
 export interface QuoteInput {
-    readonly prijs: Decimal;
-    readonly valuta: string;
+    readonly price: Decimal;
+    readonly currency: string;
 }
 
 export interface ValuationPoint {
-    readonly datum: string;
+    readonly date: string;
     readonly netInvested: Decimal;
     readonly value: Decimal | null;
 }
@@ -40,11 +40,11 @@ export interface PortfolioTotals {
 }
 
 export interface Valuation {
-    readonly punten: ValuationPoint[];
+    readonly points: ValuationPoint[];
     readonly totals: PortfolioTotals;
-    readonly ontbrekendQuotes: string[];
-    readonly ontbrekendeFx: string[];
-    readonly nietEurExterneFlows: number;
+    readonly missingQuotes: string[];
+    readonly missingFx: string[];
+    readonly nonEurExternalFlows: number;
 }
 
 export interface RangeTotals {
@@ -65,7 +65,7 @@ export function rangeTotals(
     transactions: readonly Transaction[],
     fx: FxResolver,
     cutoff: string | null,
-    tot: string | null = null,
+    to: string | null = null,
 ): RangeTotals {
     let netInvested = new Decimal(0);
     let income = new Decimal(0);
@@ -79,7 +79,7 @@ export function rangeTotals(
         if (cutoff !== null && txn.date < cutoff) {
             continue;
         }
-        if (tot !== null && txn.date > tot) {
+        if (to !== null && txn.date > to) {
             continue;
         }
         if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === 'EUR') {
@@ -136,9 +136,9 @@ export function buildValuation(
     fx: FxResolver,
     today: string,
 ): Valuation {
-    const gesorteerd = [...transactions].sort(compareChronological);
-    const posities = new Map<string, Decimal>();
-    const punten: ValuationPoint[] = [];
+    const sorted = [...transactions].sort(compareChronological);
+    const positions = new Map<string, Decimal>();
+    const points: ValuationPoint[] = [];
     let netInvested = new Decimal(0);
     let costs = new Decimal(0);
     let income = new Decimal(0);
@@ -147,11 +147,11 @@ export function buildValuation(
     let missingFxIncome = 0;
     let missingFxCosts = 0;
     let cashEur = new Decimal(0);
-    let nietEurExterneFlows = 0;
+    let nonEurExternalFlows = 0;
 
-    const valueOp = (datum: string): Decimal | null => {
-        let totaal = cashEur;
-        for (const [isin, qty] of posities) {
+    const valueAt = (date: string): Decimal | null => {
+        let total = cashEur;
+        for (const [isin, qty] of positions) {
             if (qty.isZero()) {
                 continue;
             }
@@ -159,37 +159,37 @@ export function buildValuation(
             if (quote === undefined) {
                 return null;
             }
-            const rate = fx(quote.valuta, datum);
+            const rate = fx(quote.currency, date);
             if (rate === null) {
                 return null;
             }
-            totaal = totaal.plus(qty.times(quote.prijs).times(rate));
+            total = total.plus(qty.times(quote.price).times(rate));
         }
-        return totaal;
+        return total;
     };
 
-    let vorigeDatum: string | null = null;
-    const pushPunt = (datum: string): void => {
-        punten.push({ datum, netInvested, value: valueOp(datum) });
+    let previousDate: string | null = null;
+    const pushPoint = (date: string): void => {
+        points.push({ date, netInvested, value: valueAt(date) });
     };
 
-    for (const txn of gesorteerd) {
-        if (vorigeDatum !== null && txn.date !== vorigeDatum) {
-            pushPunt(vorigeDatum);
+    for (const txn of sorted) {
+        if (previousDate !== null && txn.date !== previousDate) {
+            pushPoint(previousDate);
         }
-        vorigeDatum = txn.date;
+        previousDate = txn.date;
         if (txn.isin !== null && txn.quantity !== null) {
             if (BUY_TYPES.has(txn.type)) {
-                posities.set(txn.isin, (posities.get(txn.isin) ?? new Decimal(0)).plus(txn.quantity));
+                positions.set(txn.isin, (positions.get(txn.isin) ?? new Decimal(0)).plus(txn.quantity));
             } else if (SELL_TYPES.has(txn.type)) {
-                posities.set(txn.isin, (posities.get(txn.isin) ?? new Decimal(0)).minus(txn.quantity));
+                positions.set(txn.isin, (positions.get(txn.isin) ?? new Decimal(0)).minus(txn.quantity));
             }
         }
         if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null) {
             if (txn.mutationCurrency === 'EUR') {
                 netInvested = netInvested.plus(txn.mutation);
             } else {
-                nietEurExterneFlows += 1;
+                nonEurExternalFlows += 1;
             }
         }
         if (COST_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency !== null) {
@@ -228,34 +228,34 @@ export function buildValuation(
             cashEur = txn.balance;
         }
     }
-    if (vorigeDatum !== null) {
-        pushPunt(vorigeDatum);
-        if (today > vorigeDatum) {
-            punten.push({ datum: today, netInvested, value: valueOp(today) });
+    if (previousDate !== null) {
+        pushPoint(previousDate);
+        if (today > previousDate) {
+            points.push({ date: today, netInvested, value: valueAt(today) });
         }
     }
 
-    const ontbrekendQuotes: string[] = [];
-    const ontbrekendeFx = new Set<string>();
-    for (const [isin, qty] of posities) {
+    const missingQuotes: string[] = [];
+    const missingFx = new Set<string>();
+    for (const [isin, qty] of positions) {
         if (qty.isZero()) {
             continue;
         }
         const quote = quotes.get(isin);
         if (quote === undefined) {
-            ontbrekendQuotes.push(isin);
-        } else if (fx(quote.valuta, today) === null) {
-            ontbrekendeFx.add(`${quote.valuta}/EUR`);
+            missingQuotes.push(isin);
+        } else if (fx(quote.currency, today) === null) {
+            missingFx.add(`${quote.currency}/EUR`);
         }
     }
 
-    const laatste = punten.length > 0 ? punten[punten.length - 1] : null;
-    const value = laatste?.value ?? null;
+    const latest = points.length > 0 ? points[points.length - 1] : null;
+    const value = latest?.value ?? null;
     const result = value === null ? null : value.minus(netInvested);
     const resultPct = result === null || netInvested.isZero() ? null : result.div(netInvested).times(100);
 
     return {
-        punten,
+        points,
         totals: {
             netInvested,
             costs,
@@ -269,8 +269,8 @@ export function buildValuation(
             result,
             resultPct,
         },
-        ontbrekendQuotes,
-        ontbrekendeFx: [...ontbrekendeFx],
-        nietEurExterneFlows,
+        missingQuotes,
+        missingFx: [...missingFx],
+        nonEurExternalFlows,
     };
 }

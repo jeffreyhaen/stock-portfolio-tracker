@@ -4,10 +4,10 @@ import { PortfolioContext } from '../../data/portfolio-context';
 import { MarketDataService } from '../../data/market-data.service';
 import Decimal from 'decimal.js';
 import { holdingPeriodDays, holdingStats } from '../../domain/holdings';
-import { beursDisplayNaam } from '../../domain/ticker-match';
-import { cashflowsPerIsin, cashflowWindowDagen, MIN_PERIODE_DAGEN_JAARRENDEMENT, xirr } from '../../domain/xirr';
+import { exchangeDisplayName } from '../../domain/ticker-match';
+import { cashflowsPerIsin, cashflowWindowDays, MIN_ANNUALIZED_RETURN_DAYS, xirr } from '../../domain/xirr';
 import { MoneyPipe } from '../../shared/money.pipe';
-import { NlNumberPipe } from '../../shared/nl-number.pipe';
+import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { TableSort } from '../../shared/sort';
 import { SortThComponent } from '../../shared/ui/sort-th';
 
@@ -16,7 +16,7 @@ interface HoldingView {
     readonly product: string;
     readonly open: boolean;
     readonly ticker: string | null;
-    readonly beurs: string | null;
+    readonly exchange: string | null;
     readonly quantity: Decimal;
     readonly periodDays: number | null;
     readonly netInvested: Decimal | null;
@@ -31,11 +31,11 @@ interface HoldingView {
     readonly allocationPct: Decimal | null;
 }
 
-type HoldingFilter = 'open' | 'gesloten' | 'alle';
+type HoldingFilter = 'open' | 'closed' | 'all';
 
 @Component({
     selector: 'app-holdings-page',
-    imports: [RouterLink, MoneyPipe, NlNumberPipe, SortThComponent],
+    imports: [RouterLink, MoneyPipe, LocalizedNumberPipe, SortThComponent],
     templateUrl: './holdings-page.html',
 })
 export class HoldingsPage {
@@ -83,17 +83,17 @@ export class HoldingsPage {
         void this.marketData.reload();
     }
 
-    readonly rapportagevaluta = computed(() => this.context.selectedPortfolio()?.rapportagevaluta ?? 'EUR');
+    readonly reportingCurrency = computed(() => this.context.selectedPortfolio()?.reportingCurrency ?? 'EUR');
 
-    private readonly alleViews = computed<HoldingView[]>(() => {
+    private readonly allViews = computed<HoldingView[]>(() => {
         const quotes = this.marketData.quoteMap();
         const fx = this.marketData.fxResolver();
         const securities = new Map(this.marketData.securities().map((s) => [s.isin, s]));
-        const valuta = this.rapportagevaluta();
+        const currency = this.reportingCurrency();
         const txns = this.context.transactions();
         const today = this.today;
-        const stats = holdingStats(txns, { rapportagevaluta: valuta, fxFallback: fx, includeClosed: true });
-        const cashflows = cashflowsPerIsin(txns, { rapportagevaluta: valuta, fxFallback: fx });
+        const stats = holdingStats(txns, { reportingCurrency: currency, fxFallback: fx, includeClosed: true });
+        const cashflows = cashflowsPerIsin(txns, { reportingCurrency: currency, fxFallback: fx });
         const views = stats.map((h): HoldingView => {
             const security = securities.get(h.isin);
             const quote = quotes.get(h.isin);
@@ -103,9 +103,9 @@ export class HoldingsPage {
             let pnlPct: Decimal | null = null;
             let pnlInclRealized: Decimal | null = null;
             if (h.open && quote !== undefined) {
-                const rate = fx(quote.valuta, today);
+                const rate = fx(quote.currency, today);
                 if (rate !== null) {
-                    valueEur = h.quantity.times(quote.prijs).times(rate);
+                    valueEur = h.quantity.times(quote.price).times(rate);
                     valuePerShareEur = valueEur.div(h.quantity);
                 }
                 if (valueEur !== null && h.netInvested !== null) {
@@ -117,22 +117,21 @@ export class HoldingsPage {
             let pnlPctYear: Decimal | null = null;
             const flows = cashflows.get(h.isin) ?? [];
             if (flows !== null) {
-                const eindwaarde = h.open && valueEur !== null ? [{ datum: today, bedrag: valueEur }] : [];
-                const alle = [...flows, ...eindwaarde];
-                const r = xirr(alle);
-                pnlPctYear =
-                    r === null || cashflowWindowDagen(alle) < MIN_PERIODE_DAGEN_JAARRENDEMENT ? null : r.times(100);
+                const endingValue = h.open && valueEur !== null ? [{ date: today, amount: valueEur }] : [];
+                const all = [...flows, ...endingValue];
+                const r = xirr(all);
+                pnlPctYear = r === null || cashflowWindowDays(all) < MIN_ANNUALIZED_RETURN_DAYS ? null : r.times(100);
             }
-            let geslotenPct: Decimal | null = null;
+            let closedPct: Decimal | null = null;
             if (!h.open && h.realizedPnl !== null && h.grossInvested !== null && !h.grossInvested.isZero()) {
-                geslotenPct = h.realizedPnl.div(h.grossInvested).times(100);
+                closedPct = h.realizedPnl.div(h.grossInvested).times(100);
             }
             return {
                 isin: h.isin,
                 product: h.product,
                 open: h.open,
-                ticker: security?.tickerVoorKoers ?? null,
-                beurs: security?.beurs ? beursDisplayNaam(security.beurs) : null,
+                ticker: security?.quoteTicker ?? null,
+                exchange: security?.exchange ? exchangeDisplayName(security.exchange) : null,
                 quantity: h.quantity,
                 periodDays:
                     h.firstBuyDate === null
@@ -145,18 +144,18 @@ export class HoldingsPage {
                 pnlEur,
                 pnlInclRealized,
                 realizedPnl: h.realizedPnl,
-                pnlPct: h.open ? pnlPct : geslotenPct,
+                pnlPct: h.open ? pnlPct : closedPct,
                 pnlPctYear,
                 allocationPct: null,
             };
         });
-        const totaalWaarde = views
+        const totalValue = views
             .filter((v) => v.open && v.valueEur !== null)
-            .reduce((som, v) => som.plus(v.valueEur ?? 0), new Decimal(0));
-        if (!totaalWaarde.isZero()) {
+            .reduce((sum, v) => sum.plus(v.valueEur ?? 0), new Decimal(0));
+        if (!totalValue.isZero()) {
             return views.map((v) =>
                 v.open && v.valueEur !== null
-                    ? { ...v, allocationPct: v.valueEur.div(totaalWaarde).times(100) }
+                    ? { ...v, allocationPct: v.valueEur.div(totalValue).times(100) }
                     : v.open
                       ? v
                       : { ...v, allocationPct: new Decimal(0) },
@@ -165,18 +164,18 @@ export class HoldingsPage {
         return views.map((v) => (v.open ? v : { ...v, allocationPct: new Decimal(0) }));
     });
 
-    readonly aantalOpen = computed(() => this.alleViews().filter((v) => v.open).length);
-    readonly aantalGesloten = computed(() => this.alleViews().filter((v) => !v.open).length);
+    readonly openCount = computed(() => this.allViews().filter((v) => v.open).length);
+    readonly closedCount = computed(() => this.allViews().filter((v) => !v.open).length);
 
-    readonly gefilterd = computed<HoldingView[]>(() => {
+    readonly filtered = computed<HoldingView[]>(() => {
         const f = this.filter();
-        if (f === 'alle') {
-            return this.alleViews();
+        if (f === 'all') {
+            return this.allViews();
         }
-        return this.alleViews().filter((v) => (f === 'open' ? v.open : !v.open));
+        return this.allViews().filter((v) => (f === 'open' ? v.open : !v.open));
     });
 
-    readonly holdings = computed(() => this.sort.apply(this.gefilterd()));
+    readonly holdings = computed(() => this.sort.apply(this.filtered()));
 
     setFilter(filter: HoldingFilter): void {
         this.filter.set(filter);

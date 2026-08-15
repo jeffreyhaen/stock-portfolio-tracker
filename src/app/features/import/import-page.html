@@ -27,7 +27,7 @@
                     class="text-sm font-medium hover:underline"
                     (click)="onPortfolioChange(portfolio.id)"
                 >
-                    {{ portfolio.naam }}
+                    {{ portfolio.name }}
                 </button>
                 @if (portfolio.id === selectedPortfolioId()) {
                 <span class="badge badge-primary badge-xs">import target</span>
@@ -92,44 +92,44 @@
         </div>
     </section>
 
-    @if (error(); as foutmelding) {
+    @if (error(); as errorMessage) {
     <section class="rounded-xl border border-error/40 bg-[#fdeaea] p-6">
         <h2 class="text-base font-semibold text-[#901010]">Import failed</h2>
-        <p class="mt-2 font-mono text-sm text-[#901010]">{{ foutmelding }}</p>
+        <p class="mt-2 font-mono text-sm text-[#901010]">{{ errorMessage }}</p>
     </section>
-    } @if (report(); as rapport) {
+    } @if (report(); as report) {
     <section class="rounded-xl border border-base-300 bg-base-100 p-6">
         <h2 class="text-base font-semibold">Import report</h2>
         <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Rows in file</p>
-                <p class="mt-1 text-sm font-medium tabular-nums">{{ rapport.aantalRegels | nlNumber: 0 }}</p>
+                <p class="mt-1 text-sm font-medium tabular-nums">{{ report.rowCount | localizedNumber: 0 }}</p>
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Added</p>
                 <p class="mt-1 text-sm font-medium tabular-nums text-[#0a8a52]">
-                    {{ rapport.toegevoegd | nlNumber: 0 }}
+                    {{ report.added | localizedNumber: 0 }}
                 </p>
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Duplicates skipped</p>
-                <p class="mt-1 text-sm font-medium tabular-nums">{{ rapport.overgeslagenDuplicaten | nlNumber: 0 }}</p>
+                <p class="mt-1 text-sm font-medium tabular-nums">{{ report.skippedDuplicates | localizedNumber: 0 }}</p>
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Unknown types</p>
-                <p class="mt-1 text-sm font-medium tabular-nums" [class.text-[#901010]]="rapport.onbekendeTypen > 0">
-                    {{ rapport.onbekendeTypen | nlNumber: 0 }}
+                <p class="mt-1 text-sm font-medium tabular-nums" [class.text-[#901010]]="report.unknownTypes > 0">
+                    {{ report.unknownTypes | localizedNumber: 0 }}
                 </p>
             </div>
         </div>
-        @if (rapport.waarschuwingen.length > 0) {
+        @if (report.warnings.length > 0) {
         <div class="mt-4 rounded-lg bg-[#fdf3e0] p-4">
-            <h3 class="text-sm font-semibold">Warnings ({{ rapport.waarschuwingen.length }})</h3>
+            <h3 class="text-sm font-semibold">Warnings ({{ report.warnings.length }})</h3>
             <ul class="mt-2 flex flex-col gap-1">
-                @for (waarschuwing of rapport.waarschuwingen; track waarschuwing.regelNr) {
+                @for (warning of report.warnings; track warning.rowIndex) {
                 <li class="text-sm">
-                    <span class="font-mono text-xs">row {{ waarschuwing.regelNr + 1 }}</span>
-                    <span class="text-base-content/80"> — {{ waarschuwing.omschrijving }}</span>
+                    <span class="font-mono text-xs">row {{ warning.rowIndex + 1 }}</span>
+                    <span class="text-base-content/80"> — {{ warning.description }}</span>
                 </li>
                 }
             </ul>
@@ -161,12 +161,12 @@
             <tbody>
                 @for (batch of sortedBatches(); track batch.id) {
                 <tr class="hover">
-                    <td>{{ formatDateTime(batch.geimporteerdOp) }}</td>
-                    <td>{{ batch.bestandsnaam }}</td>
-                    <td class="text-right tabular-nums">{{ batch.aantalRegels | nlNumber: 0 }}</td>
-                    <td class="text-right tabular-nums">{{ batch.rapport.toegevoegd | nlNumber: 0 }}</td>
-                    <td class="text-right tabular-nums">{{ batch.rapport.overgeslagenDuplicaten | nlNumber: 0 }}</td>
-                    <td class="text-right tabular-nums">{{ batch.rapport.onbekendeTypen | nlNumber: 0 }}</td>
+                    <td>{{ formatDateTime(batch.importedAt) }}</td>
+                    <td>{{ batch.fileName }}</td>
+                    <td class="text-right tabular-nums">{{ batch.rowCount | localizedNumber: 0 }}</td>
+                    <td class="text-right tabular-nums">{{ batch.report.added | localizedNumber: 0 }}</td>
+                    <td class="text-right tabular-nums">{{ batch.report.skippedDuplicates | localizedNumber: 0 }}</td>
+                    <td class="text-right tabular-nums">{{ batch.report.unknownTypes | localizedNumber: 0 }}</td>
                 </tr>
                 }
             </tbody>
@@ -177,12 +177,12 @@
 
 @if (pendingDelete(); as portfolio) {
 <app-confirm-dialog
-    titel="Delete portfolio?"
-    beschrijving='Delete portfolio "{{ portfolio.naam }}"? All imported transactions and import history for this portfolio are removed. This cannot be undone.'
-    bevestigLabel="Delete"
-    annuleerLabel="Cancel"
-    [gevaarlijk]="true"
-    (bevestigen)="bevestigVerwijderen()"
-    (annuleren)="annuleerVerwijderen()"
+    title="Delete portfolio?"
+    description='Delete portfolio "{{ portfolio.name }}"? All imported transactions and import history for this portfolio are removed. This cannot be undone.'
+    confirmLabel="Delete"
+    cancelLabel="Cancel"
+    [dangerous]="true"
+    (confirmed)="confirmDelete()"
+    (cancelled)="cancelDelete()"
 />
 }

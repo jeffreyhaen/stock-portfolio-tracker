@@ -3,7 +3,7 @@ import Decimal from 'decimal.js';
 export function formatMoney(value: Decimal | string | number, currency: string): string {
     const decimal = value instanceof Decimal ? value : new Decimal(value);
     if (decimal.isNaN()) {
-        throw new Error('geen geldig bedrag');
+        throw new Error('invalid amount');
     }
     return new Intl.NumberFormat('nl-NL', {
         style: 'currency',

@@ -1,6 +1,6 @@
 import { TickerSuggestion } from '../data/quote-provider';
 
-const EXCHANGE_VOOR_VALUTA: Record<string, string[]> = {
+const EXCHANGES_BY_CURRENCY: Record<string, string[]> = {
     EUR: [
         'Amsterdam',
         'Brussels',
@@ -18,7 +18,7 @@ const EXCHANGE_VOOR_VALUTA: Record<string, string[]> = {
     CAD: ['Toronto', 'TSXV'],
 };
 
-const BEURS_DISPLAY: [RegExp, string][] = [
+const EXCHANGE_DISPLAY: [RegExp, string][] = [
     [/tsx venture|^tsxv/i, 'TSXV'],
     [/toronto|^tsx/i, 'TSX'],
     [/nasdaq/i, 'NASDAQ'],
@@ -37,16 +37,16 @@ const BEURS_DISPLAY: [RegExp, string][] = [
     [/six|snp/i, 'SIX'],
 ];
 
-export function beursDisplayNaam(exchange: string): string {
-    for (const [patroon, naam] of BEURS_DISPLAY) {
-        if (patroon.test(exchange)) {
-            return naam;
+export function exchangeDisplayName(exchange: string): string {
+    for (const [pattern, name] of EXCHANGE_DISPLAY) {
+        if (pattern.test(exchange)) {
+            return name;
         }
     }
     return exchange;
 }
 
-const BEURS_CODE: [RegExp, string][] = [
+const EXCHANGE_CODES: [RegExp, string][] = [
     [/tsx venture|^tsxv/i, 'TSXV'],
     [/toronto|^tsx/i, 'TSX'],
     [/nasdaq/i, 'NASDAQ'],
@@ -68,9 +68,9 @@ const BEURS_CODE: [RegExp, string][] = [
     [/tse|tokyo/i, 'TSE'],
 ];
 
-export function beursCode(exchange: string): string | null {
-    for (const [patroon, code] of BEURS_CODE) {
-        if (patroon.test(exchange)) {
+export function exchangeCode(exchange: string): string | null {
+    for (const [pattern, code] of EXCHANGE_CODES) {
+        if (pattern.test(exchange)) {
             return code;
         }
     }
@@ -100,35 +100,35 @@ const YAHOO_SUFFIX: Record<string, string> = {
 };
 
 export function stripYahooSuffix(ticker: string): string {
-    const punt = ticker.lastIndexOf('.');
-    if (punt < 0 || punt === ticker.length - 1) {
+    const dot = ticker.lastIndexOf('.');
+    if (dot < 0 || dot === ticker.length - 1) {
         return ticker;
     }
-    const suffix = ticker.slice(punt + 1).toUpperCase();
+    const suffix = ticker.slice(dot + 1).toUpperCase();
     if (YAHOO_SUFFIX[suffix] === undefined) {
         return ticker;
     }
-    return ticker.slice(0, punt);
+    return ticker.slice(0, dot);
 }
 
-export interface TickerKeuze {
-    readonly kandidaat: TickerSuggestion | null;
-    readonly viaValutaMatch: boolean;
+export interface TickerChoice {
+    readonly candidate: TickerSuggestion | null;
+    readonly currencyMatch: boolean;
 }
 
-export function kiesTickerKandidaat(
-    suggesties: readonly TickerSuggestion[],
-    handelsvaluta: string | null,
-): TickerKeuze {
-    if (suggesties.length === 0) {
-        return { kandidaat: null, viaValutaMatch: false };
+export function chooseTickerCandidate(
+    suggestions: readonly TickerSuggestion[],
+    tradingCurrency: string | null,
+): TickerChoice {
+    if (suggestions.length === 0) {
+        return { candidate: null, currencyMatch: false };
     }
-    const voorkeur = handelsvaluta === null ? [] : (EXCHANGE_VOOR_VALUTA[handelsvaluta] ?? []);
-    const match = suggesties.find((s) =>
-        voorkeur.some((beurs) => s.exchange.toLowerCase().includes(beurs.toLowerCase())),
+    const preference = tradingCurrency === null ? [] : (EXCHANGES_BY_CURRENCY[tradingCurrency] ?? []);
+    const match = suggestions.find((s) =>
+        preference.some((exchange) => s.exchange.toLowerCase().includes(exchange.toLowerCase())),
     );
     if (match !== undefined) {
-        return { kandidaat: match, viaValutaMatch: true };
+        return { candidate: match, currencyMatch: true };
     }
-    return { kandidaat: suggesties[0], viaValutaMatch: false };
+    return { candidate: suggestions[0], currencyMatch: false };
 }

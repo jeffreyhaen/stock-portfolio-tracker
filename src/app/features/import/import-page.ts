@@ -2,8 +2,8 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ImportService } from '../../data/import.service';
 import { PortfolioContext } from '../../data/portfolio-context';
-import { ImportRapport, StoredImportBatch, StoredPortfolio } from '../../data/stored-types';
-import { NlNumberPipe } from '../../shared/nl-number.pipe';
+import { ImportReport, StoredImportBatch, StoredPortfolio } from '../../data/stored-types';
+import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { TableSort } from '../../shared/sort';
 import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog';
 import { SortThComponent } from '../../shared/ui/sort-th';
@@ -12,7 +12,7 @@ type BatchSortKey = 'importedAt' | 'file' | 'rows' | 'added' | 'duplicates' | 'u
 
 @Component({
     selector: 'app-import-page',
-    imports: [RouterLink, NlNumberPipe, SortThComponent, ConfirmDialogComponent],
+    imports: [RouterLink, LocalizedNumberPipe, SortThComponent, ConfirmDialogComponent],
     templateUrl: './import-page.html',
 })
 export class ImportPage {
@@ -25,18 +25,18 @@ export class ImportPage {
     readonly showCreateForm = signal(false);
     readonly busy = signal(false);
     readonly dragActive = signal(false);
-    readonly report = signal<ImportRapport | null>(null);
+    readonly report = signal<ImportReport | null>(null);
     readonly error = signal<string | null>(null);
     readonly batches = signal<StoredImportBatch[]>([]);
 
     readonly batchesSort = new TableSort<BatchSortKey, StoredImportBatch>(
         {
-            importedAt: (batch) => batch.geimporteerdOp,
-            file: (batch) => batch.bestandsnaam,
-            rows: (batch) => batch.aantalRegels,
-            added: (batch) => batch.rapport.toegevoegd,
-            duplicates: (batch) => batch.rapport.overgeslagenDuplicaten,
-            unknown: (batch) => batch.rapport.onbekendeTypen,
+            importedAt: (batch) => batch.importedAt,
+            file: (batch) => batch.fileName,
+            rows: (batch) => batch.rowCount,
+            added: (batch) => batch.report.added,
+            duplicates: (batch) => batch.report.skippedDuplicates,
+            unknown: (batch) => batch.report.unknownTypes,
         },
         'importedAt',
         'desc',
@@ -53,11 +53,11 @@ export class ImportPage {
     }
 
     async createPortfolio(): Promise<void> {
-        const naam = this.newPortfolioName().trim();
-        if (naam === '' || this.busy()) {
+        const name = this.newPortfolioName().trim();
+        if (name === '' || this.busy()) {
             return;
         }
-        const portfolio = await this.context.create(naam, 'EUR');
+        const portfolio = await this.context.create(name, 'EUR');
         this.context.select(portfolio.id);
         this.newPortfolioName.set('');
         this.showCreateForm.set(false);
@@ -78,7 +78,7 @@ export class ImportPage {
         this.pendingDelete.set(portfolio);
     }
 
-    async bevestigVerwijderen(): Promise<void> {
+    async confirmDelete(): Promise<void> {
         const portfolio = this.pendingDelete();
         if (portfolio === null || this.busy()) {
             return;
@@ -94,7 +94,7 @@ export class ImportPage {
         }
     }
 
-    annuleerVerwijderen(): void {
+    cancelDelete(): void {
         this.pendingDelete.set(null);
     }
 
@@ -129,7 +129,7 @@ export class ImportPage {
         await this.importCsvText(file.name, await file.text());
     }
 
-    async importCsvText(bestandsnaam: string, csvTekst: string): Promise<void> {
+    async importCsvText(fileName: string, csvText: string): Promise<void> {
         const portfolioId = this.selectedPortfolioId();
         if (portfolioId === '' || this.busy()) {
             return;
@@ -138,12 +138,12 @@ export class ImportPage {
         this.error.set(null);
         this.report.set(null);
         try {
-            const rapport = await this.importService.importCsv(portfolioId, bestandsnaam, csvTekst);
-            this.report.set(rapport);
+            const report = await this.importService.importCsv(portfolioId, fileName, csvText);
+            this.report.set(report);
             await this.context.refresh();
             await this.reloadBatches(portfolioId);
-        } catch (fout: unknown) {
-            this.error.set(fout instanceof Error ? fout.message : String(fout));
+        } catch (error: unknown) {
+            this.error.set(error instanceof Error ? error.message : String(error));
         } finally {
             this.busy.set(false);
         }

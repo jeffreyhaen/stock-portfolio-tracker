@@ -1,4 +1,4 @@
-const MONEY_NAME = /(price|amount|value|cost|fee|tax|total|saldo|cash|quantity|shares|rate|dividend)/i;
+const MONEY_NAME = /(price|amount|value|cost|fee|tax|total|balance|cash|quantity|shares|rate|dividend)/i;
 const ARITHMETIC = new Set(['+', '-', '*', '/', '%', '**']);
 
 function isMoneyish(node) {
@@ -17,13 +17,12 @@ module.exports = {
     meta: {
         type: 'problem',
         docs: {
-            description:
-                'Verbied rekenwerk met number op geld-/aantal-achtige variabelen; gebruik Decimal (decimal.js).',
+            description: 'Disallow number arithmetic on money- or quantity-like variables; use Decimal (decimal.js).',
         },
         schema: [],
         messages: {
             noFloatMoney:
-                'Mogelijk float-geldrekenen op "{{name}}" — gebruik Decimal-methodes (plus/minus/times/dividedBy).',
+                'Possible floating-point money arithmetic on "{{name}}" — use Decimal methods (plus/minus/times/dividedBy).',
         },
     },
     create(context) {

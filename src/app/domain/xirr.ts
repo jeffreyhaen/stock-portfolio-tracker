@@ -1,37 +1,37 @@
 import Decimal from 'decimal.js';
-import { FxResolver, mutationInRapportagevaluta } from './fx';
+import { FxResolver, mutationInReportingCurrency } from './fx';
 import { Transaction, TransactionTypes as T } from './types';
 
 export interface Cashflow {
-    readonly datum: string;
-    readonly bedrag: Decimal;
+    readonly date: string;
+    readonly amount: Decimal;
 }
 
-const MIN_RENDEMENT = -0.9999;
-const MAX_RENDEMENT = 100;
+const MIN_RETURN = -0.9999;
+const MAX_RETURN = 100;
 const BISECTIE_ITERATIES = 100;
 const DAGEN_PER_JAAR = 365;
 
 export function xirr(flows: readonly Cashflow[]): Decimal | null {
-    const heeftInstroom = flows.some((f) => f.bedrag.isPositive() && !f.bedrag.isZero());
-    const heeftUitstroom = flows.some((f) => f.bedrag.isNegative() && !f.bedrag.isZero());
-    if (!heeftInstroom || !heeftUitstroom) {
+    const hasInflow = flows.some((f) => f.amount.isPositive() && !f.amount.isZero());
+    const hasOutflow = flows.some((f) => f.amount.isNegative() && !f.amount.isZero());
+    if (!hasInflow || !hasOutflow) {
         return null;
     }
-    const t0 = flows.reduce((min, f) => (f.datum < min ? f.datum : min), flows[0].datum);
-    const punten = flows.map((f) => ({
-        jaren: dagenTussen(t0, f.datum) / DAGEN_PER_JAAR,
-        bedrag: f.bedrag.toNumber(),
+    const t0 = flows.reduce((min, f) => (f.date < min ? f.date : min), flows[0].date);
+    const points = flows.map((f) => ({
+        years: daysBetween(t0, f.date) / DAGEN_PER_JAAR,
+        amount: f.amount.toNumber(),
     }));
     const npv = (r: number): number => {
-        let som = 0;
-        for (const p of punten) {
-            som += p.bedrag / Math.pow(1 + r, p.jaren);
+        let sum = 0;
+        for (const p of points) {
+            sum += p.amount / Math.pow(1 + r, p.years);
         }
-        return som;
+        return sum;
     };
-    let lo = MIN_RENDEMENT;
-    let hi = MAX_RENDEMENT;
+    let lo = MIN_RETURN;
+    let hi = MAX_RETURN;
     const fLo = npv(lo);
     const fHi = npv(hi);
     if (fLo === 0) {
@@ -59,7 +59,7 @@ export function xirr(flows: readonly Cashflow[]): Decimal | null {
 }
 
 export interface CashflowOptions {
-    readonly rapportagevaluta?: string;
+    readonly reportingCurrency?: string;
     readonly fxFallback?: FxResolver;
 }
 
@@ -67,7 +67,7 @@ export function cashflowsPerIsin(
     transactions: readonly Transaction[],
     options: CashflowOptions = {},
 ): Map<string, Cashflow[] | null> {
-    const { rapportagevaluta = 'EUR', fxFallback } = options;
+    const { reportingCurrency = 'EUR', fxFallback } = options;
     const perIsin = new Map<string, Cashflow[] | null>();
     for (const txn of transactions) {
         if (txn.isin === null || txn.mutation === null) {
@@ -81,12 +81,12 @@ export function cashflowsPerIsin(
         if (flows === null) {
             continue;
         }
-        const bedrag = mutationInRapportagevaluta(txn, rapportagevaluta, fxFallback);
-        if (bedrag === null) {
+        const amount = mutationInReportingCurrency(txn, reportingCurrency, fxFallback);
+        if (amount === null) {
             perIsin.set(txn.isin, null);
             continue;
         }
-        flows.push({ datum: txn.date, bedrag });
+        flows.push({ date: txn.date, amount });
     }
     return perIsin;
 }
@@ -96,17 +96,17 @@ export function holdingCashflows(
     isin: string,
     options: CashflowOptions = {},
 ): Cashflow[] | null {
-    const { rapportagevaluta = 'EUR', fxFallback } = options;
+    const { reportingCurrency = 'EUR', fxFallback } = options;
     const flows: Cashflow[] = [];
     for (const txn of transactions) {
         if (txn.isin !== isin || txn.mutation === null) {
             continue;
         }
-        const bedrag = mutationInRapportagevaluta(txn, rapportagevaluta, fxFallback);
-        if (bedrag === null) {
+        const amount = mutationInReportingCurrency(txn, reportingCurrency, fxFallback);
+        if (amount === null) {
             return null;
         }
-        flows.push({ datum: txn.date, bedrag });
+        flows.push({ date: txn.date, amount });
     }
     return flows;
 }
@@ -117,42 +117,42 @@ export function portfolioCashflows(
     transactions: readonly Transaction[],
     options: CashflowOptions = {},
 ): Cashflow[] | null {
-    const { rapportagevaluta = 'EUR', fxFallback } = options;
+    const { reportingCurrency = 'EUR', fxFallback } = options;
     const flows: Cashflow[] = [];
     for (const txn of transactions) {
         if (!EXTERNAL_TYPES.has(txn.type) || txn.mutation === null) {
             continue;
         }
-        const bedrag = mutationInRapportagevaluta(txn, rapportagevaluta, fxFallback);
-        if (bedrag === null) {
+        const amount = mutationInReportingCurrency(txn, reportingCurrency, fxFallback);
+        if (amount === null) {
             return null;
         }
-        flows.push({ datum: txn.date, bedrag: bedrag.neg() });
+        flows.push({ date: txn.date, amount: amount.neg() });
     }
     return flows;
 }
 
-export const MIN_PERIODE_DAGEN_JAARRENDEMENT = 365;
+export const MIN_ANNUALIZED_RETURN_DAYS = 365;
 
-export function cashflowWindowDagen(flows: readonly Cashflow[]): number {
+export function cashflowWindowDays(flows: readonly Cashflow[]): number {
     if (flows.length < 2) {
         return 0;
     }
-    let min = flows[0].datum;
-    let max = flows[0].datum;
+    let min = flows[0].date;
+    let max = flows[0].date;
     for (const f of flows) {
-        if (f.datum < min) {
-            min = f.datum;
+        if (f.date < min) {
+            min = f.date;
         }
-        if (f.datum > max) {
-            max = f.datum;
+        if (f.date > max) {
+            max = f.date;
         }
     }
-    return dagenTussen(min, max);
+    return daysBetween(min, max);
 }
 
-function dagenTussen(van: string, tot: string): number {
-    const start = Date.parse(`${van}T00:00:00Z`);
-    const einde = Date.parse(`${tot}T00:00:00Z`);
+function daysBetween(from: string, to: string): number {
+    const start = Date.parse(`${from}T00:00:00Z`);
+    const einde = Date.parse(`${to}T00:00:00Z`);
     return Math.round((einde - start) / 86_400_000);
 }

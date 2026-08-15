@@ -7,7 +7,7 @@ import { MoneyPipe } from '../../shared/money.pipe';
 import { TableSort } from '../../shared/sort';
 import { SortThComponent } from '../../shared/ui/sort-th';
 
-const VALUTA_NAMEN: Record<string, string> = {
+const CURRENCY_NAMES: Record<string, string> = {
     EUR: 'Euro',
     USD: 'US Dollar',
     GBP: 'British Pound',
@@ -34,13 +34,13 @@ interface FlowRow {
 export class CashPage {
     private readonly context = inject(PortfolioContext);
 
-    readonly rapportagevaluta = computed(() => this.context.selectedPortfolio()?.rapportagevaluta ?? 'EUR');
+    readonly reportingCurrency = computed(() => this.context.selectedPortfolio()?.reportingCurrency ?? 'EUR');
 
     readonly balancesSort = new TableSort<'currency' | 'balance' | 'balanceReporting', CashRow>(
         {
             currency: (row) => row.name,
             balance: (row) => row.balance,
-            balanceReporting: (row) => (row.currency === this.rapportagevaluta() ? row.balance : null),
+            balanceReporting: (row) => (row.currency === this.reportingCurrency() ? row.balance : null),
         },
         'balance',
         'desc',
@@ -57,20 +57,20 @@ export class CashPage {
         'desc',
     );
 
-    private readonly ongesorteerdeBalances = computed<CashRow[]>(() => {
-        const saldi = cashAt(this.context.transactions());
-        return [...saldi.entries()]
-            .filter(([, positie]) => !positie.amount.isZero())
-            .map(([currency, positie]) => ({
+    private readonly unsortedBalances = computed<CashRow[]>(() => {
+        const balances = cashAt(this.context.transactions());
+        return [...balances.entries()]
+            .filter(([, position]) => !position.amount.isZero())
+            .map(([currency, position]) => ({
                 currency,
-                name: VALUTA_NAMEN[currency] ?? currency,
-                balance: positie.amount,
+                name: CURRENCY_NAMES[currency] ?? currency,
+                balance: position.amount,
             }));
     });
 
-    readonly balances = computed(() => this.balancesSort.apply(this.ongesorteerdeBalances()));
+    readonly balances = computed(() => this.balancesSort.apply(this.unsortedBalances()));
 
-    private readonly ongesorteerdeFlows = computed<FlowRow[]>(() => {
+    private readonly unsortedFlows = computed<FlowRow[]>(() => {
         const flows = externalFlows(this.context.transactions());
         return [...flows.entries()].map(([currency, flow]) => ({
             currency,
@@ -79,5 +79,5 @@ export class CashPage {
         }));
     });
 
-    readonly flows = computed(() => this.flowsSort.apply(this.ongesorteerdeFlows()));
+    readonly flows = computed(() => this.flowsSort.apply(this.unsortedFlows()));
 }

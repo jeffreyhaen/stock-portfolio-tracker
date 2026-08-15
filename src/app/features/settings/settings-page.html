@@ -5,12 +5,13 @@
     <section class="rounded-xl border border-base-300 bg-base-100 p-6">
         <h2 class="text-base font-semibold">Backup &amp; restore</h2>
         <p class="mt-2 max-w-2xl text-sm text-base-content/80">
-            Exporteer al je data naar een JSON-bestand en zet het terug in een verse browser. Het bestand bevat
-            portefeuilles, transacties, securities, import-batches, handmatige en live koersen, FX-rates, koershistorie,
-            split-events en instellingen (zoals de geselecteerde portefeuille).
+            Export all your data to a JSON file and restore it in a fresh browser. The file contains portfolios,
+            transactions, securities, import batches, manual and live quotes, FX rates, price history, split events, and
+            settings such as the selected portfolio.
         </p>
         <p class="mt-2 text-xs text-base-content/60">
-            Huidige data: {{ transactionCount() | nlNumber: 0 }} transacties. Schema-versie {{ schemaVersion }}.
+            Current data: {{ transactionCount() | localizedNumber: 0 }} transactions. Schema version {{ schemaVersion
+            }}.
         </p>
 
         <div class="mt-4 flex flex-wrap gap-3">
@@ -30,23 +31,23 @@
         </div>
     </section>
 
-    @if (melding(); as bericht) {
+    @if (message(); as statusMessage) {
     <section
         class="rounded-xl border p-6"
-        [class.border-success/40]="bericht.toon === 'success'"
-        [class.bg-[#dff7ec]]="bericht.toon === 'success'"
-        [class.border-error/40]="bericht.toon === 'error'"
-        [class.bg-[#fdeaea]]="bericht.toon === 'error'"
-        [class.border-base-300]="bericht.toon === 'info'"
-        [class.bg-base-100]="bericht.toon === 'info'"
+        [class.border-success/40]="statusMessage.kind === 'success'"
+        [class.bg-[#dff7ec]]="statusMessage.kind === 'success'"
+        [class.border-error/40]="statusMessage.kind === 'error'"
+        [class.bg-[#fdeaea]]="statusMessage.kind === 'error'"
+        [class.border-base-300]="statusMessage.kind === 'info'"
+        [class.bg-base-100]="statusMessage.kind === 'info'"
         role="status"
     >
         <p
             class="text-sm"
-            [class.text-[#0a8a52]]="bericht.toon === 'success'"
-            [class.text-[#901010]]="bericht.toon === 'error'"
+            [class.text-[#0a8a52]]="statusMessage.kind === 'success'"
+            [class.text-[#901010]]="statusMessage.kind === 'error'"
         >
-            {{ bericht.tekst }}
+            {{ statusMessage.text }}
         </p>
     </section>
     }
@@ -54,37 +55,37 @@
 
 @if (pendingImport(); as preview) {
 <app-confirm-dialog
-    titel="Restore backup?"
-    beschrijving="This replaces ALL existing data in this browser with the contents of the backup file. This cannot be undone."
-    bevestigLabel="Restore"
-    annuleerLabel="Cancel"
-    [gevaarlijk]="true"
-    (bevestigen)="bevestigImport()"
-    (annuleren)="annuleerImport()"
+    title="Restore backup?"
+    description="This replaces ALL existing data in this browser with the contents of the backup file. This cannot be undone."
+    confirmLabel="Restore"
+    cancelLabel="Cancel"
+    [dangerous]="true"
+    (confirmed)="confirmImport()"
+    (cancelled)="cancelImport()"
 >
     <div class="mt-4 rounded-lg bg-neutral-soft p-4 text-sm">
-        <p class="font-medium">{{ preview.bestandsnaam }}</p>
+        <p class="font-medium">{{ preview.fileName }}</p>
         <p class="mt-1 text-xs text-base-content/60">
-            Schema {{ preview.schemaVersion }} · app {{ preview.appVersion }} · exported {{ preview.exportedAt | nlDate
-            }}
+            Schema {{ preview.schemaVersion }} · app {{ preview.appVersion }} · exported {{ preview.exportedAt |
+            localizedDate }}
         </p>
         <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             <dt class="text-base-content/60">Portfolios</dt>
-            <dd class="text-right tabular-nums">{{ preview.totals.portfolios | nlNumber: 0 }}</dd>
+            <dd class="text-right tabular-nums">{{ preview.totals.portfolios | localizedNumber: 0 }}</dd>
             <dt class="text-base-content/60">Transactions</dt>
-            <dd class="text-right tabular-nums">{{ preview.totals.transactions | nlNumber: 0 }}</dd>
+            <dd class="text-right tabular-nums">{{ preview.totals.transactions | localizedNumber: 0 }}</dd>
             <dt class="text-base-content/60">Securities</dt>
-            <dd class="text-right tabular-nums">{{ preview.totals.securities | nlNumber: 0 }}</dd>
+            <dd class="text-right tabular-nums">{{ preview.totals.securities | localizedNumber: 0 }}</dd>
             <dt class="text-base-content/60">Import batches</dt>
-            <dd class="text-right tabular-nums">{{ preview.totals.importBatches | nlNumber: 0 }}</dd>
+            <dd class="text-right tabular-nums">{{ preview.totals.importBatches | localizedNumber: 0 }}</dd>
             <dt class="text-base-content/60">Live quotes</dt>
-            <dd class="text-right tabular-nums">{{ preview.totals.quoteCache | nlNumber: 0 }}</dd>
+            <dd class="text-right tabular-nums">{{ preview.totals.quoteCache | localizedNumber: 0 }}</dd>
             <dt class="text-base-content/60">FX rates</dt>
-            <dd class="text-right tabular-nums">{{ preview.totals.fxCache | nlNumber: 0 }}</dd>
+            <dd class="text-right tabular-nums">{{ preview.totals.fxCache | localizedNumber: 0 }}</dd>
             <dt class="text-base-content/60">Price history</dt>
-            <dd class="text-right tabular-nums">{{ preview.totals.priceHistory | nlNumber: 0 }}</dd>
+            <dd class="text-right tabular-nums">{{ preview.totals.priceHistory | localizedNumber: 0 }}</dd>
             <dt class="text-base-content/60">Split events</dt>
-            <dd class="text-right tabular-nums">{{ preview.totals.splitEvents | nlNumber: 0 }}</dd>
+            <dd class="text-right tabular-nums">{{ preview.totals.splitEvents | localizedNumber: 0 }}</dd>
         </dl>
     </div>
 </app-confirm-dialog>

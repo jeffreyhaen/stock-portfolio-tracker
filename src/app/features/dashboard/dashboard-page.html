@@ -11,8 +11,8 @@
 } @else { @if (marketData.offline()) {
 <div class="alert alert-warning mt-6" role="alert">
     <span class="text-sm">
-        Quote proxy unreachable — showing last known prices. @if (marketData.laatsteRefresh() !== null) { Last
-        successful refresh: {{ marketData.laatsteRefresh() | nlDate }}. }
+        Quote proxy unreachable — showing last known prices. @if (marketData.lastRefresh() !== null) { Last successful
+        refresh: {{ marketData.lastRefresh() | localizedDate }}. }
     </span>
 </div>
 }
@@ -28,7 +28,7 @@
                 [class.text-success]="!rangeResult()?.result?.isNegative() && !rangeResult()?.result?.isZero()"
                 [class.text-error]="rangeResult()?.result?.isNegative()"
             >
-                {{ rangeResult()?.result | money: 'EUR' }} ({{ rangeResult()?.resultPct | nlNumber: 2 }}%)
+                {{ rangeResult()?.result | money: 'EUR' }} ({{ rangeResult()?.resultPct | localizedNumber: 2 }}%)
             </p>
             } } @else {
             <p class="text-4xl font-semibold tabular-nums">–</p>
@@ -37,18 +37,18 @@
         </div>
         <div class="flex items-center gap-3">
             <div class="flex flex-wrap justify-end gap-1">
-                @for (optie of ranges; track optie.id) {
+                @for (option of ranges; track option.id) {
                 <button
                     type="button"
                     class="rounded-full px-3 py-1 text-xs font-medium"
-                    [class.border]="range() === optie.id"
-                    [class.border-base-300]="range() === optie.id"
-                    [class.bg-base-100]="range() === optie.id"
-                    [class.text-primary]="range() === optie.id"
-                    [class.text-base-content/60]="range() !== optie.id"
-                    (click)="range.set(optie.id)"
+                    [class.border]="range() === option.id"
+                    [class.border-base-300]="range() === option.id"
+                    [class.bg-base-100]="range() === option.id"
+                    [class.text-primary]="range() === option.id"
+                    [class.text-base-content/60]="range() !== option.id"
+                    (click)="range.set(option.id)"
                 >
-                    {{ optie.label }}
+                    {{ option.label }}
                 </button>
                 }
                 <span class="relative">
@@ -73,16 +73,16 @@
                                 type="date"
                                 class="input input-xs input-bordered w-full"
                                 [value]="customVanDraft()"
-                                [max]="maxDatum"
+                                [max]="maxDate"
                                 (input)="customVanDraft.set($any($event.target).value)"
                             />
                             <span class="text-xs text-base-content/60">to</span>
                             <input
                                 type="date"
                                 class="input input-xs input-bordered w-full"
-                                [value]="customTotDraft()"
-                                [max]="maxDatum"
-                                (input)="customTotDraft.set($any($event.target).value)"
+                                [value]="customToDraft()"
+                                [max]="maxDate"
+                                (input)="customToDraft.set($any($event.target).value)"
                             />
                         </div>
                         <div class="mt-2 flex justify-end gap-2">
@@ -146,7 +146,7 @@
             [class.text-success]="!twr().twr?.isNegative() && !twr().twr?.isZero()"
             [class.text-error]="twr().twr?.isNegative()"
         >
-            {{ twr().twrPct | nlNumber: 2 }}%
+            {{ twr().twrPct | localizedNumber: 2 }}%
         </p>
         } @else {
         <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
@@ -164,7 +164,7 @@
             [class.text-success]="!xirrPerYear()?.pct?.isNegative() && !xirrPerYear()?.pct?.isZero()"
             [class.text-error]="xirrPerYear()?.pct?.isNegative()"
         >
-            {{ xirrPerYear()?.pct | nlNumber: 2 }}% @if (xirrPerYear()?.perYear) {
+            {{ xirrPerYear()?.pct | localizedNumber: 2 }}% @if (xirrPerYear()?.perYear) {
             <span class="text-sm font-normal text-base-content/60">/year</span>
             }
         </p>
@@ -220,14 +220,14 @@
                 <div class="min-w-0">
                     <p class="truncate text-sm font-medium">{{ holding.product }}</p>
                     <p class="text-[0.8125rem] tabular-nums text-base-content/60">
-                        {{ holding.quantity | nlNumber: 4 : 0 }} shares
+                        {{ holding.quantity | localizedNumber: 4 : 0 }} shares
                     </p>
                 </div>
                 <div class="shrink-0 text-right">
                     <p class="text-sm font-medium tabular-nums">{{ holding.valueEur | money: 'EUR' }}</p>
                     @if (holding.weightPct !== null) {
                     <p class="text-[0.8125rem] tabular-nums text-base-content/60">
-                        {{ holding.weightPct | nlNumber: 1 }}%
+                        {{ holding.weightPct | localizedNumber: 1 }}%
                     </p>
                     }
                 </div>
@@ -254,7 +254,9 @@
             <li class="flex items-center justify-between gap-3 py-2">
                 <div class="min-w-0">
                     <p class="truncate text-sm font-medium">{{ txn.product || txn.label }}</p>
-                    <p class="text-[0.8125rem] text-base-content/60">{{ txn.date | nlDate }} · {{ txn.label }}</p>
+                    <p class="text-[0.8125rem] text-base-content/60">
+                        {{ txn.date | localizedDate }} · {{ txn.label }}
+                    </p>
                 </div>
                 <p class="shrink-0 text-sm font-medium tabular-nums">
                     {{ txn.mutation | money: txn.mutationCurrency }}

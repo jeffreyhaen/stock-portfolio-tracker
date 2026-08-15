@@ -9,15 +9,15 @@ export class PortfolioRepository {
 
     async list(): Promise<StoredPortfolio[]> {
         const portfolios = await this.db.portfolios.toArray();
-        return portfolios.sort((a, b) => a.naam.localeCompare(b.naam));
+        return portfolios.sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    async create(naam: string, rapportagevaluta: string): Promise<StoredPortfolio> {
+    async create(name: string, reportingCurrency: string): Promise<StoredPortfolio> {
         const portfolio: StoredPortfolio = {
             id: crypto.randomUUID(),
-            naam,
-            rapportagevaluta,
-            aangemaaktOp: new Date().toISOString(),
+            name,
+            reportingCurrency,
+            createdAt: new Date().toISOString(),
         };
         await this.db.portfolios.add(portfolio);
         return portfolio;
@@ -26,7 +26,7 @@ export class PortfolioRepository {
     async delete(id: string): Promise<void> {
         await this.db.transaction('rw', [this.db.portfolios, this.db.transactions, this.db.importBatches], async () => {
             await this.db.transactions
-                .where('[portfolioId+datum]')
+                .where('[portfolioId+date]')
                 .between([id, Dexie.minKey], [id, Dexie.maxKey])
                 .delete();
             await this.db.importBatches.where('portfolioId').equals(id).delete();

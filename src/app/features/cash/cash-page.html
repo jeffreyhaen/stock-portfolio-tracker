@@ -32,7 +32,7 @@
                     <p class="text-sm font-medium tabular-nums">{{ row.balance | money: row.currency }}</p>
                 </td>
                 <td class="text-right">
-                    @if (row.currency === rapportagevaluta()) {
+                    @if (row.currency === reportingCurrency()) {
                     <p class="text-sm font-medium tabular-nums">{{ row.balance | money: row.currency }}</p>
                     } @else {
                     <p class="text-sm text-base-content/60" title="Available once FX rates are fetched">–</p>

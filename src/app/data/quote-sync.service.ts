@@ -1,22 +1,22 @@
 import { inject, Injectable } from '@angular/core';
 import Decimal from 'decimal.js';
 import Dexie from 'dexie';
-import { kiesTickerKandidaat } from '../domain/ticker-match';
+import { chooseTickerCandidate } from '../domain/ticker-match';
 import { PortfolioDatabase } from './db';
 import { FxService } from './fx.service';
 import { MarketDataService } from './market-data.service';
 import { QuoteProvider, TickerSuggestion } from './quote-provider';
 
 export interface RefreshReport {
-    readonly quotesBijgewerkt: number;
-    readonly quotesMislukt: string[];
-    readonly historieBijgewerkt: string[];
-    readonly fxBijgewerkt: boolean;
+    readonly quotesUpdated: number;
+    readonly quotesFailed: string[];
+    readonly historyUpdated: string[];
+    readonly fxUpdated: boolean;
 }
 
 export interface AutoLinkReport {
-    readonly gelinkt: { isin: string; symbol: string }[];
-    readonly geenKandidaat: string[];
+    readonly linked: { isin: string; symbol: string }[];
+    readonly noCandidate: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -32,29 +32,29 @@ export class QuoteSyncService {
 
     async linkTicker(isin: string, symbol: string, exchange?: string): Promise<void> {
         await this.db.securities.update(isin, {
-            tickerVoorKoers: symbol,
-            ...(exchange !== undefined ? { beurs: exchange } : {}),
+            quoteTicker: symbol,
+            ...(exchange !== undefined ? { exchange: exchange } : {}),
         });
     }
 
-    async refreshSecurity(isin: string, vanafDatum: string): Promise<void> {
+    async refreshSecurity(isin: string, fromDate: string): Promise<void> {
         const security = await this.db.securities.get(isin);
-        const ticker = security?.tickerVoorKoers;
+        const ticker = security?.quoteTicker;
         if (security === undefined || ticker === null || ticker === undefined) {
             return;
         }
         this.marketData.refreshing.set(true);
         try {
-            await this.fx.ensureRange('USD/EUR', vanafDatum, vandaag());
+            await this.fx.ensureRange('USD/EUR', fromDate, today());
             const result = await this.provider.quote(ticker);
             await this.db.quoteCache.put({
-                sleutel: isin,
-                prijs: new Decimal(result.prijs).toString(),
-                valuta: result.valuta,
-                tijdstip: new Date().toISOString(),
-                bron: 'yahoo',
+                key: isin,
+                price: new Decimal(result.price).toString(),
+                currency: result.currency,
+                timestamp: new Date().toISOString(),
+                source: 'yahoo',
             });
-            await this.ensureHistory(isin, ticker, vanafDatum);
+            await this.ensureHistory(isin, ticker, fromDate);
             this.marketData.offline.set(false);
         } catch {
             this.marketData.offline.set(true);
@@ -64,148 +64,151 @@ export class QuoteSyncService {
         await this.marketData.reload();
     }
 
-    async autoLink(vanafDatum: string): Promise<AutoLinkReport> {
+    async autoLink(fromDate: string): Promise<AutoLinkReport> {
         const securities = await this.db.securities.toArray();
-        const ongelinkt = securities.filter((s) => s.tickerVoorKoers === null || s.tickerVoorKoers === undefined);
-        const gelinkt: { isin: string; symbol: string }[] = [];
-        const geenKandidaat: string[] = [];
-        for (const security of ongelinkt) {
+        const unlinked = securities.filter((s) => s.quoteTicker === null || s.quoteTicker === undefined);
+        const linked: { isin: string; symbol: string }[] = [];
+        const noCandidate: string[] = [];
+        for (const security of unlinked) {
             try {
-                const isinZoek = kiesTickerKandidaat(await this.provider.search(security.isin), security.handelsvaluta);
-                let keuze = isinZoek.kandidaat;
-                if (!isinZoek.viaValutaMatch && security.handelsvaluta !== null) {
-                    const naamZoek = kiesTickerKandidaat(
-                        await this.provider.search(security.naam),
-                        security.handelsvaluta,
+                const isinSearch = chooseTickerCandidate(
+                    await this.provider.search(security.isin),
+                    security.tradingCurrency,
+                );
+                let candidate = isinSearch.candidate;
+                if (!isinSearch.currencyMatch && security.tradingCurrency !== null) {
+                    const nameSearch = chooseTickerCandidate(
+                        await this.provider.search(security.name),
+                        security.tradingCurrency,
                     );
-                    if (naamZoek.viaValutaMatch) {
-                        keuze = naamZoek.kandidaat;
+                    if (nameSearch.currencyMatch) {
+                        candidate = nameSearch.candidate;
                     }
                 }
-                if (keuze === null) {
-                    geenKandidaat.push(security.isin);
+                if (candidate === null) {
+                    noCandidate.push(security.isin);
                     continue;
                 }
-                await this.linkTicker(security.isin, keuze.symbol, keuze.exchange);
-                gelinkt.push({ isin: security.isin, symbol: keuze.symbol });
+                await this.linkTicker(security.isin, candidate.symbol, candidate.exchange);
+                linked.push({ isin: security.isin, symbol: candidate.symbol });
             } catch {
-                geenKandidaat.push(security.isin);
+                noCandidate.push(security.isin);
             }
         }
-        if (gelinkt.length > 0) {
-            await this.refreshAll(vanafDatum);
+        if (linked.length > 0) {
+            await this.refreshAll(fromDate);
         }
-        return { gelinkt, geenKandidaat };
+        return { linked, noCandidate };
     }
 
     async unlinkTicker(isin: string): Promise<void> {
-        await this.db.securities.update(isin, { tickerVoorKoers: null, beurs: null });
+        await this.db.securities.update(isin, { quoteTicker: null, exchange: null });
         await this.db.priceHistory.where('isin').equals(isin).delete();
         const quote = await this.db.quoteCache.get(isin);
-        if (quote?.bron === 'yahoo') {
+        if (quote?.source === 'yahoo') {
             await this.db.quoteCache.delete(isin);
         }
         await this.marketData.reload();
     }
 
-    async refreshAll(vanafDatum: string): Promise<RefreshReport> {
+    async refreshAll(fromDate: string): Promise<RefreshReport> {
         this.marketData.refreshing.set(true);
         try {
             const securities = await this.db.securities.toArray();
-            const gekoppeld = securities.filter((s) => s.tickerVoorKoers !== null);
-            const quotesBijgewerkt: string[] = [];
-            const quotesMislukt: string[] = [];
-            const historieBijgewerkt: string[] = [];
-            let fxBijgewerkt = false;
+            const linkedSecurities = securities.filter((s) => s.quoteTicker !== null);
+            const quotesUpdated: string[] = [];
+            const quotesFailed: string[] = [];
+            const historyUpdated: string[] = [];
+            let fxUpdated = false;
 
             try {
-                await this.fx.ensureRange('USD/EUR', vanafDatum, vandaag());
-                fxBijgewerkt = true;
+                await this.fx.ensureRange('USD/EUR', fromDate, today());
+                fxUpdated = true;
 
-                const tickers = gekoppeld.map((s) => s.tickerVoorKoers ?? '');
+                const tickers = linkedSecurities.map((s) => s.quoteTicker ?? '');
                 const quotes = await this.provider.quotes(tickers);
-                for (const security of gekoppeld) {
-                    const ticker = security.tickerVoorKoers ?? '';
+                for (const security of linkedSecurities) {
+                    const ticker = security.quoteTicker ?? '';
                     const result = quotes[ticker.toUpperCase()] ?? quotes[ticker];
                     if (result === undefined || 'error' in result) {
-                        quotesMislukt.push(ticker);
+                        quotesFailed.push(ticker);
                         continue;
                     }
                     await this.db.quoteCache.put({
-                        sleutel: security.isin,
-                        prijs: new Decimal(result.prijs).toString(),
-                        valuta: result.valuta,
-                        tijdstip: new Date().toISOString(),
-                        bron: 'yahoo',
+                        key: security.isin,
+                        price: new Decimal(result.price).toString(),
+                        currency: result.currency,
+                        timestamp: new Date().toISOString(),
+                        source: 'yahoo',
                     });
-                    quotesBijgewerkt.push(ticker);
+                    quotesUpdated.push(ticker);
                 }
 
-                const historieValutas = new Set<string>();
-                for (const security of gekoppeld) {
-                    const ticker = security.tickerVoorKoers ?? '';
+                const historyCurrencies = new Set<string>();
+                for (const security of linkedSecurities) {
+                    const ticker = security.quoteTicker ?? '';
                     try {
-                        const valuta = await this.ensureHistory(security.isin, ticker, vanafDatum);
-                        if (valuta !== null) {
-                            historieValutas.add(valuta);
+                        const currency = await this.ensureHistory(security.isin, ticker, fromDate);
+                        if (currency !== null) {
+                            historyCurrencies.add(currency);
                         }
-                        historieBijgewerkt.push(security.isin);
+                        historyUpdated.push(security.isin);
                     } catch {
-                        quotesMislukt.push(ticker);
+                        quotesFailed.push(ticker);
                     }
                 }
-                for (const valuta of historieValutas) {
-                    if (valuta !== 'EUR' && valuta !== 'USD') {
-                        await this.fx.ensureRange(`${valuta}/EUR`, vanafDatum, vandaag());
+                for (const currency of historyCurrencies) {
+                    if (currency !== 'EUR' && currency !== 'USD') {
+                        await this.fx.ensureRange(`${currency}/EUR`, fromDate, today());
                     }
                 }
 
                 this.marketData.offline.set(false);
-                this.marketData.laatsteRefresh.set(new Date().toISOString());
+                this.marketData.lastRefresh.set(new Date().toISOString());
             } catch {
                 this.marketData.offline.set(true);
             }
             await this.marketData.reload();
-            return { quotesBijgewerkt: quotesBijgewerkt.length, quotesMislukt, historieBijgewerkt, fxBijgewerkt };
+            return { quotesUpdated: quotesUpdated.length, quotesFailed, historyUpdated, fxUpdated };
         } finally {
             this.marketData.refreshing.set(false);
         }
     }
 
-    private async ensureHistory(isin: string, ticker: string, vanafDatum: string): Promise<string | null> {
-        const laatste = await this.db.priceHistory
-            .where('[isin+datum]')
+    private async ensureHistory(isin: string, ticker: string, fromDate: string): Promise<string | null> {
+        const latest = await this.db.priceHistory
+            .where('[isin+date]')
             .between([isin, Dexie.minKey], [isin, Dexie.maxKey])
             .last();
-        const grens = plusDagen(vandaag(), -3);
-        if (laatste !== undefined && laatste.datum >= grens) {
-            return laatste.valuta;
+        const cutoff = addDays(today(), -3);
+        if (latest !== undefined && latest.date >= cutoff) {
+            return latest.currency;
         }
-        const from = laatste === undefined ? vanafDatum : plusDagen(laatste.datum, 1);
-        const result = await this.provider.history(ticker, from, vandaag());
+        const from = latest === undefined ? fromDate : addDays(latest.date, 1);
+        const result = await this.provider.history(ticker, from, today());
         await this.db.priceHistory.bulkPut(
             result.bars.map((bar) => ({
                 isin,
-                datum: bar.datum,
-                slotkoers: new Decimal(bar.slotkoers).toString(),
-                valuta: result.valuta,
+                date: bar.date,
+                close: new Decimal(bar.close).toString(),
+                currency: result.currency,
             })),
         );
         if (result.splits.length > 0) {
             await this.db.splitEvents.bulkPut(
-                result.splits.map((split) => ({ isin, datum: split.datum, factor: split.factor })),
+                result.splits.map((split) => ({ isin, date: split.date, factor: split.factor })),
             );
         }
-        return result.valuta;
+        return result.currency;
     }
 }
 
-function vandaag(): string {
+function today(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
-function plusDagen(datum: string, dagen: number): string {
-    const d = new Date(`${datum}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + dagen);
+function addDays(date: string, days: number): string {
+    const d = new Date(`${date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
     return d.toISOString().slice(0, 10);
 }

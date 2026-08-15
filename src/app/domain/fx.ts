@@ -1,61 +1,61 @@
 import Decimal from 'decimal.js';
 import { Transaction } from './types';
 
-export type FxResolver = (valuta: string, datum: string) => Decimal | null;
+export type FxResolver = (currency: string, date: string) => Decimal | null;
 
 export interface FxRateInput {
-    readonly paar: string;
-    readonly datum: string;
-    readonly koers: string;
+    readonly pair: string;
+    readonly date: string;
+    readonly rate: string;
 }
 
-export function mutationInRapportagevaluta(
+export function mutationInReportingCurrency(
     txn: Pick<Transaction, 'mutation' | 'mutationCurrency' | 'tradeCurrency' | 'fxRate' | 'date'>,
-    rapportagevaluta: string,
+    reportingCurrency: string,
     fxFallback?: FxResolver,
 ): Decimal | null {
     if (txn.mutation === null) {
         return null;
     }
-    const valuta = txn.mutationCurrency ?? txn.tradeCurrency;
-    if (valuta === null || valuta === '') {
+    const currency = txn.mutationCurrency ?? txn.tradeCurrency;
+    if (currency === null || currency === '') {
         return null;
     }
-    if (valuta === rapportagevaluta) {
+    if (currency === reportingCurrency) {
         return txn.mutation;
     }
     if (txn.fxRate !== null && !txn.fxRate.isZero()) {
         return txn.mutation.div(txn.fxRate);
     }
-    const koers = fxFallback?.(valuta, txn.date) ?? null;
-    return koers === null ? null : txn.mutation.times(koers);
+    const rate = fxFallback?.(currency, txn.date) ?? null;
+    return rate === null ? null : txn.mutation.times(rate);
 }
 
-export function buildFxResolver(rates: readonly FxRateInput[], rapportagevaluta = 'EUR'): FxResolver {
-    const perPaar = new Map<string, { datum: string; koers: Decimal }[]>();
+export function buildFxResolver(rates: readonly FxRateInput[], reportingCurrency = 'EUR'): FxResolver {
+    const ratesByPair = new Map<string, { date: string; rate: Decimal }[]>();
     for (const rate of rates) {
-        const lijst = perPaar.get(rate.paar) ?? [];
-        lijst.push({ datum: rate.datum, koers: new Decimal(rate.koers) });
-        perPaar.set(rate.paar, lijst);
+        const list = ratesByPair.get(rate.pair) ?? [];
+        list.push({ date: rate.date, rate: new Decimal(rate.rate) });
+        ratesByPair.set(rate.pair, list);
     }
-    for (const lijst of perPaar.values()) {
-        lijst.sort((a, b) => a.datum.localeCompare(b.datum));
+    for (const list of ratesByPair.values()) {
+        list.sort((a, b) => a.date.localeCompare(b.date));
     }
-    return (valuta: string, datum: string): Decimal | null => {
-        if (valuta === rapportagevaluta) {
+    return (currency: string, date: string): Decimal | null => {
+        if (currency === reportingCurrency) {
             return new Decimal(1);
         }
-        const lijst = perPaar.get(`${valuta}/${rapportagevaluta}`);
-        if (lijst === undefined) {
+        const list = ratesByPair.get(`${currency}/${reportingCurrency}`);
+        if (list === undefined) {
             return null;
         }
-        let gevonden: Decimal | null = null;
-        for (const rate of lijst) {
-            if (rate.datum > datum) {
+        let found: Decimal | null = null;
+        for (const rate of list) {
+            if (rate.date > date) {
                 break;
             }
-            gevonden = rate.koers;
+            found = rate.rate;
         }
-        return gevonden;
+        return found;
     };
 }

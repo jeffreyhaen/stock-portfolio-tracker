@@ -32,7 +32,7 @@ export const TransactionTypes = {
 
 export type TransactionType = (typeof TransactionTypes)[keyof typeof TransactionTypes];
 
-export type CorporateAction = 'STOCK_SPLIT' | 'SPIN_OFF' | 'PRODUCTWIJZIGING' | 'WIJZIGING_ISIN';
+export type CorporateAction = 'STOCK_SPLIT' | 'SPIN_OFF' | 'PRODUCT_CHANGE' | 'ISIN_CHANGE';
 
 export interface Classification {
     readonly type: TransactionType;
@@ -43,17 +43,17 @@ export interface Classification {
 }
 
 export interface RawCsvRow {
-    readonly datum: string;
-    readonly tijd: string;
-    readonly valutadatum: string;
+    readonly date: string;
+    readonly time: string;
+    readonly valueDate: string;
     readonly product: string;
     readonly isin: string;
-    readonly omschrijving: string;
+    readonly description: string;
     readonly fx: string;
-    readonly mutatieCurrency: string;
-    readonly mutatie: string;
-    readonly saldoCurrency: string;
-    readonly saldo: string;
+    readonly mutationCurrency: string;
+    readonly mutation: string;
+    readonly balanceCurrency: string;
+    readonly balance: string;
     readonly orderId: string;
     readonly rowIndex: number;
 }

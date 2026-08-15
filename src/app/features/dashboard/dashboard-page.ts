@@ -9,17 +9,11 @@ import { holdingStats } from '../../domain/holdings';
 import { timeWeightedReturn } from '../../domain/twr';
 import { Transaction } from '../../domain/types';
 import { buildValuation, rangeTotals } from '../../domain/valuation';
-import {
-    Cashflow,
-    cashflowWindowDagen,
-    MIN_PERIODE_DAGEN_JAARRENDEMENT,
-    portfolioCashflows,
-    xirr,
-} from '../../domain/xirr';
+import { Cashflow, cashflowWindowDays, MIN_ANNUALIZED_RETURN_DAYS, portfolioCashflows, xirr } from '../../domain/xirr';
 import { formatMoney } from '../../shared/money';
 import { MoneyPipe } from '../../shared/money.pipe';
-import { NlDatePipe } from '../../shared/nl-date.pipe';
-import { NlNumberPipe } from '../../shared/nl-number.pipe';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
+import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { transactionTypeLabel } from '../../shared/transaction-type';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
 import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
@@ -42,12 +36,12 @@ function cutoffFor(range: Range, today: string): string | null {
     if (range === 'all' || range === 'custom') {
         return null;
     }
-    const [jaar, maand, dag] = today.split('-').map(Number);
+    const [year, month, day] = today.split('-').map(Number);
     if (range === 'ytd') {
-        return `${jaar}-01-01`;
+        return `${year}-01-01`;
     }
     if (range === 'mtd') {
-        return `${jaar}-${String(maand).padStart(2, '0')}-01`;
+        return `${year}-${String(month).padStart(2, '0')}-01`;
     }
     const cfg: Record<Exclude<Range, 'all' | 'mtd' | 'ytd' | 'custom'>, { j: number; m: number; d: number }> = {
         '1d': { j: 0, m: 0, d: 1 },
@@ -58,8 +52,8 @@ function cutoffFor(range: Range, today: string): string | null {
         '3y': { j: 3, m: 0, d: 0 },
     };
     const c = cfg[range];
-    const datum = new Date(Date.UTC(jaar - c.j, maand - 1 - c.m, dag - c.d));
-    return datum.toISOString().slice(0, 10);
+    const date = new Date(Date.UTC(year - c.j, month - 1 - c.m, day - c.d));
+    return date.toISOString().slice(0, 10);
 }
 
 interface TopHoldingView {
@@ -91,7 +85,7 @@ interface RangeResult {
 
 @Component({
     selector: 'app-dashboard-page',
-    imports: [RouterLink, MoneyPipe, NlDatePipe, NlNumberPipe, InfoTooltipComponent, ValueChartComponent],
+    imports: [RouterLink, MoneyPipe, LocalizedDatePipe, LocalizedNumberPipe, InfoTooltipComponent, ValueChartComponent],
     templateUrl: './dashboard-page.html',
 })
 export class DashboardPage {
@@ -105,10 +99,10 @@ export class DashboardPage {
 
     readonly customOpen = signal(false);
     readonly customVan = signal<string | null>(null);
-    readonly customTot = signal<string | null>(null);
+    readonly customTo = signal<string | null>(null);
     readonly customVanDraft = signal('');
-    readonly customTotDraft = signal('');
-    readonly maxDatum = new Date().toISOString().slice(0, 10);
+    readonly customToDraft = signal('');
+    readonly maxDate = new Date().toISOString().slice(0, 10);
 
     private readonly today = new Date().toISOString().slice(0, 10);
 
@@ -132,17 +126,17 @@ export class DashboardPage {
     private readonly barsMap = computed<ReadonlyMap<string, PriceBar[]>>(() => {
         const map = new Map<string, PriceBar[]>();
         for (const bar of this.marketData.priceHistory()) {
-            const lijst = map.get(bar.isin) ?? [];
-            lijst.push({ datum: bar.datum, slotkoers: new Decimal(bar.slotkoers), valuta: bar.valuta });
-            map.set(bar.isin, lijst);
+            const list = map.get(bar.isin) ?? [];
+            list.push({ date: bar.date, close: new Decimal(bar.close), currency: bar.currency });
+            map.set(bar.isin, list);
         }
-        for (const lijst of map.values()) {
-            lijst.sort((a, b) => a.datum.localeCompare(b.datum));
+        for (const list of map.values()) {
+            list.sort((a, b) => a.date.localeCompare(b.date));
         }
         return map;
     });
 
-    readonly heeftHistorie = computed(() => this.marketData.priceHistory().length > 0);
+    readonly hasHistory = computed(() => this.marketData.priceHistory().length > 0);
 
     readonly marketSeries = computed(() =>
         buildMarketValueSeries(
@@ -154,45 +148,45 @@ export class DashboardPage {
     );
 
     private readonly splitsMap = computed(() => {
-        const map = new Map<string, { datum: string; factor: Decimal }[]>();
+        const map = new Map<string, { date: string; factor: Decimal }[]>();
         for (const split of this.marketData.splitEvents()) {
-            const lijst = map.get(split.isin) ?? [];
-            lijst.push({ datum: split.datum, factor: new Decimal(split.factor) });
-            map.set(split.isin, lijst);
+            const list = map.get(split.isin) ?? [];
+            list.push({ date: split.date, factor: new Decimal(split.factor) });
+            map.set(split.isin, list);
         }
         return map;
     });
 
-    private readonly seriesPunten = computed(() => {
-        const { van, tot } = this.grenzen();
-        const binnen = (datum: string) => (van === null || datum >= van) && (tot === null || datum <= tot);
-        if (this.heeftHistorie()) {
-            return this.marketSeries().punten.filter((p) => binnen(p.datum));
+    private readonly filteredSeriesPoints = computed(() => {
+        const { from, to } = this.bounds();
+        const within = (date: string) => (from === null || date >= from) && (to === null || date <= to);
+        if (this.hasHistory()) {
+            return this.marketSeries().points.filter((p) => within(p.date));
         }
         return this.valuation()
-            .punten.filter((p) => binnen(p.datum))
+            .points.filter((p) => within(p.date))
             .map((p) => ({ ...p, flow: new Decimal(0) }));
     });
 
-    readonly grenzen = computed<{ van: string | null; tot: string | null }>(() => {
+    readonly bounds = computed<{ from: string | null; to: string | null }>(() => {
         if (this.range() === 'custom') {
-            return { van: this.customVan(), tot: this.customTot() };
+            return { from: this.customVan(), to: this.customTo() };
         }
-        return { van: cutoffFor(this.range(), this.today), tot: null };
+        return { from: cutoffFor(this.range(), this.today), to: null };
     });
 
     readonly rangeTotals = computed(() => {
-        const { van, tot } = this.grenzen();
-        return rangeTotals(this.context.transactions(), this.marketData.fxResolver(), van, tot);
+        const { from, to } = this.bounds();
+        return rangeTotals(this.context.transactions(), this.marketData.fxResolver(), from, to);
     });
 
     readonly rangeResult = computed<RangeResult | null>(() => {
-        const punten = this.seriesPunten();
-        if (punten.length === 0) {
+        const points = this.filteredSeriesPoints();
+        if (points.length === 0) {
             return null;
         }
-        const first = punten[0];
-        const last = punten[punten.length - 1];
+        const first = points[0];
+        const last = points[points.length - 1];
         if (first.value === null || last.value === null) {
             return null;
         }
@@ -206,10 +200,10 @@ export class DashboardPage {
     });
 
     readonly chartSeries = computed<ChartSeries[]>(() => {
-        const punten = this.seriesPunten();
-        const valuePoints = punten
+        const points = this.filteredSeriesPoints();
+        const valuePoints = points
             .filter((p) => p.value !== null)
-            .map((p) => ({ time: p.datum, value: p.value?.toNumber() ?? 0 }));
+            .map((p) => ({ time: p.date, value: p.value?.toNumber() ?? 0 }));
         return [
             { name: 'Value', color: '#0068f0', dashed: false, fill: true, points: valuePoints },
             {
@@ -217,32 +211,32 @@ export class DashboardPage {
                 color: '#94a3b8',
                 dashed: true,
                 fill: false,
-                points: punten.map((p) => ({ time: p.datum, value: p.netInvested.toNumber() })),
+                points: points.map((p) => ({ time: p.date, value: p.netInvested.toNumber() })),
             },
         ];
     });
 
     readonly twr = computed(() => {
-        if (!this.heeftHistorie()) {
-            return { twr: null, twrPct: null, dagen: 0 };
+        if (!this.hasHistory()) {
+            return { twr: null, twrPct: null, days: 0 };
         }
-        return timeWeightedReturn(this.seriesPunten());
+        return timeWeightedReturn(this.filteredSeriesPoints());
     });
 
     readonly topHoldings = computed<TopHoldingView[]>(() => {
         const quotes = this.marketData.quoteMap();
         const fx = this.marketData.fxResolver();
-        const totaal = this.valuation().totals.value;
+        const total = this.valuation().totals.value;
         return this.holdings()
             .map((h) => {
                 const quote = quotes.get(h.isin);
                 let valueEur: Decimal | null = null;
                 if (quote !== undefined) {
-                    const rate = fx(quote.valuta, this.today);
-                    valueEur = rate === null ? null : h.quantity.times(quote.prijs).times(rate);
+                    const rate = fx(quote.currency, this.today);
+                    valueEur = rate === null ? null : h.quantity.times(quote.price).times(rate);
                 }
                 const weightPct =
-                    valueEur === null || totaal === null || totaal.isZero() ? null : valueEur.div(totaal).times(100);
+                    valueEur === null || total === null || total.isZero() ? null : valueEur.div(total).times(100);
                 return { isin: h.isin, product: h.product, quantity: h.quantity, valueEur, weightPct };
             })
             .sort((a, b) => {
@@ -273,8 +267,8 @@ export class DashboardPage {
 
     readonly cashBalances = computed<CashBalanceView[]>(() =>
         [...cashAt(this.context.transactions()).values()]
-            .filter((positie) => !positie.amount.isZero())
-            .map((positie) => ({ currency: positie.currency, balance: positie.amount }))
+            .filter((position) => !position.amount.isZero())
+            .map((position) => ({ currency: position.currency, balance: position.amount }))
             .sort((a, b) => b.balance.comparedTo(a.balance)),
     );
 
@@ -294,57 +288,57 @@ export class DashboardPage {
     });
 
     readonly xirrPerYear = computed<{ pct: Decimal; perYear: boolean } | null>(() => {
-        const punten = this.seriesPunten().filter((p) => p.value !== null);
-        if (punten.length === 0) {
+        const points = this.filteredSeriesPoints().filter((p) => p.value !== null);
+        if (points.length === 0) {
             return null;
         }
-        const first = punten[0];
-        const last = punten[punten.length - 1];
-        const windowDagen = cashflowWindowDagen([
-            { datum: first.datum, bedrag: new Decimal(0) },
-            { datum: last.datum, bedrag: new Decimal(0) },
+        const first = points[0];
+        const last = points[points.length - 1];
+        const windowDays = cashflowWindowDays([
+            { date: first.date, amount: new Decimal(0) },
+            { date: last.date, amount: new Decimal(0) },
         ]);
-        if (windowDagen < MIN_PERIODE_DAGEN_JAARRENDEMENT) {
+        if (windowDays < MIN_ANNUALIZED_RETURN_DAYS) {
             const rr = this.rangeResult();
             return rr === null ? null : { pct: rr.resultPct, perYear: false };
         }
-        const { van, tot } = this.grenzen();
+        const { from, to } = this.bounds();
         const txns = this.context
             .transactions()
-            .filter((t) => (van === null || t.date >= van) && (tot === null || t.date <= tot));
-        const extern = portfolioCashflows(txns, { fxFallback: this.marketData.fxResolver() });
-        if (extern === null || first.value === null || last.value === null) {
+            .filter((t) => (from === null || t.date >= from) && (to === null || t.date <= to));
+        const external = portfolioCashflows(txns, { fxFallback: this.marketData.fxResolver() });
+        if (external === null || first.value === null || last.value === null) {
             return null;
         }
         const flows: Cashflow[] = [
-            ...(van === null ? [] : [{ datum: first.datum, bedrag: first.value.neg() }]),
-            ...extern,
-            { datum: last.datum, bedrag: last.value },
+            ...(from === null ? [] : [{ date: first.date, amount: first.value.neg() }]),
+            ...external,
+            { date: last.date, amount: last.value },
         ];
         const r = xirr(flows);
         return r === null ? null : { pct: r.times(100), perYear: true };
     });
 
     readonly customLabel = computed(() => {
-        const van = this.customVan();
-        const tot = this.customTot();
-        if (this.range() !== 'custom' || van === null || tot === null) {
+        const from = this.customVan();
+        const to = this.customTo();
+        if (this.range() !== 'custom' || from === null || to === null) {
             return 'Custom';
         }
-        return `${formatDatumKort(van)} – ${formatDatumKort(tot)}`;
+        return `${formatShortDate(from)} – ${formatShortDate(to)}`;
     });
 
     readonly customGeldig = computed(() => {
-        const van = this.customVanDraft();
-        const tot = this.customTotDraft();
-        return van !== '' && tot !== '' && van <= tot && tot <= this.maxDatum;
+        const from = this.customVanDraft();
+        const to = this.customToDraft();
+        return from !== '' && to !== '' && from <= to && to <= this.maxDate;
     });
 
     openCustom(): void {
         const txns = this.context.transactions();
-        const eerste = txns.reduce((min, t) => (t.date < min ? t.date : min), this.maxDatum);
-        this.customVanDraft.set(this.customVan() ?? eerste);
-        this.customTotDraft.set(this.customTot() ?? this.maxDatum);
+        const first = txns.reduce((min, t) => (t.date < min ? t.date : min), this.maxDate);
+        this.customVanDraft.set(this.customVan() ?? first);
+        this.customToDraft.set(this.customTo() ?? this.maxDate);
         this.customOpen.set(true);
     }
 
@@ -353,7 +347,7 @@ export class DashboardPage {
             return;
         }
         this.customVan.set(this.customVanDraft());
-        this.customTot.set(this.customTotDraft());
+        this.customTo.set(this.customToDraft());
         this.range.set('custom');
         this.customOpen.set(false);
     }
@@ -398,13 +392,13 @@ export class DashboardPage {
     }
 }
 
-function formatDatumKort(datum: string): string {
+function formatShortDate(date: string): string {
     return new Intl.DateTimeFormat('nl-NL', {
         day: 'numeric',
         month: 'short',
         year: '2-digit',
         timeZone: 'UTC',
-    }).format(new Date(`${datum}T00:00:00Z`));
+    }).format(new Date(`${date}T00:00:00Z`));
 }
 
 function formatPct(value: Decimal): string {

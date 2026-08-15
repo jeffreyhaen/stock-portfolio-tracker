@@ -7,48 +7,48 @@ const SELL_TYPES = new Set<string>([T.TradeSell, T.CorporateSell]);
 const EXTERNAL_TYPES = new Set<string>([T.Deposit, T.Withdrawal]);
 
 export interface PriceBar {
-    readonly datum: string;
-    readonly slotkoers: Decimal;
-    readonly valuta: string;
+    readonly date: string;
+    readonly close: Decimal;
+    readonly currency: string;
 }
 
 export interface MarketValuePoint {
-    readonly datum: string;
+    readonly date: string;
     readonly value: Decimal | null;
     readonly flow: Decimal;
     readonly netInvested: Decimal;
 }
 
 export interface MarketValueSeries {
-    readonly punten: MarketValuePoint[];
-    readonly ontbrekendeFx: string[];
-    readonly geschatteIsins: string[];
+    readonly points: MarketValuePoint[];
+    readonly missingFx: string[];
+    readonly estimatedIsins: string[];
 }
 
 interface AnchorEvent {
-    readonly datum: string;
-    readonly prijs: Decimal;
-    readonly valuta: string;
+    readonly date: string;
+    readonly price: Decimal;
+    readonly currency: string;
 }
 
 interface TradeEvent {
-    readonly datum: string;
+    readonly date: string;
     readonly isin: string;
     readonly delta: Decimal;
 }
 
 interface CashEvent {
-    readonly datum: string;
-    readonly saldo: Decimal;
+    readonly date: string;
+    readonly balance: Decimal;
 }
 
 interface FlowEvent {
-    readonly datum: string;
-    readonly bedrag: Decimal;
+    readonly date: string;
+    readonly amount: Decimal;
 }
 
 export interface SplitFactor {
-    readonly datum: string;
+    readonly date: string;
     readonly factor: Decimal;
 }
 
@@ -62,68 +62,68 @@ export function buildMarketValueSeries(
     fx: FxResolver,
     splits: ReadonlyMap<string, readonly SplitFactor[]> = new Map(),
 ): MarketValueSeries {
-    const gesorteerd = [...transactions].sort(compareChronological);
+    const sorted = [...transactions].sort(compareChronological);
     const trades: TradeEvent[] = [];
     const anchors = new Map<string, AnchorEvent[]>();
     const cashEvents: CashEvent[] = [];
     const flows = new Map<string, Decimal>();
-    let netInvestedTotaal = new Decimal(0);
+    let totalNetInvested = new Decimal(0);
     const netInvestedEvents: FlowEvent[] = [];
 
-    for (const txn of gesorteerd) {
+    for (const txn of sorted) {
         if (txn.isin !== null && txn.quantity !== null) {
             if (BUY_TYPES.has(txn.type)) {
-                trades.push({ datum: txn.date, isin: txn.isin, delta: txn.quantity });
+                trades.push({ date: txn.date, isin: txn.isin, delta: txn.quantity });
             } else if (SELL_TYPES.has(txn.type)) {
-                trades.push({ datum: txn.date, isin: txn.isin, delta: txn.quantity.negated() });
+                trades.push({ date: txn.date, isin: txn.isin, delta: txn.quantity.negated() });
             }
             if (
                 (BUY_TYPES.has(txn.type) || SELL_TYPES.has(txn.type)) &&
                 txn.price !== null &&
                 txn.tradeCurrency !== null
             ) {
-                const lijst = anchors.get(txn.isin) ?? [];
-                lijst.push({ datum: txn.date, prijs: txn.price, valuta: txn.tradeCurrency });
-                anchors.set(txn.isin, lijst);
+                const list = anchors.get(txn.isin) ?? [];
+                list.push({ date: txn.date, price: txn.price, currency: txn.tradeCurrency });
+                anchors.set(txn.isin, list);
             }
         }
         if (txn.balanceCurrency === 'EUR' && txn.balance !== null) {
-            cashEvents.push({ datum: txn.date, saldo: txn.balance });
+            cashEvents.push({ date: txn.date, balance: txn.balance });
         }
         if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === 'EUR') {
             flows.set(txn.date, (flows.get(txn.date) ?? new Decimal(0)).plus(txn.mutation));
-            netInvestedTotaal = netInvestedTotaal.plus(txn.mutation);
-            netInvestedEvents.push({ datum: txn.date, bedrag: netInvestedTotaal });
+            totalNetInvested = totalNetInvested.plus(txn.mutation);
+            netInvestedEvents.push({ date: txn.date, amount: totalNetInvested });
         }
     }
 
     const tradesPerIsin = new Map<string, TradeEvent[]>();
     for (const trade of trades) {
-        const lijst = tradesPerIsin.get(trade.isin) ?? [];
-        lijst.push(trade);
-        tradesPerIsin.set(trade.isin, lijst);
+        const list = tradesPerIsin.get(trade.isin) ?? [];
+        list.push(trade);
+        tradesPerIsin.set(trade.isin, list);
     }
 
-    const dagen = new Set<string>();
-    for (const lijst of bars.values()) {
-        for (const bar of lijst) {
-            dagen.add(bar.datum);
+    const days = new Set<string>();
+    for (const list of bars.values()) {
+        for (const bar of list) {
+            days.add(bar.date);
         }
     }
-    const gesorteerdeDagen = [...dagen].sort();
-    const ontbrekendeFx = new Set<string>();
-    const punten: MarketValuePoint[] = [];
-    const eersteRelevantieDatum = gesortedeerdeEersteDatum(gesorteerd);
+    const sortedDays = [...days].sort();
+    const missingFx = new Set<string>();
+    const points: MarketValuePoint[] = [];
+    const firstRelevantDate = earliestRelevantDate(sorted);
 
-    const prijsState = new Map<string, { index: number; laatste: PriceBar | null }>();
+    const priceState = new Map<string, { index: number; latest: PriceBar | null }>();
     for (const isin of bars.keys()) {
-        prijsState.set(isin, { index: 0, laatste: null });
+        priceState.set(isin, { index: 0, latest: null });
     }
-    const anchorState = new Map<string, { index: number; laatste: AnchorEvent | null }>();
+    const anchorState = new Map<string, { index: number; latest: AnchorEvent | null }>();
     for (const isin of anchors.keys()) {
-        anchorState.set(isin, { index: 0, laatste: null });
+        anchorState.set(isin, { index: 0, latest: null });
     }
-    const geschatteIsins = new Set<string>();
+    const estimatedIsins = new Set<string>();
     const qtyState = new Map<string, { index: number; qty: Decimal }>();
     for (const isin of tradesPerIsin.keys()) {
         qtyState.set(isin, { index: 0, qty: new Decimal(0) });
@@ -133,88 +133,88 @@ export function buildMarketValueSeries(
     let netInvestedIndex = 0;
     let netInvested = new Decimal(0);
 
-    for (const dag of gesorteerdeDagen) {
-        if (dag < eersteRelevantieDatum) {
+    for (const day of sortedDays) {
+        if (day < firstRelevantDate) {
             continue;
         }
-        while (cashIndex < cashEvents.length && cashEvents[cashIndex].datum <= dag) {
-            cash = cashEvents[cashIndex].saldo;
+        while (cashIndex < cashEvents.length && cashEvents[cashIndex].date <= day) {
+            cash = cashEvents[cashIndex].balance;
             cashIndex++;
         }
-        while (netInvestedIndex < netInvestedEvents.length && netInvestedEvents[netInvestedIndex].datum <= dag) {
-            netInvested = netInvestedEvents[netInvestedIndex].bedrag;
+        while (netInvestedIndex < netInvestedEvents.length && netInvestedEvents[netInvestedIndex].date <= day) {
+            netInvested = netInvestedEvents[netInvestedIndex].amount;
             netInvestedIndex++;
         }
         for (const [isin, state] of qtyState) {
-            const lijst = tradesPerIsin.get(isin) ?? [];
-            while (state.index < lijst.length && lijst[state.index].datum <= dag) {
-                state.qty = state.qty.plus(lijst[state.index].delta);
+            const list = tradesPerIsin.get(isin) ?? [];
+            while (state.index < list.length && list[state.index].date <= day) {
+                state.qty = state.qty.plus(list[state.index].delta);
                 state.index++;
             }
         }
-        for (const [isin, state] of prijsState) {
-            const lijst = bars.get(isin) ?? [];
-            while (state.index < lijst.length && lijst[state.index].datum <= dag) {
-                state.laatste = lijst[state.index];
+        for (const [isin, state] of priceState) {
+            const list = bars.get(isin) ?? [];
+            while (state.index < list.length && list[state.index].date <= day) {
+                state.latest = list[state.index];
                 state.index++;
             }
         }
         for (const [isin, state] of anchorState) {
-            const lijst = anchors.get(isin) ?? [];
-            while (state.index < lijst.length && lijst[state.index].datum <= dag) {
-                state.laatste = lijst[state.index];
+            const list = anchors.get(isin) ?? [];
+            while (state.index < list.length && list[state.index].date <= day) {
+                state.latest = list[state.index];
                 state.index++;
             }
         }
-        let totaal = cash;
-        let compleet = true;
+        let total = cash;
+        let complete = true;
         for (const [isin, qtyInfo] of qtyState) {
             const qty = qtyInfo.qty;
             if (qty.isZero()) {
                 continue;
             }
-            const bar = prijsState.get(isin)?.laatste ?? null;
-            let prijs: Decimal;
-            let valuta: string;
-            let aantal = qty;
+            const bar = priceState.get(isin)?.latest ?? null;
+            let price: Decimal;
+            let currency: string;
+            let quantity = qty;
             if (bar !== null) {
-                prijs = bar.slotkoers;
-                valuta = bar.valuta;
+                price = bar.close;
+                currency = bar.currency;
                 for (const split of splits.get(isin) ?? []) {
-                    if (split.datum > dag) {
-                        aantal = aantal.times(split.factor);
+                    if (split.date > day) {
+                        quantity = quantity.times(split.factor);
                     }
                 }
             } else {
-                const anchor = anchorState.get(isin)?.laatste ?? null;
+                const anchor = anchorState.get(isin)?.latest ?? null;
                 if (anchor === null) {
-                    compleet = false;
+                    complete = false;
                     break;
                 }
-                prijs = anchor.prijs;
-                valuta = anchor.valuta;
-                geschatteIsins.add(isin);
+                price = anchor.price;
+                currency = anchor.currency;
+                estimatedIsins.add(isin);
             }
-            const rate = fx(valuta, dag);
+            const rate = fx(currency, day);
             if (rate === null) {
-                ontbrekendeFx.add(`${valuta}/EUR`);
-                compleet = false;
+                missingFx.add(`${currency}/EUR`);
+                complete = false;
                 break;
             }
-            totaal = totaal.plus(aantal.times(prijs).times(rate));
+            total = total.plus(quantity.times(price).times(rate));
         }
-        punten.push({
-            datum: dag,
-            value: compleet ? totaal : null,
-            flow: flows.get(dag) ?? new Decimal(0),
+        points.push({
+            date: day,
+            value: complete ? total : null,
+            flow: flows.get(day) ?? new Decimal(0),
             netInvested,
         });
     }
 
-    return { punten, ontbrekendeFx: [...ontbrekendeFx], geschatteIsins: [...geschatteIsins] };
+    return { points, missingFx: [...missingFx], estimatedIsins: [...estimatedIsins] };
 }
 
-function gesortedeerdeEersteDatum(transactions: readonly Transaction[]): string {
+function earliestRelevantDate(transactions: readonly Transaction[]): string {
     let min = '';
     for (const txn of transactions) {
         if (min === '' || txn.date < min) {

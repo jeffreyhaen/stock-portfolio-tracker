@@ -19,7 +19,7 @@ export function repairCsvRows(rows: readonly string[][], columnCount = 12): stri
         }
         const previous = repaired[repaired.length - 1];
         if (!previous) {
-            throw new Error(`CSV begint met een corrupte vervolgregel: ${row.join('|')}`);
+            throw new Error(`CSV starts with a corrupted continuation row: ${row.join('|')}`);
         }
         row.forEach((fragment, column) => {
             const clean = fragment.trim();
@@ -32,7 +32,7 @@ export function repairCsvRows(rows: readonly string[][], columnCount = 12): stri
                 previous[column] = `${previous[column]}${clean}`;
             } else {
                 throw new Error(
-                    `Onverwachte corruptie in kolom ${column} ("${clean}") na regel "${previous[0]} ${previous[5]}"`,
+                    `Unexpected corruption in column ${column} ("${clean}") after row "${previous[0]} ${previous[5]}"`,
                 );
             }
         });

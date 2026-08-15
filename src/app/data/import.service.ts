@@ -7,7 +7,7 @@ import { repairCsvRows } from '../domain/csv/repair-csv-rows';
 import { Transaction, TransactionTypes as T } from '../domain/types';
 import { PortfolioDatabase } from './db';
 import { fromStored, toStored } from './mappers';
-import { ImportRapport, StoredImportBatch, StoredSecurity } from './stored-types';
+import { ImportReport, StoredImportBatch, StoredSecurity } from './stored-types';
 
 const POSITION_TYPES = new Set<string>([T.TradeBuy, T.TradeSell, T.CorporateBuy, T.CorporateSell]);
 
@@ -15,12 +15,12 @@ const POSITION_TYPES = new Set<string>([T.TradeBuy, T.TradeSell, T.CorporateBuy,
 export class ImportService {
     private readonly db = inject(PortfolioDatabase);
 
-    async importCsv(portfolioId: string, bestandsnaam: string, csvTekst: string): Promise<ImportRapport> {
-        const rows = repairCsvRows(parseCsv(csvTekst).map((row) => row.slice(0, 12)));
+    async importCsv(portfolioId: string, fileName: string, csvText: string): Promise<ImportReport> {
+        const rows = repairCsvRows(parseCsv(csvText).map((row) => row.slice(0, 12)));
         const { transactions, warnings } = buildLedger(rows);
 
         const existingStored = await this.db.transactions
-            .where('[portfolioId+datum]')
+            .where('[portfolioId+date]')
             .between([portfolioId, Dexie.minKey], [portfolioId, Dexie.maxKey])
             .toArray();
         const existing = existingStored.map(fromStored);
@@ -29,18 +29,18 @@ export class ImportService {
         const batch: StoredImportBatch = {
             id: crypto.randomUUID(),
             portfolioId,
-            bestandsnaam,
-            geimporteerdOp: new Date().toISOString(),
-            aantalRegels: transactions.length,
-            rapport: {
-                toegevoegd: merge.added.length,
-                overgeslagenDuplicaten: merge.skippedDuplicates,
-                aantalRegels: transactions.length,
-                onbekendeTypen: merge.added.filter((txn) => txn.type === T.Unknown).length,
-                waarschuwingen: warnings.map((warning) => ({
-                    regelNr: warning.rowIndex,
-                    omschrijving: warning.description,
-                    reden: warning.reason,
+            fileName,
+            importedAt: new Date().toISOString(),
+            rowCount: transactions.length,
+            report: {
+                added: merge.added.length,
+                skippedDuplicates: merge.skippedDuplicates,
+                rowCount: transactions.length,
+                unknownTypes: merge.added.filter((txn) => txn.type === T.Unknown).length,
+                warnings: warnings.map((warning) => ({
+                    rowIndex: warning.rowIndex,
+                    description: warning.description,
+                    reason: warning.reason,
                 })),
             },
         };
@@ -51,12 +51,12 @@ export class ImportService {
             await this.upsertSecurities(merge.added);
         });
 
-        return batch.rapport;
+        return batch.report;
     }
 
     async batchesFor(portfolioId: string): Promise<StoredImportBatch[]> {
         const batches = await this.db.importBatches.where('portfolioId').equals(portfolioId).toArray();
-        return batches.sort((a, b) => b.geimporteerdOp.localeCompare(a.geimporteerdOp));
+        return batches.sort((a, b) => b.importedAt.localeCompare(a.importedAt));
     }
 
     private async upsertSecurities(added: readonly Transaction[]): Promise<void> {
@@ -67,21 +67,21 @@ export class ImportService {
             }
             seen.set(txn.isin, {
                 isin: txn.isin,
-                naam: txn.product,
-                handelsvaluta: txn.tradeCurrency,
-                beurs: null,
-                tickerVoorKoers: null,
+                name: txn.product,
+                tradingCurrency: txn.tradeCurrency,
+                exchange: null,
+                quoteTicker: null,
             });
         }
         for (const security of seen.values()) {
-            const bestaand = await this.db.securities.get(security.isin);
-            if (bestaand === undefined) {
+            const existing = await this.db.securities.get(security.isin);
+            if (existing === undefined) {
                 await this.db.securities.add(security);
-            } else if (bestaand.naam !== security.naam || bestaand.handelsvaluta !== security.handelsvaluta) {
+            } else if (existing.name !== security.name || existing.tradingCurrency !== security.tradingCurrency) {
                 await this.db.securities.put({
                     ...security,
-                    beurs: bestaand.beurs,
-                    tickerVoorKoers: bestaand.tickerVoorKoers,
+                    exchange: existing.exchange,
+                    quoteTicker: existing.quoteTicker,
                 });
             }
         }

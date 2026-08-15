@@ -44,7 +44,7 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
 
     ngAfterViewInit(): void {
         const element = this.host()?.nativeElement;
-        if (element === undefined) {
+        if (element === undefined || typeof window.matchMedia !== 'function') {
             return;
         }
         try {
@@ -63,10 +63,8 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
                 timeScale: { borderVisible: false },
                 localization: {
                     locale: 'nl-NL',
-                    priceFormatter: (waarde: number): string =>
-                        new Intl.NumberFormat('nl-NL', { notation: 'compact', maximumFractionDigits: 0 }).format(
-                            waarde,
-                        ),
+                    priceFormatter: (value: number): string =>
+                        new Intl.NumberFormat('nl-NL', { notation: 'compact', maximumFractionDigits: 0 }).format(value),
                 },
                 autoSize: false,
                 width: element.clientWidth,
@@ -95,16 +93,16 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
         if (this.chart === null) {
             return;
         }
-        for (const serie of this.rendered) {
-            this.chart.removeSeries(serie);
+        for (const series of this.rendered) {
+            this.chart.removeSeries(series);
         }
         this.rendered = [];
-        for (const serie of this.series()) {
-            const data: LineData[] = serie.points.map((p) => ({ time: p.time, value: p.value }));
-            if (serie.fill) {
+        for (const series of this.series()) {
+            const data: LineData[] = series.points.map((p) => ({ time: p.time, value: p.value }));
+            if (series.fill) {
                 this.rendered.push(
                     this.chart.addSeries(AreaSeries, {
-                        lineColor: serie.color,
+                        lineColor: series.color,
                         lineWidth: 2,
                         topColor: 'rgba(192, 216, 248, 0.4)',
                         bottomColor: 'rgba(192, 216, 248, 0)',
@@ -115,9 +113,9 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
             } else {
                 this.rendered.push(
                     this.chart.addSeries(LineSeries, {
-                        color: serie.color,
+                        color: series.color,
                         lineWidth: 2,
-                        lineStyle: serie.dashed ? LineStyle.Dashed : LineStyle.Solid,
+                        lineStyle: series.dashed ? LineStyle.Dashed : LineStyle.Solid,
                         priceLineVisible: false,
                         crosshairMarkerRadius: 4,
                     }),

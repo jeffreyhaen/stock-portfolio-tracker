@@ -51,12 +51,12 @@
                         <p class="font-mono text-[0.8125rem] text-base-content/60">{{ row.isin }}</p>
                     </td>
                     <td>
-                        @if (row.security?.tickerVoorKoers !== null && row.security?.tickerVoorKoers !== undefined) {
+                        @if (row.security?.quoteTicker !== null && row.security?.quoteTicker !== undefined) {
                         <span class="inline-flex items-center gap-2">
                             <span class="badge badge-outline badge-sm font-mono whitespace-nowrap">
-                                @if (row.beursCode !== null) {
-                                <span class="text-base-content/50">{{ row.beursCode }}:</span>&nbsp;{{ row.tickerDisplay
-                                }} } @else { {{ row.tickerDisplay }} }
+                                @if (row.exchangeCode !== null) {
+                                <span class="text-base-content/50">{{ row.exchangeCode }}:</span>&nbsp;{{
+                                row.tickerDisplay }} } @else { {{ row.tickerDisplay }} }
                             </span>
                             <button
                                 type="button"
@@ -86,9 +86,9 @@
                         </div>
                         @if (searchState(row.isin).error !== null) {
                         <p class="mt-1 text-[0.8125rem] text-error">{{ searchState(row.isin).error }}</p>
-                        } @if (searchState(row.isin).suggesties.length > 0) {
+                        } @if (searchState(row.isin).suggestions.length > 0) {
                         <ul class="mt-1 space-y-0.5">
-                            @for (sug of searchState(row.isin).suggesties; track sug.symbol) {
+                            @for (sug of searchState(row.isin).suggestions; track sug.symbol) {
                             <li>
                                 <button
                                     type="button"
@@ -105,9 +105,9 @@
                     </td>
                     <td class="text-right tabular-nums">
                         @if (row.quote !== null) {
-                        <p class="text-sm font-medium">{{ row.quote.prijs | money: row.quote.valuta }}</p>
+                        <p class="text-sm font-medium">{{ row.quote.price | money: row.quote.currency }}</p>
                         <p class="text-[0.8125rem] text-base-content/60">
-                            {{ row.quote.tijdstip | nlDate }} @if (row.quote.bron !== 'yahoo') { · manual }
+                            {{ row.quote.timestamp | localizedDate }} @if (row.quote.source !== 'yahoo') { · manual }
                         </p>
                         @if (row.stale) {
                         <span class="badge badge-warning badge-xs mt-1">outdated</span>
@@ -116,17 +116,17 @@
                         }
                     </td>
                     <td class="text-right">
-                        @if (row.open && (row.security?.tickerVoorKoers === null || row.security?.tickerVoorKoers ===
+                        @if (row.open && (row.security?.quoteTicker === null || row.security?.quoteTicker ===
                         undefined)) {
                         <input
                             type="text"
                             inputmode="decimal"
                             class="input input-sm input-bordered w-32 text-right tabular-nums"
-                            [class.input-error]="row.ongeldig"
-                            [value]="row.invoer"
+                            [class.input-error]="row.invalid"
+                            [value]="row.input"
                             (input)="onPriceInput(row.isin, $any($event.target).value)"
                         />
-                        @if (row.ongeldig) {
+                        @if (row.invalid) {
                         <p class="mt-1 text-[0.8125rem] text-error">Not a valid number</p>
                         } } @else {
                         <span class="text-sm text-base-content/60">–</span>

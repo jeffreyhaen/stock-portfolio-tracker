@@ -1,9 +1,9 @@
 import Decimal from 'decimal.js';
-import { FxResolver, mutationInRapportagevaluta } from './fx';
+import { FxResolver, mutationInReportingCurrency } from './fx';
 import { Transaction, TransactionTypes as T } from './types';
 
 export interface HoldingStatsOptions {
-    readonly rapportagevaluta?: string;
+    readonly reportingCurrency?: string;
     readonly fxFallback?: FxResolver;
     readonly includeClosed?: boolean;
 }
@@ -42,10 +42,10 @@ function compareChronological(a: Transaction, b: Transaction): number {
 }
 
 export function holdingStats(transactions: readonly Transaction[], options: HoldingStatsOptions = {}): HoldingStats[] {
-    const { rapportagevaluta = 'EUR', fxFallback, includeClosed = false } = options;
+    const { reportingCurrency = 'EUR', fxFallback, includeClosed = false } = options;
     const perIsin = new Map<string, PositionAccum>();
-    const gesorteerd = [...transactions].sort(compareChronological);
-    for (const txn of gesorteerd) {
+    const sorted = [...transactions].sort(compareChronological);
+    for (const txn of sorted) {
         if (txn.isin === null || txn.quantity === null) {
             continue;
         }
@@ -69,8 +69,8 @@ export function holdingStats(transactions: readonly Transaction[], options: Hold
             };
             perIsin.set(txn.isin, accum);
         }
-        const mutatie = mutationInRapportagevaluta(txn, rapportagevaluta, fxFallback);
-        if (txn.mutation !== null && mutatie === null) {
+        const mutation = mutationInReportingCurrency(txn, reportingCurrency, fxFallback);
+        if (txn.mutation !== null && mutation === null) {
             accum.fxOk = false;
         }
         if (isBuy) {
@@ -79,8 +79,8 @@ export function holdingStats(transactions: readonly Transaction[], options: Hold
                 accum.closedAt = null;
             }
             accum.quantity = accum.quantity.plus(txn.quantity);
-            if (mutatie !== null) {
-                const uitgave = mutatie.abs();
+            if (mutation !== null) {
+                const uitgave = mutation.abs();
                 accum.cost = accum.cost.plus(uitgave);
                 accum.gross = accum.gross.plus(uitgave);
             }
@@ -92,8 +92,8 @@ export function holdingStats(transactions: readonly Transaction[], options: Hold
                 accum.cost = accum.cost.times(rest).div(accum.quantity);
             }
             accum.quantity = rest;
-            if (mutatie !== null) {
-                accum.realized = accum.realized.plus(mutatie).minus(kostprijsVerkocht);
+            if (mutation !== null) {
+                accum.realized = accum.realized.plus(mutation).minus(kostprijsVerkocht);
             }
             if (rest.isZero()) {
                 accum.cost = new Decimal(0);
@@ -108,7 +108,7 @@ export function holdingStats(transactions: readonly Transaction[], options: Hold
         }
     }
     const open: HoldingStats[] = [];
-    const gesloten: HoldingStats[] = [];
+    const closed: HoldingStats[] = [];
     for (const [isin, accum] of perIsin) {
         const isOpen = !accum.quantity.isZero();
         const stats: HoldingStats = {
@@ -127,12 +127,12 @@ export function holdingStats(transactions: readonly Transaction[], options: Hold
         if (isOpen) {
             open.push(stats);
         } else if (includeClosed) {
-            gesloten.push(stats);
+            closed.push(stats);
         }
     }
     open.sort((a, b) => (b.netInvested ?? new Decimal(0)).comparedTo(a.netInvested ?? new Decimal(0)));
-    gesloten.sort((a, b) => (b.closedAt ?? '').localeCompare(a.closedAt ?? ''));
-    return [...open, ...gesloten];
+    closed.sort((a, b) => (b.closedAt ?? '').localeCompare(a.closedAt ?? ''));
+    return [...open, ...closed];
 }
 
 export function holdingPeriodDays(firstBuyDate: string, asOf: Date = new Date()): number {

@@ -2,104 +2,104 @@ import { CorporateAction, TransactionType } from '../domain/types';
 
 export interface StoredPortfolio {
     id: string;
-    naam: string;
-    rapportagevaluta: string;
-    aangemaaktOp: string;
+    name: string;
+    reportingCurrency: string;
+    createdAt: string;
 }
 
 export interface ImportWarningReport {
-    regelNr: number;
-    omschrijving: string;
-    reden: string;
+    rowIndex: number;
+    description: string;
+    reason: string;
 }
 
-export interface ImportRapport {
-    toegevoegd: number;
-    overgeslagenDuplicaten: number;
-    aantalRegels: number;
-    onbekendeTypen: number;
-    waarschuwingen: ImportWarningReport[];
+export interface ImportReport {
+    added: number;
+    skippedDuplicates: number;
+    rowCount: number;
+    unknownTypes: number;
+    warnings: ImportWarningReport[];
 }
 
 export interface StoredImportBatch {
     id: string;
     portfolioId: string;
-    bestandsnaam: string;
-    geimporteerdOp: string;
-    aantalRegels: number;
-    rapport: ImportRapport;
+    fileName: string;
+    importedAt: string;
+    rowCount: number;
+    report: ImportReport;
 }
 
 export interface StoredTransaction {
     id?: number;
     portfolioId: string;
     batchId: string;
-    regelNr: number;
-    datum: string;
-    tijd: string;
-    valutadatum: string;
+    rowIndex: number;
+    date: string;
+    time: string;
+    valueDate: string;
     isin: string | null;
     product: string;
     type: TransactionType;
-    corporateActie: CorporateAction | null;
-    omschrijvingRaw: string;
-    aantal: string | null;
-    prijs: string | null;
-    valuta: string | null;
-    mutatie: string | null;
-    mutatieValuta: string | null;
-    saldo: string | null;
-    saldoValuta: string | null;
-    fxKoers: string | null;
+    corporateAction: CorporateAction | null;
+    rawDescription: string;
+    quantity: string | null;
+    price: string | null;
+    currency: string | null;
+    mutation: string | null;
+    mutationCurrency: string | null;
+    balance: string | null;
+    balanceCurrency: string | null;
+    fxRate: string | null;
     orderId: string | null;
     fingerprint: string;
 }
 
 export interface StoredSecurity {
     isin: string;
-    naam: string;
-    handelsvaluta: string | null;
-    beurs: string | null;
-    tickerVoorKoers: string | null;
+    name: string;
+    tradingCurrency: string | null;
+    exchange: string | null;
+    quoteTicker: string | null;
 }
 
 export interface StoredSecurityAlias {
-    oudIsin: string;
-    nieuwIsin: string;
-    datum: string;
-    reden: 'split' | 'isin' | 'product';
+    oldIsin: string;
+    newIsin: string;
+    date: string;
+    reason: 'split' | 'isin' | 'product';
 }
 
 export interface StoredQuote {
-    sleutel: string;
-    prijs: string;
-    valuta: string;
-    tijdstip: string;
-    bron?: 'manual' | 'yahoo';
+    key: string;
+    price: string;
+    currency: string;
+    timestamp: string;
+    source?: 'manual' | 'yahoo';
 }
 
 export interface StoredFxRate {
-    paar: string;
-    datum: string;
-    koers: string;
+    pair: string;
+    date: string;
+    rate: string;
 }
 
 export interface StoredPriceBar {
     isin: string;
-    datum: string;
-    slotkoers: string;
-    valuta: string;
+    date: string;
+    close: string;
+    currency: string;
 }
 
 export interface StoredSplitEvent {
     isin: string;
-    datum: string;
+    date: string;
     factor: string;
 }
 
 export interface StoredSetting {
-    sleutel: string;
-    waarde: string;
+    key: string;
+    value: string;
 }
 
 export interface BackupBundle {
@@ -134,7 +134,7 @@ export interface BackupBundle {
 
 export interface BackupImportReport {
     schemaVersion: number;
-    toegevoegd: {
+    added: {
         portfolios: number;
         transactions: number;
         securities: number;

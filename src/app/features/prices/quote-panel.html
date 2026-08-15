@@ -55,10 +55,8 @@
                         <span class="inline-flex items-center gap-2">
                             <span class="badge badge-outline badge-sm font-mono whitespace-nowrap">
                                 @if (row.beursCode !== null) {
-                                <span class="text-base-content/50">{{ row.beursCode }}:</span>&nbsp;{{ row.tickerDisplay }}
-                                } @else {
-                                {{ row.tickerDisplay }}
-                                }
+                                <span class="text-base-content/50">{{ row.beursCode }}:</span>&nbsp;{{ row.tickerDisplay
+                                }} } @else { {{ row.tickerDisplay }} }
                             </span>
                             <button
                                 type="button"

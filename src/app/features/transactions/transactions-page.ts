@@ -95,9 +95,7 @@ export class TransactionsPage {
 
     readonly totaalAantal = computed(() => this.gefilterd().length);
 
-    readonly transactions = computed<TransactionView[]>(() =>
-        this.gesorteerd().slice(0, this.zichtbareAantallen()),
-    );
+    readonly transactions = computed<TransactionView[]>(() => this.gesorteerd().slice(0, this.zichtbareAantallen()));
 
     readonly heeftMeer = computed(() => this.totaalAantal() > this.zichtbareAantallen());
 

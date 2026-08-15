@@ -70,14 +70,12 @@
                 <tr class="hover align-top" [class.text-base-content\/60]="!holding.open">
                     <td>
                         <p class="text-sm font-medium" [class.text-base-content]="holding.open">
-                            {{ holding.product }}
-                            @if (!holding.open) {
+                            {{ holding.product }} @if (!holding.open) {
                             <span class="badge badge-ghost badge-sm ml-1">closed</span>
                             }
                         </p>
                         <p class="font-mono text-[0.8125rem] text-base-content/60">
-                            {{ holding.isin }}
-                            @if (holding.ticker !== null) {
+                            {{ holding.isin }} @if (holding.ticker !== null) {
                             <span class="font-sans"
                                 >· {{ holding.beurs !== null ? holding.beurs + ':' : '' }}{{ holding.ticker }}</span
                             >
@@ -102,8 +100,7 @@
                         <p class="text-sm font-medium tabular-nums">{{ holding.quantity | nlNumber: 4 : 0 }}</p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
-                        }
-                        @if (holding.periodDays !== null) {
+                        } @if (holding.periodDays !== null) {
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                             {{ holding.periodDays | nlNumber: 0 }} days
                         </p>
@@ -123,7 +120,9 @@
                     </td>
                     <td class="text-right">
                         @if (holding.valueEur !== null) {
-                        <p class="text-sm font-medium tabular-nums">{{ holding.valueEur | money: rapportagevaluta() }}</p>
+                        <p class="text-sm font-medium tabular-nums">
+                            {{ holding.valueEur | money: rapportagevaluta() }}
+                        </p>
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                             {{ holding.valuePerShareEur | money: rapportagevaluta() }}/share
                         </p>
@@ -132,35 +131,31 @@
                         }
                     </td>
                     <td class="text-right">
-                        @if (holding.open) {
-                            @if (holding.pnlEur !== null) {
-                            <p
-                                class="text-sm font-medium tabular-nums"
-                                [class.text-success]="!holding.pnlEur.isNegative() && !holding.pnlEur.isZero()"
-                                [class.text-error]="holding.pnlEur.isNegative()"
-                            >
-                                {{ holding.pnlEur | money: rapportagevaluta() }}
-                            </p>
-                            <p class="text-[0.8125rem] tabular-nums text-base-content/60">
-                                {{ holding.pnlInclRealized | money: rapportagevaluta() }}
-                            </p>
-                            } @else {
-                            <p class="text-sm text-base-content/60">–</p>
-                            }
+                        @if (holding.open) { @if (holding.pnlEur !== null) {
+                        <p
+                            class="text-sm font-medium tabular-nums"
+                            [class.text-success]="!holding.pnlEur.isNegative() && !holding.pnlEur.isZero()"
+                            [class.text-error]="holding.pnlEur.isNegative()"
+                        >
+                            {{ holding.pnlEur | money: rapportagevaluta() }}
+                        </p>
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                            {{ holding.pnlInclRealized | money: rapportagevaluta() }}
+                        </p>
                         } @else {
-                            @if (holding.realizedPnl !== null) {
-                            <p
-                                class="text-sm font-medium tabular-nums"
-                                [class.text-success]="!holding.realizedPnl.isNegative() && !holding.realizedPnl.isZero()"
-                                [class.text-error]="holding.realizedPnl.isNegative()"
-                            >
-                                {{ holding.realizedPnl | money: rapportagevaluta() }}
-                            </p>
-                            <p class="text-[0.8125rem] text-base-content/60">realized</p>
-                            } @else {
-                            <p class="text-sm text-base-content/60">–</p>
-                            }
-                        }
+                        <p class="text-sm text-base-content/60">–</p>
+                        } } @else { @if (holding.realizedPnl !== null) {
+                        <p
+                            class="text-sm font-medium tabular-nums"
+                            [class.text-success]="!holding.realizedPnl.isNegative() && !holding.realizedPnl.isZero()"
+                            [class.text-error]="holding.realizedPnl.isNegative()"
+                        >
+                            {{ holding.realizedPnl | money: rapportagevaluta() }}
+                        </p>
+                        <p class="text-[0.8125rem] text-base-content/60">realized</p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        } }
                     </td>
                     <td class="text-right">
                         @if (holding.pnlPct !== null) {
@@ -173,8 +168,7 @@
                         </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
-                        }
-                        @if (holding.pnlPctYear !== null) {
+                        } @if (holding.pnlPctYear !== null) {
                         <p
                             class="text-[0.8125rem] tabular-nums"
                             [class.text-success]="!holding.pnlPctYear.isNegative() && !holding.pnlPctYear.isZero()"

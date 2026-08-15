@@ -9,7 +9,13 @@ import { holdingStats } from '../../domain/holdings';
 import { timeWeightedReturn } from '../../domain/twr';
 import { Transaction } from '../../domain/types';
 import { buildValuation, rangeTotals } from '../../domain/valuation';
-import { Cashflow, cashflowWindowDagen, MIN_PERIODE_DAGEN_JAARRENDEMENT, portfolioCashflows, xirr } from '../../domain/xirr';
+import {
+    Cashflow,
+    cashflowWindowDagen,
+    MIN_PERIODE_DAGEN_JAARRENDEMENT,
+    portfolioCashflows,
+    xirr,
+} from '../../domain/xirr';
 import { formatMoney } from '../../shared/money';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
@@ -356,9 +362,7 @@ export class DashboardPage {
         this.range() === 'custom' ? `custom (${this.customLabel()})` : this.range().toUpperCase(),
     );
 
-    readonly twrTooltip = computed(
-        () => `Time-weighted return over the selected range (${this.rangeLabel()}).`,
-    );
+    readonly twrTooltip = computed(() => `Time-weighted return over the selected range (${this.rangeLabel()}).`);
 
     readonly xirrPerYearTooltip = computed(
         () =>
@@ -388,11 +392,8 @@ export class DashboardPage {
         if (!hasNonEur && missing === 0) {
             return base;
         }
-        const breakdown = [...perCurrency.entries()]
-            .map(([cur, val]) => `${cur} ${formatMoney(val, cur)}`)
-            .join(' · ');
-        const missingNote =
-            missing > 0 ? ` · ${missing} flow${missing === 1 ? '' : 's'} skipped (missing FX)` : '';
+        const breakdown = [...perCurrency.entries()].map(([cur, val]) => `${cur} ${formatMoney(val, cur)}`).join(' · ');
+        const missingNote = missing > 0 ? ` · ${missing} flow${missing === 1 ? '' : 's'} skipped (missing FX)` : '';
         return `${base} Per currency: ${breakdown}${missingNote}.`;
     }
 }

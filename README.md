@@ -1,59 +1,54 @@
-# StockPortfolio
+# StockPortfolioApp
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.3.
+A client-side Angular application for tracking an investment portfolio from DEGIRO CSV exports.
 
-## Development server
+## Features
 
-To start a local development server, run:
+- Import and reconcile DEGIRO transactions
+- Holdings, cash, transactions, valuation, return, and market-value history
+- Multiple portfolios
+- Local JSON backup and restore
+- Optional live quotes and historical prices through the local quote proxy
 
-```bash
-ng serve
-```
+Portfolio data is stored in the browser's IndexedDB. The application has no backend and does not upload imported portfolio data to this repository or to an application server.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Requirements
 
-## Code scaffolding
+- Node.js 24 or newer
+- npm 11 or newer
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Development
 
 ```bash
-ng generate --help
+npm ci
+npm start
 ```
 
-## Building
+Open `http://localhost:4200/`.
 
-To build the project run:
+Live quotes require the local proxy in a second terminal:
 
 ```bash
-ng build
+npm run quotes
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+The proxy retrieves quote data from Yahoo Finance and listens on `http://localhost:8787` by default. Foreign-exchange rates are retrieved from Frankfurter. Review the terms and availability of these external services before relying on the data.
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Verification
 
 ```bash
-ng test
+npm test
+npm run lint
+npm run build
 ```
 
-## Running end-to-end tests
+## Privacy and limitations
 
-For end-to-end (e2e) testing, run:
+- Imported CSV files and exported backups can contain sensitive financial information. Keep them local and do not commit them.
+- This application is a portfolio tracking tool, not financial advice.
+- Quote and foreign-exchange data may be delayed, incomplete, or unavailable.
+- The quote proxy is intended for local development. Do not expose it to the public internet without adding suitable authentication, rate limiting, and operational controls.
 
-```bash
-ng e2e
-```
+## License
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).

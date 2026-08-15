@@ -41,10 +41,7 @@ function compareChronological(a: Transaction, b: Transaction): number {
     return a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || a.rowIndex - b.rowIndex;
 }
 
-export function holdingStats(
-    transactions: readonly Transaction[],
-    options: HoldingStatsOptions = {},
-): HoldingStats[] {
+export function holdingStats(transactions: readonly Transaction[], options: HoldingStatsOptions = {}): HoldingStats[] {
     const { rapportagevaluta = 'EUR', fxFallback, includeClosed = false } = options;
     const perIsin = new Map<string, PositionAccum>();
     const gesorteerd = [...transactions].sort(compareChronological);

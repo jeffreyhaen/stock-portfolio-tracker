@@ -86,7 +86,11 @@ export class QuotePanelComponent {
         const quotes = this.marketData.quotes();
         const stale = this.marketData.staleIsins();
         const edits = this.edits();
-        const openIsins = new Set(this.holdings().filter((h) => h.open).map((h) => h.isin));
+        const openIsins = new Set(
+            this.holdings()
+                .filter((h) => h.open)
+                .map((h) => h.isin),
+        );
         const gebouwd = securities.map((security) => {
             const quote = quotes.find((q) => q.sleutel === security.isin) ?? null;
             const edit = edits[security.isin];

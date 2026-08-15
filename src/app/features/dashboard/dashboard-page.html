@@ -164,8 +164,7 @@
             [class.text-success]="!xirrPerYear()?.pct?.isNegative() && !xirrPerYear()?.pct?.isZero()"
             [class.text-error]="xirrPerYear()?.pct?.isNegative()"
         >
-            {{ xirrPerYear()?.pct | nlNumber: 2 }}%
-            @if (xirrPerYear()?.perYear) {
+            {{ xirrPerYear()?.pct | nlNumber: 2 }}% @if (xirrPerYear()?.perYear) {
             <span class="text-sm font-normal text-base-content/60">/year</span>
             }
         </p>

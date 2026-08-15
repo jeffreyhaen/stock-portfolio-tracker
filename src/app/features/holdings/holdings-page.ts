@@ -121,9 +121,7 @@ export class HoldingsPage {
                 const alle = [...flows, ...eindwaarde];
                 const r = xirr(alle);
                 pnlPctYear =
-                    r === null || cashflowWindowDagen(alle) < MIN_PERIODE_DAGEN_JAARRENDEMENT
-                        ? null
-                        : r.times(100);
+                    r === null || cashflowWindowDagen(alle) < MIN_PERIODE_DAGEN_JAARRENDEMENT ? null : r.times(100);
             }
             let geslotenPct: Decimal | null = null;
             if (!h.open && h.realizedPnl !== null && h.grossInvested !== null && !h.grossInvested.isZero()) {

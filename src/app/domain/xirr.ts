@@ -19,7 +19,10 @@ export function xirr(flows: readonly Cashflow[]): Decimal | null {
         return null;
     }
     const t0 = flows.reduce((min, f) => (f.datum < min ? f.datum : min), flows[0].datum);
-    const punten = flows.map((f) => ({ jaren: dagenTussen(t0, f.datum) / DAGEN_PER_JAAR, bedrag: f.bedrag.toNumber() }));
+    const punten = flows.map((f) => ({
+        jaren: dagenTussen(t0, f.datum) / DAGEN_PER_JAAR,
+        bedrag: f.bedrag.toNumber(),
+    }));
     const npv = (r: number): number => {
         let som = 0;
         for (const p of punten) {

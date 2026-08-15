@@ -43,9 +43,22 @@ __screenshots__/
 .DS_Store
 Thumbs.db
 
-# Prive data: nooit committen
+# Private data: nooit committen
 /test/fixtures/
 /docs/example/
+/docs/agents/
+AGENTS.md
+.env
+.env.*
+!.env.example
+*.csv
+*.csv.gz
+*backup*.json
+*export*.json
+*.backup.json
+*.portfolio.json
+/backups/
+/exports/
 
 # Lavish review-artifacts (sessie-state)
 /.lavish/

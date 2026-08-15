@@ -53,9 +53,13 @@
                     <td>
                         @if (row.security?.tickerVoorKoers !== null && row.security?.tickerVoorKoers !== undefined) {
                         <span class="inline-flex items-center gap-2">
-                            <span class="badge badge-outline badge-sm font-mono"
-                                >{{ row.security?.tickerVoorKoers }}</span
-                            >
+                            <span class="badge badge-outline badge-sm font-mono whitespace-nowrap">
+                                @if (row.beursCode !== null) {
+                                <span class="text-base-content/50">{{ row.beursCode }}:</span>&nbsp;{{ row.tickerDisplay }}
+                                } @else {
+                                {{ row.tickerDisplay }}
+                                }
+                            </span>
                             <button
                                 type="button"
                                 class="text-xs text-base-content/60 underline"

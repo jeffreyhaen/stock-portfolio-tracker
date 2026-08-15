@@ -7,6 +7,7 @@ import { TickerSuggestion } from '../../data/quote-provider';
 import { StoredQuote, StoredSecurity } from '../../data/stored-types';
 import { HoldingStats } from '../../domain/holdings';
 import { parseNlNumber } from '../../domain/numbers';
+import { beursCode, stripYahooSuffix } from '../../domain/ticker-match';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { NlDatePipe } from '../../shared/nl-date.pipe';
 import { TableSort } from '../../shared/sort';
@@ -21,6 +22,8 @@ interface QuoteRow {
     readonly stale: boolean;
     readonly invoer: string;
     readonly ongeldig: boolean;
+    readonly beursCode: string | null;
+    readonly tickerDisplay: string;
 }
 
 interface SearchState {
@@ -87,6 +90,11 @@ export class QuotePanelComponent {
         const gebouwd = securities.map((security) => {
             const quote = quotes.find((q) => q.sleutel === security.isin) ?? null;
             const edit = edits[security.isin];
+            const code = security.beurs !== null ? beursCode(security.beurs) : null;
+            const tickerDisplay =
+                security.tickerVoorKoers !== null && security.tickerVoorKoers !== undefined
+                    ? stripYahooSuffix(security.tickerVoorKoers)
+                    : '';
             return {
                 isin: security.isin,
                 product: security.naam,
@@ -96,6 +104,8 @@ export class QuotePanelComponent {
                 stale: stale.has(security.isin),
                 invoer: edit?.invoer ?? (quote?.bron !== 'yahoo' && quote ? new Decimal(quote.prijs).toString() : ''),
                 ongeldig: edit?.ongeldig ?? false,
+                beursCode: code,
+                tickerDisplay,
             };
         });
         const open = gebouwd.filter((row) => row.open);

@@ -46,6 +46,71 @@ export function beursDisplayNaam(exchange: string): string {
     return exchange;
 }
 
+const BEURS_CODE: [RegExp, string][] = [
+    [/tsx venture|^tsxv/i, 'TSXV'],
+    [/toronto|^tsx/i, 'TSX'],
+    [/nasdaq/i, 'NASDAQ'],
+    [/nyse american/i, 'NYSE American'],
+    [/nyse\s?arca/i, 'NYSE Arca'],
+    [/new york|^nyse/i, 'NYSE'],
+    [/xetra|frankfurt/i, 'XETRA'],
+    [/amsterdam/i, 'AMS'],
+    [/brussels/i, 'BRU'],
+    [/paris/i, 'PAR'],
+    [/lisbon/i, 'LIS'],
+    [/london|^lse/i, 'LSE'],
+    [/milan|borsa italiana/i, 'MIL'],
+    [/madrid/i, 'MAD'],
+    [/vienna/i, 'VIE'],
+    [/six|snp/i, 'SIX'],
+    [/asx/i, 'ASX'],
+    [/hkex|hong kong/i, 'HKEX'],
+    [/tse|tokyo/i, 'TSE'],
+];
+
+export function beursCode(exchange: string): string | null {
+    for (const [patroon, code] of BEURS_CODE) {
+        if (patroon.test(exchange)) {
+            return code;
+        }
+    }
+    return null;
+}
+
+const YAHOO_SUFFIX: Record<string, string> = {
+    AS: 'AMS',
+    BR: 'BRU',
+    DE: 'XETRA',
+    F: 'FRA',
+    L: 'LSE',
+    LS: 'LIS',
+    MI: 'MIL',
+    MC: 'MAD',
+    PA: 'PAR',
+    VI: 'VIE',
+    SW: 'SIX',
+    TO: 'TSX',
+    V: 'TSXV',
+    AX: 'ASX',
+    HK: 'HKEX',
+    T: 'TSE',
+    KS: 'KSE',
+    SS: 'SSE',
+    SZ: 'SZSE',
+};
+
+export function stripYahooSuffix(ticker: string): string {
+    const punt = ticker.lastIndexOf('.');
+    if (punt < 0 || punt === ticker.length - 1) {
+        return ticker;
+    }
+    const suffix = ticker.slice(punt + 1).toUpperCase();
+    if (YAHOO_SUFFIX[suffix] === undefined) {
+        return ticker;
+    }
+    return ticker.slice(0, punt);
+}
+
 export interface TickerKeuze {
     readonly kandidaat: TickerSuggestion | null;
     readonly viaValutaMatch: boolean;

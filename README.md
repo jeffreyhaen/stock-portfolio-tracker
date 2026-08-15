@@ -26,6 +26,8 @@ npm start
 
 Open `http://localhost:4200/`.
 
+A synthetic DEGIRO import file is available at [examples/demo/degiro-demo.csv](examples/demo/degiro-demo.csv). It contains fictional transactions from January 2020 through March 2025 for well-known large-cap stocks and ETFs; it does not contain personal portfolio data. When re-importing an updated demo file, use a fresh portfolio because imports are incremental.
+
 Live quotes require the local proxy in a second terminal:
 
 ```bash

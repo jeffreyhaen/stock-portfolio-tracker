@@ -53,6 +53,9 @@ AGENTS.md
 !.env.example
 *.csv
 *.csv.gz
+!examples/
+!examples/demo/
+!examples/demo/*.csv
 *backup*.json
 *export*.json
 *.backup.json

@@ -83,6 +83,7 @@
                                 placeholder="search…"
                                 [value]="searchState(row.isin).query"
                                 (input)="onSearchInput(row.isin, $any($event.target).value)"
+                                (keydown.enter)="onSearchEnter(row.isin, row.product)"
                             />
                             <button
                                 type="button"

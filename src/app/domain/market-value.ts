@@ -72,8 +72,14 @@ export function buildMarketValueSeries(
     const flows: FlowEvent[] = [];
     let totalNetInvested = new Decimal(0);
     const netInvestedEvents: FlowEvent[] = [];
+    const splitActionDates = new Map<string, Set<string>>();
 
     for (const txn of sorted) {
+        if (txn.isin !== null && txn.corporateAction === 'STOCK_SPLIT') {
+            const dates = splitActionDates.get(txn.isin) ?? new Set<string>();
+            dates.add(txn.date);
+            splitActionDates.set(txn.isin, dates);
+        }
         if (txn.isin !== null && txn.quantity !== null) {
             if (BUY_TYPES.has(txn.type)) {
                 trades.push({ date: txn.date, isin: txn.isin, delta: txn.quantity });
@@ -209,7 +215,8 @@ export function buildMarketValueSeries(
                 price = bar.close;
                 currency = bar.currency;
                 for (const split of splits.get(isin) ?? []) {
-                    if (split.date > day) {
+                    const splitActionOnSameDay = splitActionDates.get(isin)?.has(split.date) ?? false;
+                    if (split.date > day || (split.date === day && !splitActionOnSameDay)) {
                         quantity = quantity.times(split.factor);
                     }
                 }

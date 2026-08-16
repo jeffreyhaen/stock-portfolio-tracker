@@ -15,7 +15,7 @@ Portfolio data is stored in the browser's IndexedDB. The application has no back
 ## Requirements
 
 - Node.js 24 or newer
-- npm 11 or newer
+    - with npm 11 or newer
 
 ## Development
 
@@ -26,7 +26,7 @@ npm start
 
 Open `http://localhost:4200/`.
 
-A synthetic DEGIRO import file is available at [examples/demo/degiro-demo.csv](examples/demo/degiro-demo.csv). It contains fictional transactions from January 2020 through March 2025 for well-known large-cap stocks and ETFs; it does not contain personal portfolio data. When re-importing an updated demo file, use a fresh portfolio because imports are incremental.
+A synthetic DEGIRO import file is available at [examples/demo/degiro-demo.csv](examples/demo/degiro-demo.csv). It contains fictional transactions from January 2020 through March 2025 for well-known large-cap stocks and ETFs. When re-importing an updated demo file, use a fresh portfolio because imports are incremental.
 
 Start both the portfolio app and the market-data proxy together:
 
@@ -46,7 +46,7 @@ To start only the market-data proxy:
 npm run market-data-proxy
 ```
 
-The proxy retrieves quote data from Yahoo Finance and listens on `http://localhost:8787` by default. Foreign-exchange rates are retrieved from Frankfurter. Review the terms and availability of these external services before relying on the data.
+The proxy retrieves quote data from Yahoo Finance and listens on `http://localhost:8787` by default. Foreign-exchange (FX) rates are retrieved from Frankfurter. Review the terms and availability of these external services before relying on the data.
 
 ## Verification
 

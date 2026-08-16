@@ -3,14 +3,14 @@ import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 import { providePortfolioDatabase } from './data/db';
-import { QuoteProvider } from './data/quote-provider';
-import { YahooQuoteProvider } from './data/yahoo-quote-provider';
+import { MarketDataProvider } from './data/market-data-provider';
+import { YahooMarketDataProvider } from './data/yahoo-market-data-provider';
 
 export const appConfig: ApplicationConfig = {
     providers: [
         provideBrowserGlobalErrorListeners(),
         provideRouter(routes),
         providePortfolioDatabase(),
-        { provide: QuoteProvider, useClass: YahooQuoteProvider },
+        { provide: MarketDataProvider, useClass: YahooMarketDataProvider },
     ],
 };

@@ -1,6 +1,6 @@
-# quote-proxy
+# market-data-proxy
 
-Local proxy for price data (milestone M5). Runs on port 8787, only talks to
+Local market-data proxy (milestone M5). Runs on port 8787, only talks to
 allowlisted Yahoo hosts (no open proxy), and serves:
 
 - `GET /api/search?q=...` → ticker suggestions `[{ symbol, name, exchange }]`
@@ -10,8 +10,8 @@ allowlisted Yahoo hosts (no open proxy), and serves:
 Start:
 
 ```bash
-node tools/quote-proxy/server.js
-# or: npm run quotes
+node tools/market-data-proxy/server.js
+# or: npm run market-data-proxy
 ```
 
 In-memory cache: quotes 15 minutes, history persistent (daily prices don't change).

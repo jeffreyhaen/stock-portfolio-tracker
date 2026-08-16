@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ImportService } from '../../data/import.service';
 import { PortfolioContext } from '../../data/portfolio-context';
-import { QUOTE_SERVICE_UNAVAILABLE_MESSAGE, QuoteSyncService } from '../../data/quote-sync.service';
+import { MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE, MarketDataSyncService } from '../../data/market-data-sync.service';
 import { ImportReport, StoredImportBatch, StoredPortfolio } from '../../data/stored-types';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { TableSort } from '../../shared/sort';
@@ -21,7 +21,7 @@ interface AutoLinkMessage {
 })
 export class PortfoliosPage {
     private readonly importService = inject(ImportService);
-    private readonly quoteSync = inject(QuoteSyncService);
+    private readonly marketDataSync = inject(MarketDataSyncService);
     readonly context = inject(PortfolioContext);
 
     readonly portfolios = this.context.portfolios;
@@ -194,14 +194,14 @@ export class PortfoliosPage {
             if (report.newSecurityIsins.length > 0) {
                 this.importPhase.set('linking');
                 try {
-                    const autoLinkReport = await this.quoteSync.autoLink(
+                    const autoLinkReport = await this.marketDataSync.autoLink(
                         this.earliestTransactionDate(),
                         report.newSecurityIsins,
                     );
                     if (autoLinkReport.serviceUnavailable) {
                         this.autoLinkResult.set({
                             tone: 'warning',
-                            text: `${QUOTE_SERVICE_UNAVAILABLE_MESSAGE} No ticker searches were completed.`,
+                            text: `${MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE} No ticker searches were completed.`,
                         });
                     } else {
                         const parts = [`Auto-link completed: ${autoLinkReport.linked.length} linked`];

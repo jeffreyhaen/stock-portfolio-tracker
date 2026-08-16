@@ -1,4 +1,4 @@
-import { TickerSuggestion } from '../data/quote-provider';
+import { TickerSuggestion } from '../data/market-data-provider';
 
 const EXCHANGES_BY_CURRENCY: Record<string, string[]> = {
     EUR: [

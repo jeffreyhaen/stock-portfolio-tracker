@@ -1,5 +1,5 @@
 {
-    "name": "quote-proxy",
+    "name": "market-data-proxy",
     "private": true,
     "type": "module"
 }

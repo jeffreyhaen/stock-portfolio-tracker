@@ -3,12 +3,13 @@
     "version": "0.0.0",
     "scripts": {
         "ng": "ng",
-        "start": "ng serve",
+        "start": "node tools/start-dev.mjs",
+        "app": "ng serve",
         "build": "ng build",
         "watch": "ng build --watch --configuration development",
         "test": "ng test",
         "lint": "ng lint",
-        "quotes": "node tools/quote-proxy/server.js"
+        "market-data-proxy": "node tools/market-data-proxy/server.js"
     },
     "private": true,
     "packageManager": "npm@11.13.0",

@@ -2,8 +2,8 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import Decimal from 'decimal.js';
 import { MarketDataService } from '../../data/market-data.service';
 import { QuoteService } from '../../data/quote.service';
-import { QUOTE_SERVICE_UNAVAILABLE_MESSAGE, QuoteSyncService } from '../../data/quote-sync.service';
-import { TickerSuggestion } from '../../data/quote-provider';
+import { MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE, MarketDataSyncService } from '../../data/market-data-sync.service';
+import { TickerSuggestion } from '../../data/market-data-provider';
 import { StoredQuote, StoredSecurity } from '../../data/stored-types';
 import { HoldingStats } from '../../domain/holdings';
 import { parseLocalizedNumber } from '../../domain/numbers';
@@ -49,7 +49,7 @@ export class QuotePanelComponent {
 
     readonly marketData = inject(MarketDataService);
     private readonly quoteService = inject(QuoteService);
-    private readonly quoteSync = inject(QuoteSyncService);
+    private readonly marketDataSync = inject(MarketDataSyncService);
 
     readonly sort = new TableSort<'security' | 'ticker' | 'quote', QuoteRow>(
         {
@@ -73,11 +73,11 @@ export class QuotePanelComponent {
         this.autoLinking.set(true);
         this.statusMessage.set(null);
         try {
-            const report = await this.quoteSync.autoLink(this.fromDate());
+            const report = await this.marketDataSync.autoLink(this.fromDate());
             if (report.serviceUnavailable) {
                 this.statusMessage.set({
                     tone: 'warning',
-                    text: `${QUOTE_SERVICE_UNAVAILABLE_MESSAGE} No ticker searches were completed.`,
+                    text: `${MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE} No ticker searches were completed.`,
                 });
             } else {
                 const parts = [`Auto-link completed: ${report.linked.length} linked`];
@@ -135,24 +135,24 @@ export class QuotePanelComponent {
     async refreshQuotes(): Promise<void> {
         this.statusMessage.set(null);
         try {
-            const report = await this.quoteSync.refreshAll(this.fromDate());
+            const report = await this.marketDataSync.refreshAll(this.fromDate());
             if (report.serviceUnavailable) {
                 this.marketData.offline.set(false);
                 this.statusMessage.set({
                     tone: 'warning',
-                    text: `${QUOTE_SERVICE_UNAVAILABLE_MESSAGE} No quotes were refreshed.`,
+                    text: `${MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE} No prices were refreshed.`,
                 });
             } else if (report.quotesRequested === 0) {
                 this.statusMessage.set({ tone: 'info', text: 'No linked tickers to refresh. Link tickers first.' });
             } else if (report.quotesFailed.length > 0) {
                 this.statusMessage.set({
                     tone: 'warning',
-                    text: `Refresh completed with ${report.quotesFailed.length} quote failure(s). Last known prices are shown.`,
+                    text: `Refresh completed with ${report.quotesFailed.length} price failure(s). Last known prices are shown.`,
                 });
             } else {
                 this.statusMessage.set({
                     tone: 'info',
-                    text: `Refresh completed: ${report.quotesUpdated} quotes updated.`,
+                    text: `Refresh completed: ${report.quotesUpdated} prices updated.`,
                 });
             }
         } catch (error) {
@@ -179,7 +179,7 @@ export class QuotePanelComponent {
         const query = state.query.trim() === '' ? fallbackQuery : state.query.trim();
         this.searches.update((s) => ({ ...s, [isin]: { ...state, query, searching: true, error: null } }));
         try {
-            const suggestions = await this.quoteSync.searchTicker(query);
+            const suggestions = await this.marketDataSync.searchTicker(query);
             this.searches.update((s) => ({ ...s, [isin]: { query, suggestions, searching: false, error: null } }));
         } catch (error) {
             this.searches.update((s) => ({
@@ -190,17 +190,17 @@ export class QuotePanelComponent {
     }
 
     async link(isin: string, symbol: string, exchange?: string): Promise<void> {
-        await this.quoteSync.linkTicker(isin, symbol, exchange);
+        await this.marketDataSync.linkTicker(isin, symbol, exchange);
         this.searches.update((s) => {
             const rest = { ...s };
             delete rest[isin];
             return rest;
         });
-        await this.quoteSync.refreshSecurity(isin, this.fromDate());
+        await this.marketDataSync.refreshSecurity(isin, this.fromDate());
     }
 
     async unlink(isin: string): Promise<void> {
-        await this.quoteSync.unlinkTicker(isin);
+        await this.marketDataSync.unlinkTicker(isin);
     }
 
     onPriceInput(isin: string, input: string): void {

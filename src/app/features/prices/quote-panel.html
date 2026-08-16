@@ -14,7 +14,7 @@
                 [disabled]="marketData.refreshing()"
                 (click)="refreshQuotes()"
             >
-                {{ marketData.refreshing() ? 'Refreshing…' : 'Refresh quotes' }}
+                {{ marketData.refreshing() ? 'Refreshing…' : 'Refresh prices' }}
             </button>
             <button type="button" class="btn btn-outline btn-sm" [disabled]="autoLinking()" (click)="autoLink()">
                 {{ autoLinking() ? 'Linking…' : 'Auto-link tickers' }}
@@ -44,7 +44,7 @@
                 <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
                     <th><app-sort-th [sort]="sort" sortKey="security">Security</app-sort-th></th>
                     <th><app-sort-th [sort]="sort" sortKey="ticker">Ticker</app-sort-th></th>
-                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="quote">Quote</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="sort" sortKey="quote">Price</app-sort-th></th>
                     <th class="text-right">Manual price (EUR)</th>
                 </tr>
             </thead>

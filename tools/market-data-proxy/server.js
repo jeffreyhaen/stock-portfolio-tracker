@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-const PORT = Number(process.env.QUOTE_PROXY_PORT ?? 8787);
+const PORT = Number(process.env.MARKET_DATA_PROXY_PORT ?? 8787);
 const QUOTE_TTL_MS = 15 * 60 * 1000;
 const YAHOO_HOST = 'query1.finance.yahoo.com';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) StockPortfolioApp/1.0';
@@ -201,7 +201,7 @@ const server = http.createServer(async (req, res) => {
 server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
         console.error(
-            `Port ${PORT} is already in use — is a quote proxy already running? (or choose another port with QUOTE_PROXY_PORT)`,
+            `Port ${PORT} is already in use — is a market-data proxy already running? (or choose another port with MARKET_DATA_PROXY_PORT)`,
         );
         process.exit(1);
     }
@@ -209,5 +209,5 @@ server.on('error', (error) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`quote proxy listening on http://localhost:${PORT}`);
+    console.log(`market-data proxy listening on http://localhost:${PORT}`);
 });

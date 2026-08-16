@@ -26,7 +26,7 @@ export interface TickerSuggestion {
     readonly exchange: string;
 }
 
-export abstract class QuoteProvider {
+export abstract class MarketDataProvider {
     abstract quote(symbol: string): Promise<QuoteResult>;
 
     async quotes(symbols: readonly string[]): Promise<Record<string, QuoteResult | { error: string }>> {

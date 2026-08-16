@@ -5,7 +5,7 @@ import { chooseTickerCandidate } from '../domain/ticker-match';
 import { PortfolioDatabase } from './db';
 import { FxService } from './fx.service';
 import { MarketDataService } from './market-data.service';
-import { QuoteProvider, TickerSuggestion } from './quote-provider';
+import { MarketDataProvider, TickerSuggestion } from './market-data-provider';
 
 export interface RefreshReport {
     readonly quotesUpdated: number;
@@ -16,8 +16,8 @@ export interface RefreshReport {
     readonly serviceUnavailable: boolean;
 }
 
-export const QUOTE_SERVICE_UNAVAILABLE_MESSAGE =
-    'The quote service could not be reached. The service may not be running. Start it with `npm run quotes` and try again.';
+export const MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE =
+    'Market data service unavailable. The service may not be running. Start it with `npm run market-data-proxy` and try again.';
 
 const LAST_QUOTE_REFRESH_DAY_KEY = 'lastQuoteRefreshDay';
 
@@ -28,9 +28,9 @@ export interface AutoLinkReport {
 }
 
 @Injectable({ providedIn: 'root' })
-export class QuoteSyncService {
+export class MarketDataSyncService {
     private readonly db = inject(PortfolioDatabase);
-    private readonly provider = inject(QuoteProvider);
+    private readonly provider = inject(MarketDataProvider);
     private readonly fx = inject(FxService);
     private readonly marketData = inject(MarketDataService);
     private refreshInFlight: Promise<RefreshReport> | null = null;

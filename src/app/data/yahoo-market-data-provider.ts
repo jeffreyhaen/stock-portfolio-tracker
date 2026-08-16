@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { DayBarDto, HistoryResult, QuoteProvider, QuoteResult, TickerSuggestion } from './quote-provider';
+import { DayBarDto, HistoryResult, MarketDataProvider, QuoteResult, TickerSuggestion } from './market-data-provider';
 
 const DEFAULT_BASE_URL = 'http://localhost:8787';
 
@@ -11,7 +11,7 @@ interface ProxyQuote {
 }
 
 @Injectable({ providedIn: 'root' })
-export class YahooQuoteProvider extends QuoteProvider {
+export class YahooMarketDataProvider extends MarketDataProvider {
     private baseUrl = DEFAULT_BASE_URL;
 
     setBaseUrl(url: string): void {

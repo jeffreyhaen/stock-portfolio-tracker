@@ -1,7 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { PortfolioContext } from './data/portfolio-context';
-import { QuoteSyncService } from './data/quote-sync.service';
+import { MarketDataSyncService } from './data/market-data-sync.service';
 
 @Component({
     selector: 'app-root',
@@ -11,7 +11,7 @@ import { QuoteSyncService } from './data/quote-sync.service';
 })
 export class App {
     private readonly context = inject(PortfolioContext);
-    private readonly quoteSync = inject(QuoteSyncService);
+    private readonly marketDataSync = inject(MarketDataSyncService);
 
     readonly portfolioId = this.context.selectedPortfolioId;
     readonly portfolioName = computed(() => this.context.selectedPortfolio()?.name ?? '');
@@ -31,7 +31,7 @@ export class App {
                           (earliest, transaction) => (transaction.date < earliest ? transaction.date : earliest),
                           transactions[0].date,
                       );
-            await this.quoteSync.refreshAllIfNeeded(fromDate);
+            await this.marketDataSync.refreshAllIfNeeded(fromDate);
         } catch (error) {
             console.error('Automatic quote refresh failed', error);
         }

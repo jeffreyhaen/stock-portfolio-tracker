@@ -33,7 +33,7 @@ export interface PortfolioTotals {
     readonly costsPerCurrency: ReadonlyMap<string, Decimal>;
     readonly missingFxIncome: number;
     readonly missingFxCosts: number;
-    readonly cashEur: Decimal;
+    readonly cash: Decimal;
     readonly value: Decimal | null;
     readonly result: Decimal | null;
     readonly resultPct: Decimal | null;
@@ -44,7 +44,7 @@ export interface Valuation {
     readonly totals: PortfolioTotals;
     readonly missingQuotes: string[];
     readonly missingFx: string[];
-    readonly nonEurExternalFlows: number;
+    readonly nonReportingExternalFlows: number;
 }
 
 export interface RangeTotals {
@@ -66,6 +66,7 @@ export function rangeTotals(
     fx: FxResolver,
     cutoff: string | null,
     to: string | null = null,
+    reportingCurrency = 'EUR',
 ): RangeTotals {
     let netInvested = new Decimal(0);
     let income = new Decimal(0);
@@ -82,7 +83,7 @@ export function rangeTotals(
         if (to !== null && txn.date > to) {
             continue;
         }
-        if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === 'EUR') {
+        if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === reportingCurrency) {
             netInvested = netInvested.plus(txn.mutation);
         }
         if (COST_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency !== null) {
@@ -90,7 +91,7 @@ export function rangeTotals(
                 txn.mutationCurrency,
                 (costsPerCurrency.get(txn.mutationCurrency) ?? new Decimal(0)).plus(txn.mutation),
             );
-            if (txn.mutationCurrency === 'EUR') {
+            if (txn.mutationCurrency === reportingCurrency) {
                 costs = costs.plus(txn.mutation);
             } else {
                 const rate = fx(txn.mutationCurrency, txn.date);
@@ -106,7 +107,7 @@ export function rangeTotals(
                 txn.mutationCurrency,
                 (incomePerCurrency.get(txn.mutationCurrency) ?? new Decimal(0)).plus(txn.mutation),
             );
-            if (txn.mutationCurrency === 'EUR') {
+            if (txn.mutationCurrency === reportingCurrency) {
                 income = income.plus(txn.mutation);
             } else {
                 const rate = fx(txn.mutationCurrency, txn.date);
@@ -135,6 +136,7 @@ export function buildValuation(
     quotes: ReadonlyMap<string, QuoteInput>,
     fx: FxResolver,
     today: string,
+    reportingCurrency = 'EUR',
 ): Valuation {
     const sorted = [...transactions].sort(compareChronological);
     const positions = new Map<string, Decimal>();
@@ -146,11 +148,22 @@ export function buildValuation(
     const costsPerCurrency = new Map<string, Decimal>();
     let missingFxIncome = 0;
     let missingFxCosts = 0;
-    let cashEur = new Decimal(0);
-    let nonEurExternalFlows = 0;
+    let cash = new Decimal(0);
+    const cashOther = new Map<string, Decimal>();
+    let nonReportingExternalFlows = 0;
 
     const valueAt = (date: string): Decimal | null => {
-        let total = cashEur;
+        let total = cash;
+        for (const [currency, amount] of cashOther) {
+            if (amount.isZero()) {
+                continue;
+            }
+            const rate = fx(currency, date);
+            if (rate === null) {
+                return null;
+            }
+            total = total.plus(amount.times(rate));
+        }
         for (const [isin, qty] of positions) {
             if (qty.isZero()) {
                 continue;
@@ -186,10 +199,10 @@ export function buildValuation(
             }
         }
         if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null) {
-            if (txn.mutationCurrency === 'EUR') {
+            if (txn.mutationCurrency === reportingCurrency) {
                 netInvested = netInvested.plus(txn.mutation);
             } else {
-                nonEurExternalFlows += 1;
+                nonReportingExternalFlows += 1;
             }
         }
         if (COST_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency !== null) {
@@ -197,7 +210,7 @@ export function buildValuation(
                 txn.mutationCurrency,
                 (costsPerCurrency.get(txn.mutationCurrency) ?? new Decimal(0)).plus(txn.mutation),
             );
-            if (txn.mutationCurrency === 'EUR') {
+            if (txn.mutationCurrency === reportingCurrency) {
                 costs = costs.plus(txn.mutation);
             } else {
                 const rate = fx(txn.mutationCurrency, txn.date);
@@ -213,7 +226,7 @@ export function buildValuation(
                 txn.mutationCurrency,
                 (incomePerCurrency.get(txn.mutationCurrency) ?? new Decimal(0)).plus(txn.mutation),
             );
-            if (txn.mutationCurrency === 'EUR') {
+            if (txn.mutationCurrency === reportingCurrency) {
                 income = income.plus(txn.mutation);
             } else {
                 const rate = fx(txn.mutationCurrency, txn.date);
@@ -224,8 +237,12 @@ export function buildValuation(
                 }
             }
         }
-        if (txn.balanceCurrency === 'EUR' && txn.balance !== null) {
-            cashEur = txn.balance;
+        if (txn.balanceCurrency !== null && txn.balance !== null) {
+            if (txn.balanceCurrency === reportingCurrency) {
+                cash = txn.balance;
+            } else if (reportingCurrency !== 'EUR') {
+                cashOther.set(txn.balanceCurrency, txn.balance);
+            }
         }
     }
     if (previousDate !== null) {
@@ -245,7 +262,7 @@ export function buildValuation(
         if (quote === undefined) {
             missingQuotes.push(isin);
         } else if (fx(quote.currency, today) === null) {
-            missingFx.add(`${quote.currency}/EUR`);
+            missingFx.add(`${quote.currency}/${reportingCurrency}`);
         }
     }
 
@@ -264,13 +281,13 @@ export function buildValuation(
             costsPerCurrency,
             missingFxIncome,
             missingFxCosts,
-            cashEur,
+            cash,
             value,
             result,
             resultPct,
         },
         missingQuotes,
         missingFx: [...missingFx],
-        nonEurExternalFlows,
+        nonReportingExternalFlows,
     };
 }

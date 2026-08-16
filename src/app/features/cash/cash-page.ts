@@ -1,6 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import Decimal from 'decimal.js';
+import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { cashAt, externalFlows } from '../../domain/engine';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -18,6 +19,7 @@ interface CashRow {
     readonly currency: string;
     readonly name: string;
     readonly balance: Decimal;
+    readonly balanceReporting: Decimal | null;
 }
 
 interface FlowRow {
@@ -33,14 +35,19 @@ interface FlowRow {
 })
 export class CashPage {
     private readonly context = inject(PortfolioContext);
+    private readonly marketData = inject(MarketDataService);
 
     readonly reportingCurrency = computed(() => this.context.selectedPortfolio()?.reportingCurrency ?? 'EUR');
+
+    constructor() {
+        void this.marketData.reload();
+    }
 
     readonly balancesSort = new TableSort<'currency' | 'balance' | 'balanceReporting', CashRow>(
         {
             currency: (row) => row.name,
             balance: (row) => row.balance,
-            balanceReporting: (row) => (row.currency === this.reportingCurrency() ? row.balance : null),
+            balanceReporting: (row) => row.balanceReporting,
         },
         'balance',
         'desc',
@@ -59,13 +66,19 @@ export class CashPage {
 
     private readonly unsortedBalances = computed<CashRow[]>(() => {
         const balances = cashAt(this.context.transactions());
+        const fx = this.marketData.fxResolver();
+        const reporting = this.reportingCurrency();
         return [...balances.entries()]
             .filter(([, position]) => !position.amount.isZero())
-            .map(([currency, position]) => ({
-                currency,
-                name: CURRENCY_NAMES[currency] ?? currency,
-                balance: position.amount,
-            }));
+            .map(([currency, position]) => {
+                const rate = currency === reporting ? new Decimal(1) : fx(currency, position.asOfDate);
+                return {
+                    currency,
+                    name: CURRENCY_NAMES[currency] ?? currency,
+                    balance: position.amount,
+                    balanceReporting: rate === null ? null : position.amount.times(rate),
+                };
+            });
     });
 
     readonly balances = computed(() => this.balancesSort.apply(this.unsortedBalances()));

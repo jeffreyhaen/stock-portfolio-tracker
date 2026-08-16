@@ -39,11 +39,13 @@ interface TradeEvent {
 
 interface CashEvent {
     readonly date: string;
+    readonly currency: string;
     readonly balance: Decimal;
 }
 
 interface FlowEvent {
     readonly date: string;
+    readonly currency: string;
     readonly amount: Decimal;
 }
 
@@ -61,12 +63,13 @@ export function buildMarketValueSeries(
     bars: ReadonlyMap<string, readonly PriceBar[]>,
     fx: FxResolver,
     splits: ReadonlyMap<string, readonly SplitFactor[]> = new Map(),
+    reportingCurrency = 'EUR',
 ): MarketValueSeries {
     const sorted = [...transactions].sort(compareChronological);
     const trades: TradeEvent[] = [];
     const anchors = new Map<string, AnchorEvent[]>();
     const cashEvents: CashEvent[] = [];
-    const flows = new Map<string, Decimal>();
+    const flows: FlowEvent[] = [];
     let totalNetInvested = new Decimal(0);
     const netInvestedEvents: FlowEvent[] = [];
 
@@ -87,13 +90,17 @@ export function buildMarketValueSeries(
                 anchors.set(txn.isin, list);
             }
         }
-        if (txn.balanceCurrency === 'EUR' && txn.balance !== null) {
-            cashEvents.push({ date: txn.date, balance: txn.balance });
+        if (txn.balanceCurrency !== null && txn.balance !== null) {
+            if (txn.balanceCurrency === reportingCurrency || reportingCurrency !== 'EUR') {
+                cashEvents.push({ date: txn.date, currency: txn.balanceCurrency, balance: txn.balance });
+            }
         }
-        if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency === 'EUR') {
-            flows.set(txn.date, (flows.get(txn.date) ?? new Decimal(0)).plus(txn.mutation));
-            totalNetInvested = totalNetInvested.plus(txn.mutation);
-            netInvestedEvents.push({ date: txn.date, amount: totalNetInvested });
+        if (EXTERNAL_TYPES.has(txn.type) && txn.mutation !== null && txn.mutationCurrency !== null) {
+            flows.push({ date: txn.date, currency: txn.mutationCurrency, amount: txn.mutation });
+            if (txn.mutationCurrency === reportingCurrency) {
+                totalNetInvested = totalNetInvested.plus(txn.mutation);
+                netInvestedEvents.push({ date: txn.date, currency: reportingCurrency, amount: totalNetInvested });
+            }
         }
     }
 
@@ -129,7 +136,7 @@ export function buildMarketValueSeries(
         qtyState.set(isin, { index: 0, qty: new Decimal(0) });
     }
     let cashIndex = 0;
-    let cash = new Decimal(0);
+    const cash = new Map<string, Decimal>();
     let netInvestedIndex = 0;
     let netInvested = new Decimal(0);
 
@@ -138,7 +145,7 @@ export function buildMarketValueSeries(
             continue;
         }
         while (cashIndex < cashEvents.length && cashEvents[cashIndex].date <= day) {
-            cash = cashEvents[cashIndex].balance;
+            cash.set(cashEvents[cashIndex].currency, cashEvents[cashIndex].balance);
             cashIndex++;
         }
         while (netInvestedIndex < netInvestedEvents.length && netInvestedEvents[netInvestedIndex].date <= day) {
@@ -166,8 +173,29 @@ export function buildMarketValueSeries(
                 state.index++;
             }
         }
-        let total = cash;
+        let total = new Decimal(0);
         let complete = true;
+        for (const [currency, amount] of cash) {
+            if (amount.isZero()) {
+                continue;
+            }
+            const rate = fx(currency, day);
+            if (rate === null) {
+                missingFx.add(`${currency}/${reportingCurrency}`);
+                complete = false;
+                break;
+            }
+            total = total.plus(amount.times(rate));
+        }
+        if (!complete) {
+            points.push({
+                date: day,
+                value: null,
+                flow: flowOn(day),
+                netInvested,
+            });
+            continue;
+        }
         for (const [isin, qtyInfo] of qtyState) {
             const qty = qtyInfo.qty;
             if (qty.isZero()) {
@@ -197,7 +225,7 @@ export function buildMarketValueSeries(
             }
             const rate = fx(currency, day);
             if (rate === null) {
-                missingFx.add(`${currency}/EUR`);
+                missingFx.add(`${currency}/${reportingCurrency}`);
                 complete = false;
                 break;
             }
@@ -206,9 +234,27 @@ export function buildMarketValueSeries(
         points.push({
             date: day,
             value: complete ? total : null,
-            flow: flows.get(day) ?? new Decimal(0),
+            flow: flowOn(day),
             netInvested,
         });
+    }
+
+    function flowOn(day: string): Decimal {
+        let sum = new Decimal(0);
+        for (const flow of flows) {
+            if (flow.date !== day) {
+                continue;
+            }
+            if (flow.currency === reportingCurrency) {
+                sum = sum.plus(flow.amount);
+                continue;
+            }
+            const rate = fx(flow.currency, day);
+            if (rate !== null) {
+                sum = sum.plus(flow.amount.times(rate));
+            }
+        }
+        return sum;
     }
 
     return { points, missingFx: [...missingFx], estimatedIsins: [...estimatedIsins] };

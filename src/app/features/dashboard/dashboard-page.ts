@@ -60,7 +60,7 @@ interface TopHoldingView {
     readonly isin: string;
     readonly product: string;
     readonly quantity: Decimal;
-    readonly valueEur: Decimal | null;
+    readonly value: Decimal | null;
     readonly weightPct: Decimal | null;
 }
 
@@ -106,6 +106,8 @@ export class DashboardPage {
 
     private readonly today = new Date().toISOString().slice(0, 10);
 
+    readonly reportingCurrency = this.marketData.reportingCurrency;
+
     constructor() {
         void this.marketData.reload();
     }
@@ -120,6 +122,7 @@ export class DashboardPage {
             this.marketData.quoteMap(),
             this.marketData.fxResolver(),
             this.today,
+            this.reportingCurrency(),
         ),
     );
 
@@ -144,6 +147,7 @@ export class DashboardPage {
             this.barsMap(),
             this.marketData.fxResolver(),
             this.splitsMap(),
+            this.reportingCurrency(),
         ),
     );
 
@@ -177,7 +181,13 @@ export class DashboardPage {
 
     readonly rangeTotals = computed(() => {
         const { from, to } = this.bounds();
-        return rangeTotals(this.context.transactions(), this.marketData.fxResolver(), from, to);
+        return rangeTotals(
+            this.context.transactions(),
+            this.marketData.fxResolver(),
+            from,
+            to,
+            this.reportingCurrency(),
+        );
     });
 
     readonly rangeResult = computed<RangeResult | null>(() => {
@@ -230,23 +240,23 @@ export class DashboardPage {
         return this.holdings()
             .map((h) => {
                 const quote = quotes.get(h.isin);
-                let valueEur: Decimal | null = null;
+                let value: Decimal | null = null;
                 if (quote !== undefined) {
                     const rate = fx(quote.currency, this.today);
-                    valueEur = rate === null ? null : h.quantity.times(quote.price).times(rate);
+                    value = rate === null ? null : h.quantity.times(quote.price).times(rate);
                 }
                 const weightPct =
-                    valueEur === null || total === null || total.isZero() ? null : valueEur.div(total).times(100);
-                return { isin: h.isin, product: h.product, quantity: h.quantity, valueEur, weightPct };
+                    value === null || total === null || total.isZero() ? null : value.div(total).times(100);
+                return { isin: h.isin, product: h.product, quantity: h.quantity, value, weightPct };
             })
             .sort((a, b) => {
-                if (a.valueEur === null) {
-                    return b.valueEur === null ? 0 : 1;
+                if (a.value === null) {
+                    return b.value === null ? 0 : 1;
                 }
-                if (b.valueEur === null) {
+                if (b.value === null) {
                     return -1;
                 }
-                return b.valueEur.comparedTo(a.valueEur);
+                return b.value.comparedTo(a.value);
             })
             .slice(0, 10);
     });
@@ -279,7 +289,7 @@ export class DashboardPage {
     );
 
     readonly resultTooltip = computed(() => {
-        const base = 'Result in your reporting currency (EUR) for the selected range.';
+        const base = `Result in your reporting currency (${this.reportingCurrency()}) for the selected range.`;
         const result = this.rangeResult();
         if (result === null) {
             return base;
@@ -306,7 +316,10 @@ export class DashboardPage {
         const txns = this.context
             .transactions()
             .filter((t) => (from === null || t.date >= from) && (to === null || t.date <= to));
-        const external = portfolioCashflows(txns, { fxFallback: this.marketData.fxResolver() });
+        const external = portfolioCashflows(txns, {
+            reportingCurrency: this.reportingCurrency(),
+            fxFallback: this.marketData.fxResolver(),
+        });
         if (external === null || first.value === null || last.value === null) {
             return null;
         }
@@ -380,10 +393,11 @@ export class DashboardPage {
     );
 
     private flowTooltip(label: string, perCurrency: ReadonlyMap<string, Decimal>, missing: number): string {
-        const base = `${label} in your reporting currency (EUR) for the selected range. Non-EUR amounts are converted using historical FX rates; amounts without a known rate are excluded.`;
+        const currency = this.reportingCurrency();
+        const base = `${label} in your reporting currency (${currency}) for the selected range. Amounts in other currencies are converted using historical FX rates; amounts without a known rate are excluded.`;
         const currencies = [...perCurrency.keys()];
-        const hasNonEur = currencies.some((c) => c !== 'EUR');
-        if (!hasNonEur && missing === 0) {
+        const hasOther = currencies.some((c) => c !== currency);
+        if (!hasOther && missing === 0) {
             return base;
         }
         const breakdown = [...perCurrency.entries()].map(([cur, val]) => `${cur} ${formatMoney(val, cur)}`).join(' · ');

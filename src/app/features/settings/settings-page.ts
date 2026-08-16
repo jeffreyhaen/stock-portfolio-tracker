@@ -1,8 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { BackupService, CURRENT_SCHEMA_VERSION, parseBundle } from '../../data/backup.service';
+import { FxService } from '../../data/fx.service';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { BackupBundle, BackupError, BackupImportReport } from '../../data/stored-types';
+import { SUPPORTED_CURRENCIES } from '../../shared/currency';
 import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog';
@@ -42,6 +44,7 @@ export class SettingsPage {
     private readonly backupService = inject(BackupService);
     private readonly context = inject(PortfolioContext);
     private readonly marketData = inject(MarketDataService);
+    private readonly fxService = inject(FxService);
 
     readonly schemaVersion = CURRENT_SCHEMA_VERSION;
     readonly busy = signal(false);
@@ -49,7 +52,68 @@ export class SettingsPage {
     readonly pendingImport = signal<BundlePreview | null>(null);
     readonly pendingFile = signal<File | null>(null);
 
+    readonly supportedCurrencies = SUPPORTED_CURRENCIES;
+    readonly selectedPortfolio = this.context.selectedPortfolio;
+    readonly currencyDraft = signal('');
+    readonly currencyBusy = signal(false);
+    readonly currencyDirty = computed(() => {
+        const current = this.selectedPortfolio()?.reportingCurrency;
+        return current !== undefined && this.currencyDraft() !== '' && this.currencyDraft() !== current;
+    });
+
     readonly transactionCount = computed(() => this.context.transactions().length);
+
+    constructor() {
+        effect(() => {
+            const current = this.selectedPortfolio()?.reportingCurrency;
+            if (current !== undefined && !this.currencyBusy()) {
+                this.currencyDraft.set(current);
+            }
+        });
+    }
+
+    async saveReportingCurrency(): Promise<void> {
+        const portfolio = this.selectedPortfolio();
+        const currency = this.currencyDraft();
+        if (portfolio === null || this.currencyBusy() || currency === portfolio.reportingCurrency) {
+            return;
+        }
+        this.currencyBusy.set(true);
+        this.message.set(null);
+        try {
+            await this.context.updateReportingCurrency(portfolio.id, currency);
+            const fromDate = this.earliestTransactionDate() ?? new Date().toISOString().slice(0, 10);
+            for (const other of this.supportedCurrencies) {
+                if (other !== currency) {
+                    await this.fxService.ensureRange(
+                        `${other}/${currency}`,
+                        fromDate,
+                        new Date().toISOString().slice(0, 10),
+                    );
+                }
+            }
+            await this.marketData.reload();
+            this.message.set({
+                kind: 'success',
+                text: `Reporting currency set to ${currency} for portfolio "${portfolio.name}".`,
+            });
+        } catch (error: unknown) {
+            this.currencyDraft.set(portfolio.reportingCurrency);
+            this.message.set({ kind: 'error', text: this.errorMessage(error, 'Saving currency failed.') });
+        } finally {
+            this.currencyBusy.set(false);
+        }
+    }
+
+    private earliestTransactionDate(): string | null {
+        let min: string | null = null;
+        for (const txn of this.context.transactions()) {
+            if (min === null || txn.date < min) {
+                min = txn.date;
+            }
+        }
+        return min;
+    }
 
     async exportBackup(): Promise<void> {
         if (this.busy()) {

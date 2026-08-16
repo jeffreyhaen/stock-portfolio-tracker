@@ -34,6 +34,13 @@ export class PortfolioRepository {
         }
     }
 
+    async updateReportingCurrency(id: string, currency: string): Promise<void> {
+        const updated = await this.db.portfolios.update(id, { reportingCurrency: currency });
+        if (updated === 0) {
+            throw new Error('Portfolio not found.');
+        }
+    }
+
     async delete(id: string): Promise<void> {
         await this.db.transaction('rw', [this.db.portfolios, this.db.transactions, this.db.importBatches], async () => {
             await this.db.transactions

@@ -3,6 +3,7 @@ import Decimal from 'decimal.js';
 import { buildFxResolver, FxResolver } from '../domain/fx';
 import { QuoteInput } from '../domain/valuation';
 import { PortfolioDatabase } from './db';
+import { PortfolioContext } from './portfolio-context';
 import { StoredPriceBar, StoredQuote, StoredSecurity, StoredSplitEvent } from './stored-types';
 
 const STALE_AFTER_DAYS = 3;
@@ -10,6 +11,7 @@ const STALE_AFTER_DAYS = 3;
 @Injectable({ providedIn: 'root' })
 export class MarketDataService {
     private readonly db = inject(PortfolioDatabase);
+    private readonly context = inject(PortfolioContext);
 
     readonly quotes = signal<StoredQuote[]>([]);
     readonly fxRates = signal<{ pair: string; date: string; rate: string }[]>([]);
@@ -28,7 +30,9 @@ export class MarketDataService {
         return map;
     });
 
-    readonly fxResolver = computed<FxResolver>(() => buildFxResolver(this.fxRates()));
+    readonly reportingCurrency = computed(() => this.context.selectedPortfolio()?.reportingCurrency ?? 'EUR');
+
+    readonly fxResolver = computed<FxResolver>(() => buildFxResolver(this.fxRates(), this.reportingCurrency()));
 
     readonly staleIsins = computed<Set<string>>(() => {
         const cutoff = new Date(Date.now() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();

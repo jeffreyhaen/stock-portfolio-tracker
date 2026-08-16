@@ -21,14 +21,17 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             @if (valuation().totals.value !== null) {
-            <p class="text-4xl font-semibold tabular-nums">{{ valuation().totals.value | money: 'EUR' }}</p>
+            <p class="text-4xl font-semibold tabular-nums">
+                {{ valuation().totals.value | money: reportingCurrency() }}
+            </p>
             @if (rangeResult() !== null) {
             <p
                 class="mt-1 text-lg font-medium tabular-nums"
                 [class.text-success]="!rangeResult()?.result?.isNegative() && !rangeResult()?.result?.isZero()"
                 [class.text-error]="rangeResult()?.result?.isNegative()"
             >
-                {{ rangeResult()?.result | money: 'EUR' }} ({{ rangeResult()?.resultPct | localizedNumber: 2 }}%)
+                {{ rangeResult()?.result | money: reportingCurrency() }} ({{ rangeResult()?.resultPct | localizedNumber:
+                2 }}%)
             </p>
             } } @else {
             <p class="text-4xl font-semibold tabular-nums">–</p>
@@ -115,7 +118,9 @@
             <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Net invested</p>
             <app-info-tooltip [text]="netInvestedTooltip()" />
         </div>
-        <p class="mt-1 text-xl font-semibold tabular-nums">{{ rangeTotals().netInvested | money: 'EUR' }}</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">
+            {{ rangeTotals().netInvested | money: reportingCurrency() }}
+        </p>
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <div class="flex items-center gap-1">
@@ -128,7 +133,7 @@
             [class.text-success]="!rangeResult()?.result?.isNegative() && !rangeResult()?.result?.isZero()"
             [class.text-error]="rangeResult()?.result?.isNegative()"
         >
-            {{ rangeResult()?.result | money: 'EUR' }}
+            {{ rangeResult()?.result | money: reportingCurrency() }}
         </p>
         } @else {
         <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
@@ -183,7 +188,7 @@
             [class.text-success]="!rangeTotals().income?.isNegative() && !rangeTotals().income?.isZero()"
             [class.text-error]="rangeTotals().income?.isNegative()"
         >
-            {{ rangeTotals().income | money: 'EUR' }}
+            {{ rangeTotals().income | money: reportingCurrency() }}
         </p>
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
@@ -196,7 +201,7 @@
             [class.text-success]="!rangeTotals().costs?.isNegative() && !rangeTotals().costs?.isZero()"
             [class.text-error]="rangeTotals().costs?.isNegative()"
         >
-            {{ rangeTotals().costs | money: 'EUR' }}
+            {{ rangeTotals().costs | money: reportingCurrency() }}
         </p>
     </div>
 </div>
@@ -224,7 +229,7 @@
                     </p>
                 </div>
                 <div class="shrink-0 text-right">
-                    <p class="text-sm font-medium tabular-nums">{{ holding.valueEur | money: 'EUR' }}</p>
+                    <p class="text-sm font-medium tabular-nums">{{ holding.value | money: reportingCurrency() }}</p>
                     @if (holding.weightPct !== null) {
                     <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                         {{ holding.weightPct | localizedNumber: 1 }}%

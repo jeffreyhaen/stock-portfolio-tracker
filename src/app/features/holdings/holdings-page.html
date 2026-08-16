@@ -122,25 +122,23 @@
                         }
                     </td>
                     <td class="text-right">
-                        @if (holding.valueEur !== null) {
-                        <p class="text-sm font-medium tabular-nums">
-                            {{ holding.valueEur | money: reportingCurrency() }}
-                        </p>
+                        @if (holding.value !== null) {
+                        <p class="text-sm font-medium tabular-nums">{{ holding.value | money: reportingCurrency() }}</p>
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
-                            {{ holding.valuePerShareEur | money: reportingCurrency() }}/share
+                            {{ holding.valuePerShare | money: reportingCurrency() }}/share
                         </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
                         }
                     </td>
                     <td class="text-right">
-                        @if (holding.open) { @if (holding.pnlEur !== null) {
+                        @if (holding.open) { @if (holding.pnl !== null) {
                         <p
                             class="text-sm font-medium tabular-nums"
-                            [class.text-success]="!holding.pnlEur.isNegative() && !holding.pnlEur.isZero()"
-                            [class.text-error]="holding.pnlEur.isNegative()"
+                            [class.text-success]="!holding.pnl.isNegative() && !holding.pnl.isZero()"
+                            [class.text-error]="holding.pnl.isNegative()"
                         >
-                            {{ holding.pnlEur | money: reportingCurrency() }}
+                            {{ holding.pnl | money: reportingCurrency() }}
                         </p>
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                             {{ holding.pnlInclRealized | money: reportingCurrency() }}

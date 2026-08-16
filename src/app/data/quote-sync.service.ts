@@ -43,10 +43,11 @@ export class QuoteSyncService {
         if (security === undefined || ticker === null || ticker === undefined) {
             return;
         }
+        const reporting = this.marketData.reportingCurrency();
         this.marketData.refreshing.set(true);
         try {
-            await this.fx.ensureRange('USD/EUR', fromDate, today());
             const result = await this.provider.quote(ticker);
+            await this.ensureFxFor(result.currency, reporting, fromDate);
             await this.db.quoteCache.put({
                 key: isin,
                 price: new Decimal(result.price).toString(),
@@ -120,11 +121,9 @@ export class QuoteSyncService {
             const quotesFailed: string[] = [];
             const historyUpdated: string[] = [];
             let fxUpdated = false;
+            const reporting = this.marketData.reportingCurrency();
 
             try {
-                await this.fx.ensureRange('USD/EUR', fromDate, today());
-                fxUpdated = true;
-
                 const tickers = linkedSecurities.map((s) => s.quoteTicker ?? '');
                 const quotes = await this.provider.quotes(tickers);
                 for (const security of linkedSecurities) {
@@ -158,10 +157,9 @@ export class QuoteSyncService {
                     }
                 }
                 for (const currency of historyCurrencies) {
-                    if (currency !== 'EUR' && currency !== 'USD') {
-                        await this.fx.ensureRange(`${currency}/EUR`, fromDate, today());
-                    }
+                    await this.ensureFxFor(currency, reporting, fromDate);
                 }
+                fxUpdated = true;
 
                 this.marketData.offline.set(false);
                 this.marketData.lastRefresh.set(new Date().toISOString());
@@ -173,6 +171,13 @@ export class QuoteSyncService {
         } finally {
             this.marketData.refreshing.set(false);
         }
+    }
+
+    private async ensureFxFor(currency: string, reporting: string, fromDate: string): Promise<void> {
+        if (currency === reporting) {
+            return;
+        }
+        await this.fx.ensureRange(`${currency}/${reporting}`, fromDate, today());
     }
 
     private async ensureHistory(isin: string, ticker: string, fromDate: string): Promise<string | null> {

@@ -38,6 +38,11 @@ export class PortfolioContext {
         await this.refresh();
     }
 
+    async updateReportingCurrency(id: string, currency: string): Promise<void> {
+        await this.portfolioRepository.updateReportingCurrency(id, currency);
+        await this.refresh();
+    }
+
     async deletePortfolio(id: string): Promise<void> {
         await this.portfolioRepository.delete(id);
         const wasSelected = this.selectedPortfolioId() === id;

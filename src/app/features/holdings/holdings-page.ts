@@ -21,9 +21,9 @@ interface HoldingView {
     readonly periodDays: number | null;
     readonly netInvested: Decimal | null;
     readonly netInvestedPerShare: Decimal | null;
-    readonly valueEur: Decimal | null;
-    readonly valuePerShareEur: Decimal | null;
-    readonly pnlEur: Decimal | null;
+    readonly value: Decimal | null;
+    readonly valuePerShare: Decimal | null;
+    readonly pnl: Decimal | null;
     readonly pnlInclRealized: Decimal | null;
     readonly realizedPnl: Decimal | null;
     readonly pnlPct: Decimal | null;
@@ -68,9 +68,9 @@ export class HoldingsPage {
             periodDays: (h) => h.periodDays,
             netInvested: (h) => h.netInvested,
             perShare: (h) => h.netInvestedPerShare,
-            value: (h) => h.valueEur,
-            valuePerShare: (h) => h.valuePerShareEur,
-            pnl: (h) => (h.open ? h.pnlEur : h.realizedPnl),
+            value: (h) => h.value,
+            valuePerShare: (h) => h.valuePerShare,
+            pnl: (h) => (h.open ? h.pnl : h.realizedPnl),
             pnlTotal: (h) => (h.open ? h.pnlInclRealized : h.realizedPnl),
             pnlPct: (h) => h.pnlPct,
             pnlYear: (h) => h.pnlPctYear,
@@ -97,27 +97,27 @@ export class HoldingsPage {
         const views = stats.map((h): HoldingView => {
             const security = securities.get(h.isin);
             const quote = quotes.get(h.isin);
-            let valueEur: Decimal | null = null;
-            let valuePerShareEur: Decimal | null = null;
-            let pnlEur: Decimal | null = null;
+            let value: Decimal | null = null;
+            let valuePerShare: Decimal | null = null;
+            let pnl: Decimal | null = null;
             let pnlPct: Decimal | null = null;
             let pnlInclRealized: Decimal | null = null;
             if (h.open && quote !== undefined) {
                 const rate = fx(quote.currency, today);
                 if (rate !== null) {
-                    valueEur = h.quantity.times(quote.price).times(rate);
-                    valuePerShareEur = valueEur.div(h.quantity);
+                    value = h.quantity.times(quote.price).times(rate);
+                    valuePerShare = value.div(h.quantity);
                 }
-                if (valueEur !== null && h.netInvested !== null) {
-                    pnlEur = valueEur.minus(h.netInvested);
-                    pnlPct = h.netInvested.isZero() ? null : pnlEur.div(h.netInvested).times(100);
-                    pnlInclRealized = h.realizedPnl === null ? null : pnlEur.plus(h.realizedPnl);
+                if (value !== null && h.netInvested !== null) {
+                    pnl = value.minus(h.netInvested);
+                    pnlPct = h.netInvested.isZero() ? null : pnl.div(h.netInvested).times(100);
+                    pnlInclRealized = h.realizedPnl === null ? null : pnl.plus(h.realizedPnl);
                 }
             }
             let pnlPctYear: Decimal | null = null;
             const flows = cashflows.get(h.isin) ?? [];
             if (flows !== null) {
-                const endingValue = h.open && valueEur !== null ? [{ date: today, amount: valueEur }] : [];
+                const endingValue = h.open && value !== null ? [{ date: today, amount: value }] : [];
                 const all = [...flows, ...endingValue];
                 const r = xirr(all);
                 pnlPctYear = r === null || cashflowWindowDays(all) < MIN_ANNUALIZED_RETURN_DAYS ? null : r.times(100);
@@ -142,9 +142,9 @@ export class HoldingsPage {
                         : holdingPeriodDays(h.firstBuyDate, h.open ? new Date() : new Date(`${h.closedAt}T00:00:00Z`)),
                 netInvested: h.netInvested,
                 netInvestedPerShare: h.netInvestedPerShare,
-                valueEur,
-                valuePerShareEur,
-                pnlEur,
+                value,
+                valuePerShare,
+                pnl,
                 pnlInclRealized,
                 realizedPnl: h.realizedPnl,
                 pnlPct: h.open ? pnlPct : closedPct,
@@ -153,12 +153,12 @@ export class HoldingsPage {
             };
         });
         const totalValue = views
-            .filter((v) => v.open && v.valueEur !== null)
-            .reduce((sum, v) => sum.plus(v.valueEur ?? 0), new Decimal(0));
+            .filter((v) => v.open && v.value !== null)
+            .reduce((sum, v) => sum.plus(v.value ?? 0), new Decimal(0));
         if (!totalValue.isZero()) {
             return views.map((v) =>
-                v.open && v.valueEur !== null
-                    ? { ...v, allocationPct: v.valueEur.div(totalValue).times(100) }
+                v.open && v.value !== null
+                    ? { ...v, allocationPct: v.value.div(totalValue).times(100) }
                     : v.open
                       ? v
                       : { ...v, allocationPct: new Decimal(0) },

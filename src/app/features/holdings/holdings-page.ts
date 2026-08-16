@@ -9,6 +9,7 @@ import { cashflowsPerIsin, cashflowWindowDays, MIN_ANNUALIZED_RETURN_DAYS, xirr 
 import { MoneyPipe } from '../../shared/money.pipe';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { TableSort } from '../../shared/sort';
+import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
 import { SortThComponent } from '../../shared/ui/sort-th';
 
 interface HoldingView {
@@ -29,13 +30,14 @@ interface HoldingView {
     readonly pnlPct: Decimal | null;
     readonly pnlPctYear: Decimal | null;
     readonly allocationPct: Decimal | null;
+    readonly marketDataWarning: boolean;
 }
 
 type HoldingFilter = 'open' | 'closed' | 'all';
 
 @Component({
     selector: 'app-holdings-page',
-    imports: [RouterLink, MoneyPipe, LocalizedNumberPipe, SortThComponent],
+    imports: [RouterLink, MoneyPipe, LocalizedNumberPipe, InfoTooltipComponent, SortThComponent],
     templateUrl: './holdings-page.html',
 })
 export class HoldingsPage {
@@ -84,6 +86,8 @@ export class HoldingsPage {
     }
 
     readonly reportingCurrency = computed(() => this.context.selectedPortfolio()?.reportingCurrency ?? 'EUR');
+    readonly marketDataWarningText =
+        'Market data for this security is not available so the latest trade price is used instead of the actual market price to calculate the current value.';
 
     private readonly allViews = computed<HoldingView[]>(() => {
         const quotes = this.marketData.quoteMap();
@@ -150,6 +154,7 @@ export class HoldingsPage {
                 pnlPct: h.open ? pnlPct : closedPct,
                 pnlPctYear,
                 allocationPct: null,
+                marketDataWarning: quote === undefined,
             };
         });
         const totalValue = views

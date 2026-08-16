@@ -6,6 +6,7 @@ import { Component, input } from '@angular/core';
         <span
             tabindex="0"
             class="tooltip tooltip-bottom cursor-help"
+            [class.tooltip-end]="placement() === 'bottom-end'"
             [class.text-base-content/60]="tone() === 'info'"
             [class.text-warning]="tone() === 'warning'"
             role="img"
@@ -35,4 +36,5 @@ import { Component, input } from '@angular/core';
 export class InfoTooltipComponent {
     readonly text = input.required<string>();
     readonly tone = input<'info' | 'warning'>('info');
+    readonly placement = input<'bottom' | 'bottom-end'>('bottom');
 }

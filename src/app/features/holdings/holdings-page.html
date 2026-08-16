@@ -138,20 +138,46 @@
                             [class.text-success]="!holding.pnl.isNegative() && !holding.pnl.isZero()"
                             [class.text-error]="holding.pnl.isNegative()"
                         >
-                            {{ holding.pnl | money: reportingCurrency() }}
+                            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                                {{ holding.pnl | money: reportingCurrency() }} @if (holding.marketDataWarning) {
+                                <app-info-tooltip
+                                    [text]="marketDataWarningText"
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
+                                }
+                            </span>
                         </p>
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                             {{ holding.pnlInclRealized | money: reportingCurrency() }}
                         </p>
                         } @else {
-                        <p class="text-sm text-base-content/60">–</p>
+                        <p class="text-sm text-base-content/60">
+                            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                                – @if (holding.marketDataWarning) {
+                                <app-info-tooltip
+                                    [text]="marketDataWarningText"
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
+                                }
+                            </span>
+                        </p>
                         } } @else { @if (holding.realizedPnl !== null) {
                         <p
                             class="text-sm font-medium tabular-nums"
                             [class.text-success]="!holding.realizedPnl.isNegative() && !holding.realizedPnl.isZero()"
                             [class.text-error]="holding.realizedPnl.isNegative()"
                         >
-                            {{ holding.realizedPnl | money: reportingCurrency() }}
+                            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                                {{ holding.realizedPnl | money: reportingCurrency() }} @if (holding.marketDataWarning) {
+                                <app-info-tooltip
+                                    [text]="marketDataWarningText"
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
+                                }
+                            </span>
                         </p>
                         <p class="text-[0.8125rem] text-base-content/60">realized</p>
                         } @else {

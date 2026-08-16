@@ -11,11 +11,15 @@ import { ImportReport, StoredImportBatch, StoredSecurity } from './stored-types'
 
 const POSITION_TYPES = new Set<string>([T.TradeBuy, T.TradeSell, T.CorporateBuy, T.CorporateSell]);
 
+export interface ImportResult extends ImportReport {
+    readonly newSecurityIsins: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ImportService {
     private readonly db = inject(PortfolioDatabase);
 
-    async importCsv(portfolioId: string, fileName: string, csvText: string): Promise<ImportReport> {
+    async importCsv(portfolioId: string, fileName: string, csvText: string): Promise<ImportResult> {
         const rows = repairCsvRows(parseCsv(csvText).map((row) => row.slice(0, 12)));
         const { transactions, warnings } = buildLedger(rows);
 
@@ -45,13 +49,14 @@ export class ImportService {
             },
         };
 
+        let newSecurityIsins: string[] = [];
         await this.db.transaction('rw', [this.db.transactions, this.db.importBatches, this.db.securities], async () => {
             await this.db.transactions.bulkAdd(merge.added.map((txn) => toStored(txn, portfolioId, batch.id)));
             await this.db.importBatches.add(batch);
-            await this.upsertSecurities(merge.added);
+            newSecurityIsins = await this.upsertSecurities(merge.added);
         });
 
-        return batch.report;
+        return { ...batch.report, newSecurityIsins };
     }
 
     async batchesFor(portfolioId: string): Promise<StoredImportBatch[]> {
@@ -59,8 +64,9 @@ export class ImportService {
         return batches.sort((a, b) => b.importedAt.localeCompare(a.importedAt));
     }
 
-    private async upsertSecurities(added: readonly Transaction[]): Promise<void> {
+    private async upsertSecurities(added: readonly Transaction[]): Promise<string[]> {
         const seen = new Map<string, StoredSecurity>();
+        const newSecurityIsins: string[] = [];
         for (const txn of added) {
             if (!POSITION_TYPES.has(txn.type) || txn.isin === null || txn.product.trim() === '') {
                 continue;
@@ -77,6 +83,7 @@ export class ImportService {
             const existing = await this.db.securities.get(security.isin);
             if (existing === undefined) {
                 await this.db.securities.add(security);
+                newSecurityIsins.push(security.isin);
             } else if (existing.name !== security.name || existing.tradingCurrency !== security.tradingCurrency) {
                 await this.db.securities.put({
                     ...security,
@@ -85,5 +92,6 @@ export class ImportService {
                 });
             }
         }
+        return newSecurityIsins;
     }
 }

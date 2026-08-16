@@ -24,8 +24,17 @@
             </button>
         </div>
     </div>
-    @if (autoLinkResult() !== null) {
-    <p class="mt-2 text-sm text-base-content/60">{{ autoLinkResult() }}</p>
+    @if (statusMessage(); as message) {
+    <div
+        role="alert"
+        [class]="
+            message.tone === 'warning'
+                ? 'mt-4 rounded-lg border border-[#f5a623]/30 bg-[#fdf3e0] px-4 py-3 text-sm text-[#b25c00]'
+                : 'mt-4 rounded-lg border border-[#0068f0]/20 bg-[#e6effe] px-4 py-3 text-sm text-[#0053c2]'
+        "
+    >
+        {{ message.text }}
+    </div>
     } @if (rows().length === 0) {
     <p class="mt-4 text-sm text-base-content/60">No open positions.</p>
     } @else {

@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ImportService } from '../../data/import.service';
 import { PortfolioContext } from '../../data/portfolio-context';
+import { QUOTE_SERVICE_UNAVAILABLE_MESSAGE, QuoteSyncService } from '../../data/quote-sync.service';
 import { ImportReport, StoredImportBatch, StoredPortfolio } from '../../data/stored-types';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { TableSort } from '../../shared/sort';
@@ -8,6 +9,10 @@ import { ConfirmDialogComponent } from '../../shared/ui/confirm-dialog';
 import { SortThComponent } from '../../shared/ui/sort-th';
 
 type BatchSortKey = 'importedAt' | 'file' | 'rows' | 'added' | 'duplicates' | 'unknown';
+interface AutoLinkMessage {
+    readonly tone: 'info' | 'warning';
+    readonly text: string;
+}
 
 @Component({
     selector: 'app-portfolios-page',
@@ -16,6 +21,7 @@ type BatchSortKey = 'importedAt' | 'file' | 'rows' | 'added' | 'duplicates' | 'u
 })
 export class PortfoliosPage {
     private readonly importService = inject(ImportService);
+    private readonly quoteSync = inject(QuoteSyncService);
     readonly context = inject(PortfolioContext);
 
     readonly portfolios = this.context.portfolios;
@@ -23,8 +29,10 @@ export class PortfoliosPage {
     readonly newPortfolioName = signal('');
     readonly showCreateForm = signal(false);
     readonly busy = signal(false);
+    readonly importPhase = signal<'importing' | 'linking'>('importing');
     readonly dragActive = signal(false);
     readonly report = signal<ImportReport | null>(null);
+    readonly autoLinkResult = signal<AutoLinkMessage | null>(null);
     readonly error = signal<string | null>(null);
     readonly batches = signal<StoredImportBatch[]>([]);
 
@@ -64,6 +72,7 @@ export class PortfoliosPage {
         this.newPortfolioName.set('');
         this.showCreateForm.set(false);
         this.report.set(null);
+        this.autoLinkResult.set(null);
         this.error.set(null);
     }
 
@@ -71,6 +80,7 @@ export class PortfoliosPage {
         this.context.select(id);
         this.cancelRename();
         this.report.set(null);
+        this.autoLinkResult.set(null);
         this.error.set(null);
     }
 
@@ -172,18 +182,47 @@ export class PortfoliosPage {
             return;
         }
         this.busy.set(true);
+        this.importPhase.set('importing');
         this.errorTitle.set('Import failed');
         this.error.set(null);
         this.report.set(null);
+        this.autoLinkResult.set(null);
         try {
             const report = await this.importService.importCsv(portfolioId, fileName, csvText);
             this.report.set(report);
             await this.context.refresh();
+            if (report.newSecurityIsins.length > 0) {
+                this.importPhase.set('linking');
+                try {
+                    const autoLinkReport = await this.quoteSync.autoLink(
+                        this.earliestTransactionDate(),
+                        report.newSecurityIsins,
+                    );
+                    if (autoLinkReport.serviceUnavailable) {
+                        this.autoLinkResult.set({
+                            tone: 'warning',
+                            text: `${QUOTE_SERVICE_UNAVAILABLE_MESSAGE} No ticker searches were completed.`,
+                        });
+                    } else {
+                        const parts = [`Auto-link completed: ${autoLinkReport.linked.length} linked`];
+                        if (autoLinkReport.noCandidate.length > 0) {
+                            parts.push(`${autoLinkReport.noCandidate.length} without a match`);
+                        }
+                        this.autoLinkResult.set({ tone: 'info', text: parts.join(', ') });
+                    }
+                } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    this.autoLinkResult.set({ tone: 'warning', text: `Auto-link failed: ${message}` });
+                    this.errorTitle.set('Auto-link failed');
+                    this.error.set(message);
+                }
+            }
             await this.reloadBatches(portfolioId);
         } catch (error: unknown) {
             this.error.set(error instanceof Error ? error.message : String(error));
         } finally {
             this.busy.set(false);
+            this.importPhase.set('importing');
         }
     }
 
@@ -193,5 +232,16 @@ export class PortfoliosPage {
 
     private async reloadBatches(portfolioId: string): Promise<void> {
         this.batches.set(portfolioId === '' ? [] : await this.importService.batchesFor(portfolioId));
+    }
+
+    private earliestTransactionDate(): string {
+        const transactions = this.context.transactions();
+        if (transactions.length === 0) {
+            return new Date().toISOString().slice(0, 10);
+        }
+        return transactions.reduce(
+            (earliest, transaction) => (transaction.date < earliest ? transaction.date : earliest),
+            transactions[0].date,
+        );
     }
 }

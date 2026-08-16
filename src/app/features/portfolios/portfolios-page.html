@@ -115,7 +115,7 @@
             (drop)="onDrop($event)"
         >
             @if (busy()) {
-            <p class="text-sm font-medium">Importing…</p>
+            <p class="text-sm font-medium">{{ importPhase() === 'linking' ? 'Linking tickers…' : 'Importing…' }}</p>
             } @else if (selectedPortfolioId() === '') {
             <p class="text-sm text-base-content/60">Create a portfolio first.</p>
             } @else {
@@ -173,6 +173,17 @@
         </div>
         }
     </section>
+    } @if (autoLinkResult(); as autoLinkMessage) {
+    <div
+        role="alert"
+        [class]="
+            autoLinkMessage.tone === 'warning'
+                ? 'mt-4 rounded-lg border border-[#f5a623]/30 bg-[#fdf3e0] px-4 py-3 text-sm text-[#b25c00]'
+                : 'mt-4 rounded-lg border border-[#0068f0]/20 bg-[#e6effe] px-4 py-3 text-sm text-[#0053c2]'
+        "
+    >
+        {{ autoLinkMessage.text }}
+    </div>
     }
 
     <section class="rounded-xl border border-base-300 bg-base-100 p-6">

@@ -2,7 +2,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import Decimal from 'decimal.js';
 import { MarketDataService } from '../../data/market-data.service';
 import { QuoteService } from '../../data/quote.service';
-import { QuoteSyncService } from '../../data/quote-sync.service';
+import { QUOTE_SERVICE_UNAVAILABLE_MESSAGE, QuoteSyncService } from '../../data/quote-sync.service';
 import { TickerSuggestion } from '../../data/quote-provider';
 import { StoredQuote, StoredSecurity } from '../../data/stored-types';
 import { HoldingStats } from '../../domain/holdings';
@@ -33,6 +33,11 @@ interface SearchState {
     readonly error: string | null;
 }
 
+interface QuotePanelMessage {
+    readonly tone: 'info' | 'warning';
+    readonly text: string;
+}
+
 @Component({
     selector: 'app-quote-panel',
     imports: [MoneyPipe, LocalizedDatePipe, SortThComponent],
@@ -59,23 +64,33 @@ export class QuotePanelComponent {
     readonly searches = signal<Record<string, SearchState>>({});
     readonly saving = signal(false);
     readonly autoLinking = signal(false);
-    readonly autoLinkResult = signal<string | null>(null);
+    readonly statusMessage = signal<QuotePanelMessage | null>(null);
 
     async autoLink(): Promise<void> {
         if (this.autoLinking()) {
             return;
         }
         this.autoLinking.set(true);
-        this.autoLinkResult.set(null);
+        this.statusMessage.set(null);
         try {
             const report = await this.quoteSync.autoLink(this.fromDate());
-            const parts = [`${report.linked.length} linked`];
-            if (report.noCandidate.length > 0) {
-                parts.push(`${report.noCandidate.length} without a match (manual search or anchor prices)`);
+            if (report.serviceUnavailable) {
+                this.statusMessage.set({
+                    tone: 'warning',
+                    text: `${QUOTE_SERVICE_UNAVAILABLE_MESSAGE} No ticker searches were completed.`,
+                });
+            } else {
+                const parts = [`Auto-link completed: ${report.linked.length} linked`];
+                if (report.noCandidate.length > 0) {
+                    parts.push(`${report.noCandidate.length} without a match (manual search or anchor prices)`);
+                }
+                this.statusMessage.set({ tone: 'info', text: parts.join(', ') });
             }
-            this.autoLinkResult.set(parts.join(', '));
         } catch (error) {
-            this.autoLinkResult.set(`Auto-link failed: ${String((error as Error).message ?? error)}`);
+            this.statusMessage.set({
+                tone: 'warning',
+                text: `Auto-link failed: ${String((error as Error).message ?? error)}`,
+            });
         } finally {
             this.autoLinking.set(false);
         }
@@ -118,7 +133,34 @@ export class QuotePanelComponent {
     });
 
     async refreshQuotes(): Promise<void> {
-        await this.quoteSync.refreshAll(this.fromDate());
+        this.statusMessage.set(null);
+        try {
+            const report = await this.quoteSync.refreshAll(this.fromDate());
+            if (report.serviceUnavailable) {
+                this.marketData.offline.set(false);
+                this.statusMessage.set({
+                    tone: 'warning',
+                    text: `${QUOTE_SERVICE_UNAVAILABLE_MESSAGE} No quotes were refreshed.`,
+                });
+            } else if (report.quotesRequested === 0) {
+                this.statusMessage.set({ tone: 'info', text: 'No linked tickers to refresh. Link tickers first.' });
+            } else if (report.quotesFailed.length > 0) {
+                this.statusMessage.set({
+                    tone: 'warning',
+                    text: `Refresh completed with ${report.quotesFailed.length} quote failure(s). Last known prices are shown.`,
+                });
+            } else {
+                this.statusMessage.set({
+                    tone: 'info',
+                    text: `Refresh completed: ${report.quotesUpdated} quotes updated.`,
+                });
+            }
+        } catch (error) {
+            this.statusMessage.set({
+                tone: 'warning',
+                text: `Refresh failed: ${String((error as Error).message ?? error)}`,
+            });
+        }
     }
 
     searchState(isin: string): SearchState {

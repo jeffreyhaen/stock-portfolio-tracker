@@ -9,14 +9,20 @@ import { QuoteProvider, TickerSuggestion } from './quote-provider';
 
 export interface RefreshReport {
     readonly quotesUpdated: number;
+    readonly quotesRequested: number;
     readonly quotesFailed: string[];
     readonly historyUpdated: string[];
     readonly fxUpdated: boolean;
+    readonly serviceUnavailable: boolean;
 }
+
+export const QUOTE_SERVICE_UNAVAILABLE_MESSAGE =
+    'The quote service could not be reached. The service may not be running. Start it with `npm run quotes` and try again.';
 
 export interface AutoLinkReport {
     readonly linked: { isin: string; symbol: string }[];
     readonly noCandidate: string[];
+    readonly serviceUnavailable: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -65,11 +71,17 @@ export class QuoteSyncService {
         await this.marketData.reload();
     }
 
-    async autoLink(fromDate: string): Promise<AutoLinkReport> {
+    async autoLink(fromDate: string, onlyIsins?: readonly string[]): Promise<AutoLinkReport> {
         const securities = await this.db.securities.toArray();
-        const unlinked = securities.filter((s) => s.quoteTicker === null || s.quoteTicker === undefined);
+        const allowedIsins = onlyIsins === undefined ? null : new Set(onlyIsins);
+        const unlinked = securities.filter(
+            (s) =>
+                (allowedIsins === null || allowedIsins.has(s.isin)) &&
+                (s.quoteTicker === null || s.quoteTicker === undefined),
+        );
         const linked: { isin: string; symbol: string }[] = [];
         const noCandidate: string[] = [];
+        let serviceUnavailable = false;
         for (const security of unlinked) {
             try {
                 const isinSearch = chooseTickerCandidate(
@@ -93,13 +105,14 @@ export class QuoteSyncService {
                 await this.linkTicker(security.isin, candidate.symbol, candidate.exchange);
                 linked.push({ isin: security.isin, symbol: candidate.symbol });
             } catch {
-                noCandidate.push(security.isin);
+                serviceUnavailable = true;
+                break;
             }
         }
         if (linked.length > 0) {
             await this.refreshAll(fromDate);
         }
-        return { linked, noCandidate };
+        return { linked, noCandidate, serviceUnavailable };
     }
 
     async unlinkTicker(isin: string): Promise<void> {
@@ -117,10 +130,23 @@ export class QuoteSyncService {
         try {
             const securities = await this.db.securities.toArray();
             const linkedSecurities = securities.filter((s) => s.quoteTicker !== null);
+            const quotesRequested = linkedSecurities.length;
+            if (quotesRequested === 0) {
+                await this.marketData.reload();
+                return {
+                    quotesUpdated: 0,
+                    quotesRequested,
+                    quotesFailed: [],
+                    historyUpdated: [],
+                    fxUpdated: false,
+                    serviceUnavailable: false,
+                };
+            }
             const quotesUpdated: string[] = [];
             const quotesFailed: string[] = [];
             const historyUpdated: string[] = [];
             let fxUpdated = false;
+            let serviceUnavailable = false;
             const reporting = this.marketData.reportingCurrency();
 
             try {
@@ -165,9 +191,17 @@ export class QuoteSyncService {
                 this.marketData.lastRefresh.set(new Date().toISOString());
             } catch {
                 this.marketData.offline.set(true);
+                serviceUnavailable = true;
             }
             await this.marketData.reload();
-            return { quotesUpdated: quotesUpdated.length, quotesFailed, historyUpdated, fxUpdated };
+            return {
+                quotesUpdated: quotesUpdated.length,
+                quotesRequested,
+                quotesFailed,
+                historyUpdated,
+                fxUpdated,
+                serviceUnavailable,
+            };
         } finally {
             this.marketData.refreshing.set(false);
         }

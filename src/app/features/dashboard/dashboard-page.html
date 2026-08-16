@@ -9,11 +9,9 @@
     </div>
 </section>
 } @else { @if (marketData.offline()) {
-<div class="alert alert-warning mt-6" role="alert">
-    <span class="text-sm">
-        Quote proxy unreachable — showing last known prices. @if (marketData.lastRefresh() !== null) { Last successful
-        refresh: {{ marketData.lastRefresh() | localizedDate }}. }
-    </span>
+<div class="mt-6 rounded-lg border border-[#f5a623]/30 bg-[#fdf3e0] px-4 py-3 text-sm text-[#b25c00]" role="alert">
+    Quote data could not be refreshed. Showing last known prices. @if (marketData.lastRefresh() !== null) { Last
+    successful refresh: {{ marketData.lastRefresh() | localizedDate }}. }
 </div>
 }
 

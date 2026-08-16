@@ -106,5 +106,6 @@ export class PortfolioContext {
 
     private async restoreSelection(): Promise<void> {
         await this.restoreSelectionFromList();
+        await this.refreshTransactions();
     }
 }

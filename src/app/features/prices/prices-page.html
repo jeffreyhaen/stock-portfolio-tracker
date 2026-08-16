@@ -10,12 +10,7 @@
         <a routerLink="/portfolios" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
     </div>
 </section>
-} @else { @if (marketData.offline()) {
-<div class="mt-6 rounded-lg border border-[#f5a623]/30 bg-[#fdf3e0] px-4 py-3 text-sm text-[#b25c00]" role="alert">
-    Quote data could not be refreshed. Showing last known prices. @if (marketData.lastRefresh() !== null) { Last
-    successful refresh: {{ marketData.lastRefresh() | localizedDate }}. }
-</div>
-}
+} @else {
 <div class="mt-6">
     <app-quote-panel [holdings]="holdings()" [fromDate]="firstDate()" />
 </div>

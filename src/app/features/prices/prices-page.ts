@@ -3,12 +3,11 @@ import { RouterLink } from '@angular/router';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { holdingStats } from '../../domain/holdings';
-import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { QuotePanelComponent } from './quote-panel';
 
 @Component({
     selector: 'app-prices-page',
-    imports: [RouterLink, LocalizedDatePipe, QuotePanelComponent],
+    imports: [RouterLink, QuotePanelComponent],
     templateUrl: './prices-page.html',
 })
 export class PricesPage {

@@ -8,20 +8,22 @@
         <a routerLink="/portfolios" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
     </div>
 </section>
-} @else { @if (marketData.offline()) {
-<div class="mt-6 rounded-lg border border-[#f5a623]/30 bg-[#fdf3e0] px-4 py-3 text-sm text-[#b25c00]" role="alert">
-    Quote data could not be refreshed. Showing last known prices. @if (marketData.lastRefresh() !== null) { Last
-    successful refresh: {{ marketData.lastRefresh() | localizedDate }}. }
-</div>
-}
-
+} @else {
 <section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             @if (valuation().totals.value !== null) {
-            <p class="text-4xl font-semibold tabular-nums">
-                {{ valuation().totals.value | money: reportingCurrency() }}
-            </p>
+            <div class="flex items-center gap-2">
+                <p class="text-4xl font-semibold tabular-nums">
+                    {{ valuation().totals.value | money: reportingCurrency() }}
+                </p>
+                @if (marketData.offline()) {
+                <app-info-tooltip
+                    tone="warning"
+                    text="Quote data could not be refreshed. Showing last known prices."
+                />
+                }
+            </div>
             @if (rangeResult() !== null) {
             <p
                 class="mt-1 text-lg font-medium tabular-nums"

@@ -19,6 +19,8 @@ export interface RefreshReport {
 export const QUOTE_SERVICE_UNAVAILABLE_MESSAGE =
     'The quote service could not be reached. The service may not be running. Start it with `npm run quotes` and try again.';
 
+const LAST_QUOTE_REFRESH_DAY_KEY = 'lastQuoteRefreshDay';
+
 export interface AutoLinkReport {
     readonly linked: { isin: string; symbol: string }[];
     readonly noCandidate: string[];
@@ -31,6 +33,7 @@ export class QuoteSyncService {
     private readonly provider = inject(QuoteProvider);
     private readonly fx = inject(FxService);
     private readonly marketData = inject(MarketDataService);
+    private refreshInFlight: Promise<RefreshReport> | null = null;
 
     async searchTicker(query: string): Promise<TickerSuggestion[]> {
         return this.provider.search(query);
@@ -50,6 +53,7 @@ export class QuoteSyncService {
             return;
         }
         const reporting = this.marketData.reportingCurrency();
+        let refreshed = false;
         this.marketData.refreshing.set(true);
         try {
             const result = await this.provider.quote(ticker);
@@ -63,10 +67,14 @@ export class QuoteSyncService {
             });
             await this.ensureHistory(isin, ticker, fromDate);
             this.marketData.offline.set(false);
+            refreshed = true;
         } catch {
             this.marketData.offline.set(true);
         } finally {
             this.marketData.refreshing.set(false);
+        }
+        if (refreshed) {
+            await this.markRefreshDay();
         }
         await this.marketData.reload();
     }
@@ -125,7 +133,31 @@ export class QuoteSyncService {
         await this.marketData.reload();
     }
 
+    async refreshAllIfNeeded(fromDate: string): Promise<RefreshReport | null> {
+        const refreshDay = localToday();
+        const lastRefresh = await this.db.settings.get(LAST_QUOTE_REFRESH_DAY_KEY);
+        if (lastRefresh?.value === refreshDay) {
+            return null;
+        }
+        return this.refreshAll(fromDate);
+    }
+
     async refreshAll(fromDate: string): Promise<RefreshReport> {
+        if (this.refreshInFlight !== null) {
+            return this.refreshInFlight;
+        }
+        const refresh = this.performRefreshAll(fromDate);
+        this.refreshInFlight = refresh;
+        try {
+            return await refresh;
+        } finally {
+            if (this.refreshInFlight === refresh) {
+                this.refreshInFlight = null;
+            }
+        }
+    }
+
+    private async performRefreshAll(fromDate: string): Promise<RefreshReport> {
         this.marketData.refreshing.set(true);
         try {
             const securities = await this.db.securities.toArray();
@@ -133,6 +165,7 @@ export class QuoteSyncService {
             const quotesRequested = linkedSecurities.length;
             if (quotesRequested === 0) {
                 await this.marketData.reload();
+                await this.markRefreshDay();
                 return {
                     quotesUpdated: 0,
                     quotesRequested,
@@ -194,6 +227,9 @@ export class QuoteSyncService {
                 serviceUnavailable = true;
             }
             await this.marketData.reload();
+            if (!serviceUnavailable) {
+                await this.markRefreshDay();
+            }
             return {
                 quotesUpdated: quotesUpdated.length,
                 quotesRequested,
@@ -205,6 +241,10 @@ export class QuoteSyncService {
         } finally {
             this.marketData.refreshing.set(false);
         }
+    }
+
+    private async markRefreshDay(): Promise<void> {
+        await this.db.settings.put({ key: LAST_QUOTE_REFRESH_DAY_KEY, value: localToday() });
     }
 
     private async ensureFxFor(currency: string, reporting: string, fromDate: string): Promise<void> {
@@ -244,6 +284,11 @@ export class QuoteSyncService {
 
 function today(): string {
     return new Date().toISOString().slice(0, 10);
+}
+
+function localToday(): string {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function addDays(date: string, days: number): string {

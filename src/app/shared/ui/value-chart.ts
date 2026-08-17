@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, effect, input, viewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, effect, inject, input, viewChild } from '@angular/core';
 import {
     AreaSeries,
     ColorType,
@@ -9,6 +9,8 @@ import {
     LineData,
     createChart,
 } from 'lightweight-charts';
+import { ThemeService } from '../theme.service';
+import { themeColor, withAlpha } from '../theme-colors';
 
 export interface ChartPoint {
     readonly time: string;
@@ -30,6 +32,7 @@ export interface ChartSeries {
 export class ValueChartComponent implements AfterViewInit, OnDestroy {
     readonly series = input.required<ChartSeries[]>();
 
+    private readonly themeService = inject(ThemeService);
     private readonly host = viewChild<ElementRef<HTMLDivElement>>('host');
     private chart: IChartApi | null = null;
     private rendered: ISeriesApi<'Area' | 'Line'>[] = [];
@@ -40,6 +43,21 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
             this.series();
             this.render();
         });
+        effect(() => {
+            this.themeService.theme();
+            this.applyTheme();
+        });
+    }
+
+    private applyTheme(): void {
+        if (this.chart === null) {
+            return;
+        }
+        this.chart.applyOptions({
+            layout: { textColor: themeColor('--color-chart-text', '#5b6472') },
+            grid: { horzLines: { color: themeColor('--color-chart-grid', '#eef1f5') } },
+        });
+        this.render();
     }
 
     ngAfterViewInit(): void {
@@ -51,13 +69,13 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
             this.chart = createChart(element, {
                 layout: {
                     background: { type: ColorType.Solid, color: 'transparent' },
-                    textColor: '#5b6472',
+                    textColor: themeColor('--color-chart-text', '#5b6472'),
                     fontSize: 11,
                     attributionLogo: false,
                 },
                 grid: {
                     vertLines: { visible: false },
-                    horzLines: { color: '#eef1f5' },
+                    horzLines: { color: themeColor('--color-chart-grid', '#eef1f5') },
                 },
                 rightPriceScale: { borderVisible: false },
                 timeScale: { borderVisible: false },
@@ -100,12 +118,13 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
         for (const series of this.series()) {
             const data: LineData[] = series.points.map((p) => ({ time: p.time, value: p.value }));
             if (series.fill) {
+                const fill = themeColor('--color-chart-fill', '#c0d8f8');
                 this.rendered.push(
                     this.chart.addSeries(AreaSeries, {
                         lineColor: series.color,
                         lineWidth: 2,
-                        topColor: 'rgba(192, 216, 248, 0.4)',
-                        bottomColor: 'rgba(192, 216, 248, 0)',
+                        topColor: withAlpha(fill, 0.4),
+                        bottomColor: withAlpha(fill, 0),
                         priceLineVisible: false,
                         crosshairMarkerRadius: 4,
                     }),

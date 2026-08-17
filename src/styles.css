@@ -37,6 +37,24 @@
     --color-error: #f05252;
     --color-error-content: #ffffff;
 
+    --color-primary-soft: #e6effe;
+    --color-primary-darken: #0053c2;
+    --color-success-soft: #dff7ec;
+    --color-success-darken: #0a8a52;
+    --color-danger-soft: #fdeaea;
+    --color-danger-darken: #901010;
+    --color-warning-soft: #fdf3e0;
+    --color-warning-darken: #b25c00;
+    --color-neutral-soft: #eef1f5;
+    --color-neutral-darken: #5b6472;
+    --color-text-secondary: #283848;
+    --color-text-muted: #667085;
+    --color-chart-line: #0068f0;
+    --color-chart-fill: #c0d8f8;
+    --color-chart-benchmark: #94a3b8;
+    --color-chart-grid: #eef1f5;
+    --color-chart-text: #5b6472;
+
     --radius-selector: 9999px;
     --radius-field: 8px;
     --radius-box: 12px;
@@ -46,8 +64,85 @@
     --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.1);
 }
 
+@plugin 'daisyui/theme' {
+    name: 'portfolio-dark';
+    default: false;
+    prefersdark: true;
+    color-scheme: dark;
+
+    --color-primary: #4d94ff;
+    --color-primary-content: #081224;
+    --color-secondary: #94a3b8;
+    --color-secondary-content: #10151f;
+    --color-accent: #4d94ff;
+    --color-accent-content: #081224;
+    --color-neutral: #334155;
+    --color-neutral-content: #e2e8f0;
+
+    --color-base-100: #1c2536;
+    --color-base-200: #10151f;
+    --color-base-300: #2d3a4f;
+    --color-base-content: #eef2f8;
+
+    --color-info: #4d94ff;
+    --color-info-content: #081224;
+    --color-success: #10c070;
+    --color-success-content: #052012;
+    --color-warning: #f5a623;
+    --color-warning-content: #1a1200;
+    --color-error: #f87171;
+    --color-error-content: #2a0a0a;
+
+    --color-primary-soft: #12294d;
+    --color-primary-darken: #8fb8ff;
+    --color-success-soft: #0e2b20;
+    --color-success-darken: #4ade80;
+    --color-danger-soft: #3a1518;
+    --color-danger-darken: #fca5a5;
+    --color-warning-soft: #35240c;
+    --color-warning-darken: #fbbf24;
+    --color-neutral-soft: #24304a;
+    --color-neutral-darken: #94a3b8;
+    --color-text-secondary: #cbd5e1;
+    --color-text-muted: #94a3b8;
+    --color-chart-line: #4d94ff;
+    --color-chart-fill: #1e3a5f;
+    --color-chart-benchmark: #64748b;
+    --color-chart-grid: #24304a;
+    --color-chart-text: #94a3b8;
+
+    --radius-selector: 9999px;
+    --radius-field: 8px;
+    --radius-box: 12px;
+    --border: 1px;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
 :root {
     font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+}
+
+/* Semantische projectkleuren: resolven naar het actieve daisyUI-thema (data-theme). */
+@theme inline {
+    --color-primary-soft: var(--color-primary-soft);
+    --color-primary-darken: var(--color-primary-darken);
+    --color-success-soft: var(--color-success-soft);
+    --color-success-darken: var(--color-success-darken);
+    --color-danger-soft: var(--color-danger-soft);
+    --color-danger-darken: var(--color-danger-darken);
+    --color-warning-soft: var(--color-warning-soft);
+    --color-warning-darken: var(--color-warning-darken);
+    --color-neutral-soft: var(--color-neutral-soft);
+    --color-neutral-darken: var(--color-neutral-darken);
+    --color-text-secondary: var(--color-text-secondary);
+    --color-text-muted: var(--color-text-muted);
+    --color-chart-line: var(--color-chart-line);
+    --color-chart-fill: var(--color-chart-fill);
+    --color-chart-benchmark: var(--color-chart-benchmark);
+    --color-chart-grid: var(--color-chart-grid);
+    --color-chart-text: var(--color-chart-text);
 }
 
 body {

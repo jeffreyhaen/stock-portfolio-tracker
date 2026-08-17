@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { PortfolioContext } from './data/portfolio-context';
 import { MarketDataSyncService } from './data/market-data-sync.service';
+import { ThemePreference, ThemeService } from './shared/theme.service';
 
 @Component({
     selector: 'app-root',
@@ -12,9 +13,21 @@ import { MarketDataSyncService } from './data/market-data-sync.service';
 export class App {
     private readonly context = inject(PortfolioContext);
     private readonly marketDataSync = inject(MarketDataSyncService);
+    private readonly themeService = inject(ThemeService);
 
     readonly portfolioId = this.context.selectedPortfolioId;
     readonly portfolioName = computed(() => this.context.selectedPortfolio()?.name ?? '');
+    readonly themePreference = this.themeService.preference;
+
+    readonly themeLabels: Record<ThemePreference, string> = {
+        system: 'Theme: system default',
+        light: 'Theme: light',
+        dark: 'Theme: dark',
+    };
+
+    toggleTheme(): void {
+        this.themeService.toggle();
+    }
 
     constructor() {
         void this.refreshQuotesOnStartup();

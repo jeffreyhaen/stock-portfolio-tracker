@@ -108,7 +108,7 @@
         <div
             class="mt-4 rounded-xl border-2 border-dashed p-10 text-center transition-colors"
             [class.border-primary]="dragActive()"
-            [class.bg-[#e6effe]]="dragActive()"
+            [class.bg-primary-soft]="dragActive()"
             [class.border-base-300]="!dragActive()"
             (dragover)="onDragOver($event)"
             (dragleave)="onDragLeave()"
@@ -130,9 +130,9 @@
     </section>
 
     @if (error(); as errorMessage) {
-    <section class="rounded-xl border border-error/40 bg-[#fdeaea] p-6">
-        <h2 class="text-base font-semibold text-[#901010]">{{ errorTitle() }}</h2>
-        <p class="mt-2 font-mono text-sm text-[#901010]">{{ errorMessage }}</p>
+    <section class="rounded-xl border border-error/40 bg-danger-soft p-6">
+        <h2 class="text-base font-semibold text-danger-darken">{{ errorTitle() }}</h2>
+        <p class="mt-2 font-mono text-sm text-danger-darken">{{ errorMessage }}</p>
     </section>
     } @if (report(); as report) {
     <section class="rounded-xl border border-base-300 bg-base-100 p-6">
@@ -144,7 +144,7 @@
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Added</p>
-                <p class="mt-1 text-sm font-medium tabular-nums text-[#0a8a52]">
+                <p class="mt-1 text-sm font-medium tabular-nums text-success-darken">
                     {{ report.added | localizedNumber: 0 }}
                 </p>
             </div>
@@ -154,13 +154,13 @@
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Unknown types</p>
-                <p class="mt-1 text-sm font-medium tabular-nums" [class.text-[#901010]]="report.unknownTypes > 0">
+                <p class="mt-1 text-sm font-medium tabular-nums" [class.text-danger-darken]="report.unknownTypes > 0">
                     {{ report.unknownTypes | localizedNumber: 0 }}
                 </p>
             </div>
         </div>
         @if (report.warnings.length > 0) {
-        <div class="mt-4 rounded-lg bg-[#fdf3e0] p-4">
+        <div class="mt-4 rounded-lg bg-warning-soft p-4">
             <h3 class="text-sm font-semibold">Warnings ({{ report.warnings.length }})</h3>
             <ul class="mt-2 flex flex-col gap-1">
                 @for (warning of report.warnings; track warning.rowIndex) {
@@ -178,8 +178,8 @@
         role="alert"
         [class]="
             autoLinkMessage.tone === 'warning'
-                ? 'mt-4 rounded-lg border border-[#f5a623]/30 bg-[#fdf3e0] px-4 py-3 text-sm text-[#b25c00]'
-                : 'mt-4 rounded-lg border border-[#0068f0]/20 bg-[#e6effe] px-4 py-3 text-sm text-[#0053c2]'
+                ? 'mt-4 rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-darken'
+                : 'mt-4 rounded-lg border border-primary/20 bg-primary-soft px-4 py-3 text-sm text-primary-darken'
         "
     >
         {{ autoLinkMessage.text }}

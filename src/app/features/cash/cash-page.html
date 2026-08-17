@@ -68,12 +68,12 @@
                     <p class="text-sm font-medium">{{ flow.currency }}</p>
                 </td>
                 <td class="text-right">
-                    <p class="text-sm font-medium tabular-nums text-[#0a8a52]">
+                    <p class="text-sm font-medium tabular-nums text-success-darken">
                         +{{ flow.deposits | money: flow.currency }}
                     </p>
                 </td>
                 <td class="text-right">
-                    <p class="text-sm font-medium tabular-nums text-[#901010]">
+                    <p class="text-sm font-medium tabular-nums text-danger-darken">
                         {{ flow.withdrawals | money: flow.currency }}
                     </p>
                 </td>

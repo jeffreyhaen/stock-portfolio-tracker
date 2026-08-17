@@ -4,7 +4,7 @@ import { Component, input, output } from '@angular/core';
     selector: 'app-confirm-dialog',
     template: `
         <div
-            class="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/40 p-4"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
             role="dialog"
             aria-modal="true"
             [attr.aria-labelledby]="titleId()"

@@ -1,10 +1,10 @@
 import { TransactionType, TransactionTypes as T } from '../domain/types';
 
-const SOFT_BLUE = 'bg-[#e6effe] text-[#0068f0]';
-const SOFT_AMBER = 'bg-[#fdf3e0] text-[#b25c00]';
-const SOFT_GREEN = 'bg-[#dff7ec] text-[#0a8a52]';
-const SOFT_GREY = 'bg-[#eef1f5] text-[#5b6472]';
-const SOFT_RED = 'bg-[#fdeaea] text-[#901010]';
+const SOFT_BLUE = 'bg-primary-soft text-primary';
+const SOFT_AMBER = 'bg-warning-soft text-warning-darken';
+const SOFT_GREEN = 'bg-success-soft text-success-darken';
+const SOFT_GREY = 'bg-neutral-soft text-neutral-darken';
+const SOFT_RED = 'bg-danger-soft text-danger-darken';
 
 interface TypePresentatie {
     readonly label: string;

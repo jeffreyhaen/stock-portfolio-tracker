@@ -15,6 +15,8 @@ import { MoneyPipe } from '../../shared/money.pipe';
 import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { transactionTypeLabel } from '../../shared/transaction-type';
+import { themeColor } from '../../shared/theme-colors';
+import { ThemeService } from '../../shared/theme.service';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
 import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
 
@@ -91,6 +93,7 @@ interface RangeResult {
 export class DashboardPage {
     private readonly context = inject(PortfolioContext);
     readonly marketData = inject(MarketDataService);
+    private readonly theme = inject(ThemeService);
 
     readonly portfolioId = this.context.selectedPortfolioId;
 
@@ -210,15 +213,22 @@ export class DashboardPage {
     });
 
     readonly chartSeries = computed<ChartSeries[]>(() => {
+        this.theme.theme(); // herbereken kleuren bij themawissel
         const points = this.filteredSeriesPoints();
         const valuePoints = points
             .filter((p) => p.value !== null)
             .map((p) => ({ time: p.date, value: p.value?.toNumber() ?? 0 }));
         return [
-            { name: 'Value', color: '#0068f0', dashed: false, fill: true, points: valuePoints },
+            {
+                name: 'Value',
+                color: themeColor('--color-chart-line', '#0068f0'),
+                dashed: false,
+                fill: true,
+                points: valuePoints,
+            },
             {
                 name: 'Net invested',
-                color: '#94a3b8',
+                color: themeColor('--color-chart-benchmark', '#94a3b8'),
                 dashed: true,
                 fill: false,
                 points: points.map((p) => ({ time: p.date, value: p.netInvested.toNumber() })),

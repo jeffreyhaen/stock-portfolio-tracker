@@ -29,8 +29,8 @@
         role="alert"
         [class]="
             message.tone === 'warning'
-                ? 'mt-4 rounded-lg border border-[#f5a623]/30 bg-[#fdf3e0] px-4 py-3 text-sm text-[#b25c00]'
-                : 'mt-4 rounded-lg border border-[#0068f0]/20 bg-[#e6effe] px-4 py-3 text-sm text-[#0053c2]'
+                ? 'mt-4 rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-darken'
+                : 'mt-4 rounded-lg border border-primary/20 bg-primary-soft px-4 py-3 text-sm text-primary-darken'
         "
     >
         {{ message.text }}

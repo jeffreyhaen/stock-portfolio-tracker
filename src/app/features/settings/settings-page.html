@@ -68,17 +68,17 @@
     <section
         class="rounded-xl border p-6"
         [class.border-success/40]="statusMessage.kind === 'success'"
-        [class.bg-[#dff7ec]]="statusMessage.kind === 'success'"
+        [class.bg-success-soft]="statusMessage.kind === 'success'"
         [class.border-error/40]="statusMessage.kind === 'error'"
-        [class.bg-[#fdeaea]]="statusMessage.kind === 'error'"
+        [class.bg-danger-soft]="statusMessage.kind === 'error'"
         [class.border-base-300]="statusMessage.kind === 'info'"
         [class.bg-base-100]="statusMessage.kind === 'info'"
         role="status"
     >
         <p
             class="text-sm"
-            [class.text-[#0a8a52]]="statusMessage.kind === 'success'"
-            [class.text-[#901010]]="statusMessage.kind === 'error'"
+            [class.text-success-darken]="statusMessage.kind === 'success'"
+            [class.text-danger-darken]="statusMessage.kind === 'error'"
         >
             {{ statusMessage.text }}
         </p>

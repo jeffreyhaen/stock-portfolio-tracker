@@ -26,7 +26,7 @@ npm start
 
 `npm start` opens `http://localhost:4200/` automatically in your browser by calling `ng serve -o`.
 
-A synthetic DEGIRO import file is available at [examples/demo/degiro-demo.csv](examples/demo/degiro-demo.csv). It contains fictional transactions from January 2020 through March 2025 for well-known large-cap stocks and ETFs. When re-importing an updated demo file, use a fresh portfolio because imports are incremental.
+A synthetic DEGIRO import file is available at [examples/demo/degiro-demo.csv](examples/demo/degiro-demo.csv). It contains fictional transactions from January 2020 through January 2026 for well-known large-cap stocks and ETFs, including staged ASML sales and repurchases that make the offline valuation trend visible. When re-importing an updated demo file, use a fresh portfolio because imports are incremental.
 
 Start both the portfolio app and the market-data proxy together:
 
@@ -56,7 +56,7 @@ npm run lint
 npm run build
 ```
 
-## Static hosting
+## Static hosting with GitHub Pages
 
 The app can be hosted as static files. The GitHub Pages workflow builds with the repository subpath as Angular's base href and adds a `404.html` SPA fallback so bookmarked portfolio routes return to the Angular router. Enable GitHub Pages with **GitHub Actions** as its source. A custom domain or root-path deployment must build with its own `--base-href` instead.
 

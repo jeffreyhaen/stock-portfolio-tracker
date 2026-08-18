@@ -7,6 +7,7 @@ export interface AccountingLot {
     readonly quantity: Decimal;
     readonly basis: Decimal;
     readonly acquiredAt: string;
+    readonly basisAssumedZero: boolean;
 }
 
 export interface LotAccountingPosition {
@@ -18,6 +19,7 @@ export interface LotAccountingPosition {
     readonly realizedPnl: Decimal | null;
     readonly basisComplete: boolean;
     readonly realizedComplete: boolean;
+    readonly realizedBasisAssumedZero: boolean;
     readonly accountingComplete: boolean;
     readonly firstBuyDate: string | null;
     readonly closedAt: string | null;
@@ -26,11 +28,7 @@ export interface LotAccountingPosition {
 export interface LotAccountingDiagnostic {
     readonly transactionId: string;
     readonly rowIndex: number;
-    readonly kind:
-        | 'OVERSELL'
-        | 'MISSING_MONEY'
-        | 'UNMATCHED_CORPORATE_ACTION'
-        | 'MISSING_CORPORATE_ACTION_BASIS';
+    readonly kind: 'OVERSELL' | 'MISSING_MONEY' | 'UNMATCHED_CORPORATE_ACTION' | 'MISSING_CORPORATE_ACTION_BASIS';
     readonly quantity?: Decimal;
 }
 
@@ -48,6 +46,7 @@ interface MutableLot {
     quantity: Decimal;
     basis: Decimal;
     acquiredAt: string;
+    basisAssumedZero: boolean;
 }
 
 interface MutablePosition {
@@ -59,6 +58,7 @@ interface MutablePosition {
     realizedPnl: Decimal;
     basisComplete: boolean;
     realizedComplete: boolean;
+    realizedBasisAssumedZero: boolean;
     firstBuyDate: string | null;
     closedAt: string | null;
 }
@@ -88,6 +88,7 @@ function positionFor(positions: Map<string, MutablePosition>, txn: Transaction):
             realizedPnl: new Decimal(0),
             basisComplete: true,
             realizedComplete: true,
+            realizedBasisAssumedZero: false,
             firstBuyDate: null,
             closedAt: null,
         };
@@ -110,7 +111,12 @@ function consumeLots(position: MutablePosition, requested: Decimal): { lots: Mut
         const lot = position.lots[0];
         const quantity = Decimal.min(remaining, lot.quantity);
         const lotBasis = lot.basis.times(quantity).div(lot.quantity);
-        consumed.push({ quantity, basis: lotBasis, acquiredAt: lot.acquiredAt });
+        consumed.push({
+            quantity,
+            basis: lotBasis,
+            acquiredAt: lot.acquiredAt,
+            basisAssumedZero: lot.basisAssumedZero,
+        });
         lot.quantity = lot.quantity.minus(quantity);
         lot.basis = lot.basis.minus(lotBasis);
         basis = basis.plus(lotBasis);
@@ -264,11 +270,23 @@ export function accountLots(
                     const basis = hasBrokerBasis
                         ? (monetary.amount as Decimal).plus(monetary.fee as Decimal)
                         : new Decimal(0);
-                    position.lots.push({ quantity: buy.quantity as Decimal, basis, acquiredAt: buy.date });
+                    const basisAssumedZero =
+                        !hasBrokerBasis &&
+                        sells.length === 0 &&
+                        rows.every((row) => row.type === T.CorporateBuy && row.corporateAction === 'SPIN_OFF') &&
+                        buys.every((row) => row.mutation !== null && row.mutation.isZero()) &&
+                        monetary.fee !== null &&
+                        monetary.fee.isZero();
+                    position.lots.push({
+                        quantity: buy.quantity as Decimal,
+                        basis,
+                        acquiredAt: buy.date,
+                        basisAssumedZero,
+                    });
                     position.grossInvested = position.grossInvested.plus(basis);
                     if (!hasBrokerBasis) {
                         position.basisComplete = false;
-                        position.realizedComplete = false;
+                        if (!basisAssumedZero) position.realizedComplete = false;
                         diagnostics.push({
                             transactionId: buy.id,
                             rowIndex: buy.rowIndex,
@@ -287,7 +305,12 @@ export function accountLots(
                         const basis = lot.basis.times(buyShare);
                         allocatedQuantity = allocatedQuantity.plus(quantity);
                         if (!quantity.isZero()) {
-                            position.lots.push({ quantity, basis, acquiredAt: lot.acquiredAt });
+                            position.lots.push({
+                                quantity,
+                                basis,
+                                acquiredAt: lot.acquiredAt,
+                                basisAssumedZero: lot.basisAssumedZero,
+                            });
                             if (!sourceIsins.has(position.isin)) {
                                 position.grossInvested = position.grossInvested.plus(basis);
                             }
@@ -323,7 +346,7 @@ export function accountLots(
                     position.basisComplete = true;
                 }
             }
-            position.lots.push({ quantity: txn.quantity, basis, acquiredAt: txn.date });
+            position.lots.push({ quantity: txn.quantity, basis, acquiredAt: txn.date, basisAssumedZero: false });
             position.grossInvested = position.grossInvested.plus(basis);
         } else {
             const available = quantityOf(position);
@@ -342,6 +365,9 @@ export function accountLots(
                 position.realizedPnl = position.realizedPnl
                     .plus(monetary.amount.minus(monetary.fee))
                     .minus(consumed.basis);
+                if (consumed.lots.some((lot) => lot.basisAssumedZero)) {
+                    position.realizedBasisAssumedZero = true;
+                }
             }
             if (quantityOf(position).isZero()) {
                 position.closedAt = txn.date;

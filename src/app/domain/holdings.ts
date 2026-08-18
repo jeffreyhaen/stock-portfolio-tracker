@@ -23,6 +23,7 @@ export interface HoldingStats {
     readonly realizedPnl: Decimal | null;
     readonly basisComplete: boolean;
     readonly realizedComplete: boolean;
+    readonly realizedBasisAssumedZero: boolean;
     readonly accountingComplete: boolean;
 }
 
@@ -49,6 +50,7 @@ export function holdingStats(transactions: readonly Transaction[], options: Hold
             realizedPnl: position.realizedComplete ? position.realizedPnl : null,
             basisComplete: position.basisComplete,
             realizedComplete: position.realizedComplete,
+            realizedBasisAssumedZero: position.realizedBasisAssumedZero,
             accountingComplete: position.accountingComplete,
         };
         if (isOpen) {

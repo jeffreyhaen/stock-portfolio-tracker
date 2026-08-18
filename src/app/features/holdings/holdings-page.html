@@ -7,8 +7,7 @@
         <p class="text-sm text-base-content/60">No holdings yet.</p>
         <a routerLink="/portfolios" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
     </div>
-    } @else {
-    @if (valuationStatus() !== null) {
+    } @else { @if (valuationStatus() !== null) {
     <p class="mb-4 inline-flex rounded-full bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning-darken">
         {{ valuationStatus() }}
     </p>
@@ -126,7 +125,11 @@
                         <p class="text-sm text-base-content/60">
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
                                 Basis unavailable
-                                <app-info-tooltip [text]="holding.basisUnavailableText" tone="warning" placement="bottom-end" />
+                                <app-info-tooltip
+                                    [text]="holding.basisUnavailableText"
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
                             </span>
                         </p>
                         } @else {
@@ -170,15 +173,22 @@
                         <p class="text-[0.8125rem] text-base-content/60">
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
                                 Realized unavailable
-                                <app-info-tooltip [text]="holding.realizedUnavailableText" tone="warning" placement="bottom-end" />
+                                <app-info-tooltip
+                                    [text]="holding.realizedUnavailableText"
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
                             </span>
                         </p>
-                        }
-                        } @else {
+                        } } @else {
                         <p class="text-sm text-base-content/60">
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
                                 @if (holding.basisUnavailableText !== null) { P&amp;L unavailable
-                                <app-info-tooltip [text]="holding.basisUnavailableText" tone="warning" placement="bottom-end" />
+                                <app-info-tooltip
+                                    [text]="holding.basisUnavailableText"
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
                                 } @else { – @if (holding.marketDataWarning) {
                                 <app-info-tooltip
                                     [text]="holding.marketDataWarningText ?? ''"
@@ -190,15 +200,21 @@
                         </p>
                         @if (holding.realizedUnavailableText !== null) {
                         <p class="text-[0.8125rem] text-base-content/60">Realized unavailable</p>
-                        }
-                        } } @else { @if (holding.realizedPnl !== null) {
+                        } } } @else { @if (holding.realizedPnl !== null) {
                         <p
                             class="text-sm font-medium tabular-nums"
                             [class.text-success]="!holding.realizedPnl.isNegative() && !holding.realizedPnl.isZero()"
                             [class.text-error]="holding.realizedPnl.isNegative()"
                         >
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                                {{ holding.realizedPnl | money: reportingCurrency() }} @if (holding.marketDataWarning) {
+                                {{ holding.realizedPnl | money: reportingCurrency() }} @if
+                                (holding.realizedBasisAssumedZero) {
+                                <app-info-tooltip
+                                    text="Broker calculation assumes zero recorded spin-off basis; economic cost basis is unavailable."
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
+                                } @else if (holding.marketDataWarning) {
                                 <app-info-tooltip
                                     [text]="holding.marketDataWarningText ?? ''"
                                     tone="warning"
@@ -212,7 +228,11 @@
                         <p class="text-sm text-base-content/60">
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
                                 Realized unavailable
-                                <app-info-tooltip [text]="holding.realizedUnavailableText" tone="warning" placement="bottom-end" />
+                                <app-info-tooltip
+                                    [text]="holding.realizedUnavailableText"
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
                             </span>
                         </p>
                         } @else {

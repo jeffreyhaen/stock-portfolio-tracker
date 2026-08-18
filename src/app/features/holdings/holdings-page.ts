@@ -30,6 +30,7 @@ interface HoldingView {
     readonly pnl: Decimal | null;
     readonly pnlInclRealized: Decimal | null;
     readonly realizedPnl: Decimal | null;
+    readonly realizedBasisAssumedZero: boolean;
     readonly pnlPct: Decimal | null;
     readonly pnlPctYear: Decimal | null;
     readonly allocationPct: Decimal | null;
@@ -179,7 +180,8 @@ export class HoldingsPage {
                 }
                 if (converted?.provenance === 'imported') {
                     const warning = `The ${resolvedPrice.currency}/${currency} exchange rate is estimated from an imported transaction.`;
-                    marketDataWarningText = marketDataWarningText === null ? warning : `${marketDataWarningText} ${warning}`;
+                    marketDataWarningText =
+                        marketDataWarningText === null ? warning : `${marketDataWarningText} ${warning}`;
                 }
                 if (value !== null && h.netInvested !== null) {
                     pnl = value.minus(h.netInvested);
@@ -223,6 +225,7 @@ export class HoldingsPage {
                 pnl,
                 pnlInclRealized,
                 realizedPnl: h.realizedPnl,
+                realizedBasisAssumedZero: h.realizedBasisAssumedZero,
                 pnlPct: h.open ? pnlPct : closedPct,
                 pnlPctYear,
                 allocationPct: null,

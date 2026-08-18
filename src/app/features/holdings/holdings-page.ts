@@ -282,5 +282,5 @@ function priceLabel(price: ResolvedPrice | null, value: Decimal | null): string 
     if (price.stale) return 'Stale cached price';
     if (price.provenance === 'manual') return 'Manual price';
     if (price.provenance === 'cache') return 'Cached price';
-    return 'Market price';
+    return null;
 }

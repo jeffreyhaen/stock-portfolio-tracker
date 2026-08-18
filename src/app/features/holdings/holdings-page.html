@@ -166,7 +166,13 @@
                             </span>
                         </p>
                         @if (holding.pnlInclRealized !== null) {
-                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                        <p
+                            class="text-[0.8125rem] tabular-nums"
+                            [class.text-success]="
+                                !holding.pnlInclRealized.isNegative() && !holding.pnlInclRealized.isZero()
+                            "
+                            [class.text-error]="holding.pnlInclRealized.isNegative()"
+                        >
                             {{ holding.pnlInclRealized | money: reportingCurrency() }}
                         </p>
                         } @else if (holding.realizedUnavailableText !== null) {

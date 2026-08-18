@@ -55,6 +55,7 @@ export class PortfoliosPage {
     readonly editingPortfolioId = signal<string | null>(null);
     readonly editingPortfolioName = signal('');
     readonly errorTitle = signal('Import failed');
+    private autoLinkGeneration = 0;
 
     constructor() {
         effect(() => {
@@ -77,6 +78,7 @@ export class PortfoliosPage {
     }
 
     onPortfolioChange(id: string): void {
+        this.autoLinkGeneration++;
         this.context.select(id);
         this.cancelRename();
         this.report.set(null);
@@ -181,6 +183,7 @@ export class PortfoliosPage {
         if (portfolioId === '' || this.busy()) {
             return;
         }
+        const generation = ++this.autoLinkGeneration;
         this.busy.set(true);
         this.importPhase.set('importing');
         this.errorTitle.set('Import failed');
@@ -191,33 +194,11 @@ export class PortfoliosPage {
             const report = await this.importService.importCsv(portfolioId, fileName, csvText);
             this.report.set(report);
             await this.context.refresh();
-            if (report.newSecurityIsins.length > 0) {
-                this.importPhase.set('linking');
-                try {
-                    const autoLinkReport = await this.marketDataSync.autoLink(
-                        this.earliestTransactionDate(),
-                        report.newSecurityIsins,
-                    );
-                    if (autoLinkReport.serviceUnavailable) {
-                        this.autoLinkResult.set({
-                            tone: 'warning',
-                            text: `${MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE} No ticker searches were completed.`,
-                        });
-                    } else {
-                        const parts = [`Auto-link completed: ${autoLinkReport.linked.length} linked`];
-                        if (autoLinkReport.noCandidate.length > 0) {
-                            parts.push(`${autoLinkReport.noCandidate.length} without a match`);
-                        }
-                        this.autoLinkResult.set({ tone: 'info', text: parts.join(', ') });
-                    }
-                } catch (error: unknown) {
-                    const message = error instanceof Error ? error.message : String(error);
-                    this.autoLinkResult.set({ tone: 'warning', text: `Auto-link failed: ${message}` });
-                    this.errorTitle.set('Auto-link failed');
-                    this.error.set(message);
-                }
-            }
             await this.reloadBatches(portfolioId);
+            if (report.newSecurityIsins.length > 0) {
+                const fromDate = report.earliestTransactionDate ?? new Date().toISOString().slice(0, 10);
+                void this.autoLinkImported(portfolioId, fromDate, generation, report.newSecurityIsins);
+            }
         } catch (error: unknown) {
             this.error.set(error instanceof Error ? error.message : String(error));
         } finally {
@@ -230,18 +211,44 @@ export class PortfoliosPage {
         return new Intl.DateTimeFormat('nl-NL', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
     }
 
+    private async autoLinkImported(
+        portfolioId: string,
+        fromDate: string,
+        generation: number,
+        isins: readonly string[],
+    ): Promise<void> {
+        try {
+            const autoLinkReport = await this.marketDataSync.autoLink(fromDate, isins);
+            if (!this.isCurrentAutoLink(portfolioId, generation)) {
+                return;
+            }
+            if (autoLinkReport.serviceUnavailable) {
+                this.autoLinkResult.set({
+                    tone: 'warning',
+                    text: `${MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE} No ticker searches were completed.`,
+                });
+                return;
+            }
+            const parts = [`Auto-link completed: ${autoLinkReport.linked.length} linked`];
+            if (autoLinkReport.noCandidate.length > 0) {
+                parts.push(`${autoLinkReport.noCandidate.length} without a match`);
+            }
+            this.autoLinkResult.set({ tone: 'info', text: parts.join(', ') });
+        } catch (error: unknown) {
+            if (!this.isCurrentAutoLink(portfolioId, generation)) {
+                return;
+            }
+            const message = error instanceof Error ? error.message : String(error);
+            this.autoLinkResult.set({ tone: 'warning', text: `Auto-link failed: ${message}` });
+        }
+    }
+
+    private isCurrentAutoLink(portfolioId: string, generation: number): boolean {
+        return this.autoLinkGeneration === generation && this.selectedPortfolioId() === portfolioId;
+    }
+
     private async reloadBatches(portfolioId: string): Promise<void> {
         this.batches.set(portfolioId === '' ? [] : await this.importService.batchesFor(portfolioId));
     }
 
-    private earliestTransactionDate(): string {
-        const transactions = this.context.transactions();
-        if (transactions.length === 0) {
-            return new Date().toISOString().slice(0, 10);
-        }
-        return transactions.reduce(
-            (earliest, transaction) => (transaction.date < earliest ? transaction.date : earliest),
-            transactions[0].date,
-        );
-    }
 }

@@ -21,11 +21,26 @@ export class MarketDataService {
     readonly offline = signal(false);
     readonly refreshing = signal(false);
     readonly lastRefresh = signal<string | null>(null);
+    readonly cacheReady = signal(false);
+    readonly ready: Promise<void>;
+    private reloadInFlight: Promise<void> | null = null;
+    private reloadRequested = false;
+
+    constructor() {
+        this.ready = this.reload();
+    }
 
     readonly quoteMap = computed<ReadonlyMap<string, QuoteInput>>(() => {
         const map = new Map<string, QuoteInput>();
+        const cutoff = new Date(Date.now() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
         for (const quote of this.quotes()) {
-            map.set(quote.key, { price: new Decimal(quote.price), currency: quote.currency });
+            map.set(quote.key, {
+                price: new Decimal(quote.price),
+                currency: quote.currency,
+                date: quote.timestamp.slice(0, 10),
+                source: quote.source === 'manual' ? 'manual' : 'market',
+                stale: quote.source === 'yahoo' && quote.timestamp < cutoff,
+            });
         }
         return map;
     });
@@ -45,7 +60,28 @@ export class MarketDataService {
         return stale;
     });
 
-    async reload(): Promise<void> {
+    reload(): Promise<void> {
+        if (this.reloadInFlight !== null) {
+            this.reloadRequested = true;
+            return this.reloadInFlight;
+        }
+        const reload = this.loadUntilQuiet().finally(() => {
+            if (this.reloadInFlight === reload) {
+                this.reloadInFlight = null;
+            }
+        });
+        this.reloadInFlight = reload;
+        return reload;
+    }
+
+    private async loadUntilQuiet(): Promise<void> {
+        do {
+            this.reloadRequested = false;
+            await this.loadCache();
+        } while (this.reloadRequested);
+    }
+
+    private async loadCache(): Promise<void> {
         const [quotes, fxRates, priceHistory, securities, splitEvents] = await Promise.all([
             this.db.quoteCache.toArray(),
             this.db.fxCache.toArray(),
@@ -58,5 +94,6 @@ export class MarketDataService {
         this.priceHistory.set(priceHistory);
         this.securities.set(securities);
         this.splitEvents.set(splitEvents);
+        this.cacheReady.set(true);
     }
 }

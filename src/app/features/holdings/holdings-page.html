@@ -8,6 +8,11 @@
         <a routerLink="/portfolios" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
     </div>
     } @else {
+    @if (valuationStatus() !== null) {
+    <p class="mb-4 inline-flex rounded-full bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning-darken">
+        {{ valuationStatus() }}
+    </p>
+    }
     <div class="mb-4 flex gap-2">
         <button
             type="button"
@@ -117,9 +122,16 @@
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                             {{ holding.netInvestedPerShare | money: reportingCurrency() }}/share
                         </p>
+                        } @else { @if (holding.basisUnavailableText !== null) {
+                        <p class="text-sm text-base-content/60">
+                            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                                Basis unavailable
+                                <app-info-tooltip [text]="holding.basisUnavailableText" tone="warning" placement="bottom-end" />
+                            </span>
+                        </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
-                        }
+                        } }
                     </td>
                     <td class="text-right">
                         @if (holding.value !== null) {
@@ -129,6 +141,8 @@
                         </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
+                        } @if (holding.priceLabel !== null) {
+                        <p class="text-[0.75rem] text-base-content/60">{{ holding.priceLabel }}</p>
                         }
                     </td>
                     <td class="text-right">
@@ -141,28 +155,42 @@
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
                                 {{ holding.pnl | money: reportingCurrency() }} @if (holding.marketDataWarning) {
                                 <app-info-tooltip
-                                    [text]="marketDataWarningText"
+                                    [text]="holding.marketDataWarningText ?? ''"
                                     tone="warning"
                                     placement="bottom-end"
                                 />
                                 }
                             </span>
                         </p>
+                        @if (holding.pnlInclRealized !== null) {
                         <p class="text-[0.8125rem] tabular-nums text-base-content/60">
                             {{ holding.pnlInclRealized | money: reportingCurrency() }}
                         </p>
+                        } @else if (holding.realizedUnavailableText !== null) {
+                        <p class="text-[0.8125rem] text-base-content/60">
+                            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                                Realized unavailable
+                                <app-info-tooltip [text]="holding.realizedUnavailableText" tone="warning" placement="bottom-end" />
+                            </span>
+                        </p>
+                        }
                         } @else {
                         <p class="text-sm text-base-content/60">
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                                – @if (holding.marketDataWarning) {
+                                @if (holding.basisUnavailableText !== null) { P&amp;L unavailable
+                                <app-info-tooltip [text]="holding.basisUnavailableText" tone="warning" placement="bottom-end" />
+                                } @else { – @if (holding.marketDataWarning) {
                                 <app-info-tooltip
-                                    [text]="marketDataWarningText"
+                                    [text]="holding.marketDataWarningText ?? ''"
                                     tone="warning"
                                     placement="bottom-end"
                                 />
-                                }
+                                } }
                             </span>
                         </p>
+                        @if (holding.realizedUnavailableText !== null) {
+                        <p class="text-[0.8125rem] text-base-content/60">Realized unavailable</p>
+                        }
                         } } @else { @if (holding.realizedPnl !== null) {
                         <p
                             class="text-sm font-medium tabular-nums"
@@ -172,7 +200,7 @@
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
                                 {{ holding.realizedPnl | money: reportingCurrency() }} @if (holding.marketDataWarning) {
                                 <app-info-tooltip
-                                    [text]="marketDataWarningText"
+                                    [text]="holding.marketDataWarningText ?? ''"
                                     tone="warning"
                                     placement="bottom-end"
                                 />
@@ -180,9 +208,16 @@
                             </span>
                         </p>
                         <p class="text-[0.8125rem] text-base-content/60">realized</p>
+                        } @else { @if (holding.realizedUnavailableText !== null) {
+                        <p class="text-sm text-base-content/60">
+                            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                                Realized unavailable
+                                <app-info-tooltip [text]="holding.realizedUnavailableText" tone="warning" placement="bottom-end" />
+                            </span>
+                        </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
-                        } }
+                        } } }
                     </td>
                     <td class="text-right">
                         @if (holding.pnlPct !== null) {

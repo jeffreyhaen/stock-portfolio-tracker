@@ -1,0 +1,40 @@
+name: Deploy GitHub Pages
+
+on:
+    push:
+        branches: [master, main]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+concurrency:
+    group: pages
+    cancel-in-progress: true
+
+jobs:
+    deploy:
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: npm
+            - run: npm ci
+            - name: Build for repository path
+              run: npx ng build --configuration production --base-href "/${{ github.event.repository.name }}/"
+            - name: Add SPA route fallback
+              run: cp dist/stock-portfolio/browser/index.html dist/stock-portfolio/browser/404.html
+            - uses: actions/configure-pages@v5
+            - uses: actions/upload-pages-artifact@v3
+              with:
+                  path: dist/stock-portfolio/browser
+            - name: Deploy
+              id: deployment
+              uses: actions/deploy-pages@v4

@@ -11,6 +11,12 @@ export const appConfig: ApplicationConfig = {
         provideBrowserGlobalErrorListeners(),
         provideRouter(routes),
         providePortfolioDatabase(),
-        { provide: MarketDataProvider, useClass: YahooMarketDataProvider },
+        {
+            provide: MarketDataProvider,
+            useFactory: (): MarketDataProvider | null =>
+                typeof location !== 'undefined' && location.hostname === 'localhost'
+                    ? new YahooMarketDataProvider()
+                    : null,
+        },
     ],
 };

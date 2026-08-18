@@ -4,6 +4,7 @@ import Decimal from 'decimal.js';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { cashAt, externalFlows } from '../../domain/engine';
+import { buildImportedFxResolver, convertToReportingCurrency } from '../../domain/fx';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { TableSort } from '../../shared/sort';
 import { SortThComponent } from '../../shared/ui/sort-th';
@@ -20,6 +21,7 @@ interface CashRow {
     readonly name: string;
     readonly balance: Decimal;
     readonly balanceReporting: Decimal | null;
+    readonly balanceReportingEstimated: boolean;
 }
 
 interface FlowRow {
@@ -65,18 +67,30 @@ export class CashPage {
     );
 
     private readonly unsortedBalances = computed<CashRow[]>(() => {
-        const balances = cashAt(this.context.transactions());
+        const valuationDate = new Date().toISOString().slice(0, 10);
+        const transactions = this.context.transactions().filter((txn) => txn.date <= valuationDate);
+        const balances = cashAt(transactions, valuationDate);
         const fx = this.marketData.fxResolver();
         const reporting = this.reportingCurrency();
+        const importedFx = buildImportedFxResolver(transactions, reporting);
         return [...balances.entries()]
             .filter(([, position]) => !position.amount.isZero())
             .map(([currency, position]) => {
-                const rate = currency === reporting ? new Decimal(1) : fx(currency, position.asOfDate);
+                const converted = convertToReportingCurrency(
+                    position.amount,
+                    currency,
+                    valuationDate,
+                    reporting,
+                    fx,
+                    null,
+                    importedFx,
+                );
                 return {
                     currency,
                     name: CURRENCY_NAMES[currency] ?? currency,
                     balance: position.amount,
-                    balanceReporting: rate === null ? null : position.amount.times(rate),
+                    balanceReporting: converted?.amount ?? null,
+                    balanceReportingEstimated: converted?.provenance === 'imported',
                 };
             });
     });
@@ -84,7 +98,8 @@ export class CashPage {
     readonly balances = computed(() => this.balancesSort.apply(this.unsortedBalances()));
 
     private readonly unsortedFlows = computed<FlowRow[]>(() => {
-        const flows = externalFlows(this.context.transactions());
+        const today = new Date().toISOString().slice(0, 10);
+        const flows = externalFlows(this.context.transactions().filter((txn) => txn.date <= today));
         return [...flows.entries()].map(([currency, flow]) => ({
             currency,
             deposits: flow.deposits,

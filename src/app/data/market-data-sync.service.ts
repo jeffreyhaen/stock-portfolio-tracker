@@ -17,7 +17,7 @@ export interface RefreshReport {
 }
 
 export const MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE =
-    'Market data service unavailable. The service may not be running. Start it with `npm run market-data-proxy` and try again.';
+    'Market data service unavailable. Imported and cached data and manual prices remain usable; the local market-data proxy is optional.';
 
 const LAST_QUOTE_REFRESH_DAY_KEY = 'lastQuoteRefreshDay';
 
@@ -30,16 +30,21 @@ export interface AutoLinkReport {
 @Injectable({ providedIn: 'root' })
 export class MarketDataSyncService {
     private readonly db = inject(PortfolioDatabase);
-    private readonly provider = inject(MarketDataProvider);
+    private readonly provider = inject(MarketDataProvider, { optional: true });
     private readonly fx = inject(FxService);
     private readonly marketData = inject(MarketDataService);
     private refreshInFlight: Promise<RefreshReport> | null = null;
+    private readonly linkGenerations = new Map<string, number>();
 
     async searchTicker(query: string): Promise<TickerSuggestion[]> {
+        if (this.provider === null) {
+            throw new Error('No market data provider is configured.');
+        }
         return this.provider.search(query);
     }
 
     async linkTicker(isin: string, symbol: string, exchange?: string): Promise<void> {
+        this.linkGenerations.set(isin, (this.linkGenerations.get(isin) ?? 0) + 1);
         await this.db.securities.update(isin, {
             quoteTicker: symbol,
             ...(exchange !== undefined ? { exchange: exchange } : {}),
@@ -47,9 +52,10 @@ export class MarketDataSyncService {
     }
 
     async refreshSecurity(isin: string, fromDate: string): Promise<void> {
+        await this.marketData.ready;
         const security = await this.db.securities.get(isin);
         const ticker = security?.quoteTicker;
-        if (security === undefined || ticker === null || ticker === undefined) {
+        if (security === undefined || ticker === null || ticker === undefined || this.provider === null) {
             return;
         }
         const reporting = this.marketData.reportingCurrency();
@@ -90,16 +96,21 @@ export class MarketDataSyncService {
         const linked: { isin: string; symbol: string }[] = [];
         const noCandidate: string[] = [];
         let serviceUnavailable = false;
+        const provider = this.provider;
+        if (provider === null) {
+            return { linked, noCandidate, serviceUnavailable: unlinked.length > 0 };
+        }
         for (const security of unlinked) {
+            const linkGeneration = this.linkGenerations.get(security.isin) ?? 0;
             try {
                 const isinSearch = chooseTickerCandidate(
-                    await this.provider.search(security.isin),
+                    await provider.search(security.isin),
                     security.tradingCurrency,
                 );
                 let candidate = isinSearch.candidate;
                 if (!isinSearch.currencyMatch && security.tradingCurrency !== null) {
                     const nameSearch = chooseTickerCandidate(
-                        await this.provider.search(security.name),
+                        await provider.search(security.name),
                         security.tradingCurrency,
                     );
                     if (nameSearch.currencyMatch) {
@@ -110,7 +121,9 @@ export class MarketDataSyncService {
                     noCandidate.push(security.isin);
                     continue;
                 }
-                await this.linkTicker(security.isin, candidate.symbol, candidate.exchange);
+                if (!(await this.commitAutoLink(security.isin, candidate.symbol, candidate.exchange, linkGeneration))) {
+                    continue;
+                }
                 linked.push({ isin: security.isin, symbol: candidate.symbol });
             } catch {
                 serviceUnavailable = true;
@@ -124,6 +137,7 @@ export class MarketDataSyncService {
     }
 
     async unlinkTicker(isin: string): Promise<void> {
+        this.linkGenerations.set(isin, (this.linkGenerations.get(isin) ?? 0) + 1);
         await this.db.securities.update(isin, { quoteTicker: null, exchange: null });
         await this.db.priceHistory.where('isin').equals(isin).delete();
         const quote = await this.db.quoteCache.get(isin);
@@ -134,6 +148,7 @@ export class MarketDataSyncService {
     }
 
     async refreshAllIfNeeded(fromDate: string): Promise<RefreshReport | null> {
+        await this.marketData.ready;
         const refreshDay = localToday();
         const lastRefresh = await this.db.settings.get(LAST_QUOTE_REFRESH_DAY_KEY);
         if (lastRefresh?.value === refreshDay) {
@@ -157,7 +172,31 @@ export class MarketDataSyncService {
         }
     }
 
+    private async commitAutoLink(
+        isin: string,
+        symbol: string,
+        exchange: string | undefined,
+        expectedGeneration: number,
+    ): Promise<boolean> {
+        if ((this.linkGenerations.get(isin) ?? 0) !== expectedGeneration) return false;
+        const current = await this.db.securities.get(isin);
+        if (
+            (this.linkGenerations.get(isin) ?? 0) !== expectedGeneration ||
+            current === undefined ||
+            (current.quoteTicker !== null && current.quoteTicker !== undefined)
+        ) {
+            return false;
+        }
+        this.linkGenerations.set(isin, expectedGeneration + 1);
+        await this.db.securities.update(isin, {
+            quoteTicker: symbol,
+            ...(exchange !== undefined ? { exchange } : {}),
+        });
+        return true;
+    }
+
     private async performRefreshAll(fromDate: string): Promise<RefreshReport> {
+        await this.marketData.ready;
         this.marketData.refreshing.set(true);
         try {
             const securities = await this.db.securities.toArray();
@@ -181,6 +220,18 @@ export class MarketDataSyncService {
             let fxUpdated = false;
             let serviceUnavailable = false;
             const reporting = this.marketData.reportingCurrency();
+
+            if (this.provider === null) {
+                this.marketData.offline.set(true);
+                return {
+                    quotesUpdated: 0,
+                    quotesRequested,
+                    quotesFailed: linkedSecurities.map((security) => security.quoteTicker ?? ''),
+                    historyUpdated,
+                    fxUpdated,
+                    serviceUnavailable: true,
+                };
+            }
 
             try {
                 const tickers = linkedSecurities.map((s) => s.quoteTicker ?? '');
@@ -255,6 +306,9 @@ export class MarketDataSyncService {
     }
 
     private async ensureHistory(isin: string, ticker: string, fromDate: string): Promise<string | null> {
+        if (this.provider === null) {
+            return null;
+        }
         const latest = await this.db.priceHistory
             .where('[isin+date]')
             .between([isin, Dexie.minKey], [isin, Dexie.maxKey])

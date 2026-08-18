@@ -10,16 +10,21 @@ function withinCutoff(txn: Transaction, cutoff: string | undefined): boolean {
 
 export function positionsAt(transactions: readonly Transaction[], cutoff?: string): Map<string, Decimal> {
     const positions = new Map<string, Decimal>();
-    for (const txn of transactions) {
+    const sorted = [...transactions].sort(
+        (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || b.rowIndex - a.rowIndex,
+    );
+    for (const txn of sorted) {
         if (!POSITION_TYPES.has(txn.type) || txn.isin === null || txn.quantity === null) {
             continue;
         }
         if (!withinCutoff(txn, cutoff)) {
             continue;
         }
-        const signed = SELL_TYPES.has(txn.type) ? txn.quantity.neg() : txn.quantity;
         const current = positions.get(txn.isin) ?? new Decimal(0);
-        positions.set(txn.isin, current.plus(signed));
+        const next = SELL_TYPES.has(txn.type)
+            ? Decimal.max(current.minus(txn.quantity), new Decimal(0))
+            : current.plus(txn.quantity);
+        positions.set(txn.isin, next);
     }
     return positions;
 }

@@ -1,6 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { PortfolioContext } from './data/portfolio-context';
+import { MarketDataService } from './data/market-data.service';
 import { MarketDataSyncService } from './data/market-data-sync.service';
 import { ThemePreference, ThemeService } from './shared/theme.service';
 
@@ -12,6 +13,7 @@ import { ThemePreference, ThemeService } from './shared/theme.service';
 })
 export class App {
     private readonly context = inject(PortfolioContext);
+    private readonly marketData = inject(MarketDataService);
     private readonly marketDataSync = inject(MarketDataSyncService);
     private readonly themeService = inject(ThemeService);
 
@@ -35,6 +37,7 @@ export class App {
 
     private async refreshQuotesOnStartup(): Promise<void> {
         try {
+            await this.marketData.ready;
             await this.context.ready;
             const transactions = this.context.transactions();
             const fromDate =

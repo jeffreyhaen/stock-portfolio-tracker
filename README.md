@@ -56,6 +56,12 @@ npm run lint
 npm run build
 ```
 
+## Static hosting
+
+The app can be hosted as static files. The GitHub Pages workflow builds with the repository subpath as Angular's base href and adds a `404.html` SPA fallback so bookmarked portfolio routes return to the Angular router. Enable GitHub Pages with **GitHub Actions** as its source. A custom domain or root-path deployment must build with its own `--base-href` instead.
+
+Live quote search and refresh remain optional. The bundled provider is enabled only when the app itself runs on localhost and expects the local proxy at `http://localhost:8787`. Static-hosted visitors can import, select portfolios, use transaction-price estimates, and enter manual prices without background requests to that proxy. Browser IndexedDB data is scoped to the hosted origin.
+
 ## Privacy and limitations
 
 - Imported CSV files and exported backups can contain sensitive financial information. Keep them local and do not commit them.

@@ -13,6 +13,7 @@ const POSITION_TYPES = new Set<string>([T.TradeBuy, T.TradeSell, T.CorporateBuy,
 
 export interface ImportResult extends ImportReport {
     readonly newSecurityIsins: string[];
+    readonly earliestTransactionDate: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -56,7 +57,12 @@ export class ImportService {
             newSecurityIsins = await this.upsertSecurities(merge.added);
         });
 
-        return { ...batch.report, newSecurityIsins };
+        const allTransactions = [...existing, ...merge.added];
+        const earliestTransactionDate = allTransactions.reduce<string | null>(
+            (earliest, transaction) => (earliest === null || transaction.date < earliest ? transaction.date : earliest),
+            null,
+        );
+        return { ...batch.report, newSecurityIsins, earliestTransactionDate };
     }
 
     async batchesFor(portfolioId: string): Promise<StoredImportBatch[]> {

@@ -18,13 +18,16 @@
                     {{ valuation().totals.value | money: reportingCurrency() }}
                 </p>
                 @if (marketData.offline()) {
-                <app-info-tooltip
-                    tone="warning"
-                    text="Quote data could not be refreshed. Showing last known prices."
-                />
+                <app-info-tooltip tone="warning" text="Quote data could not be refreshed. Showing last known prices." />
                 }
             </div>
-            @if (rangeResult() !== null) {
+            @if (valuationStatus() !== null) {
+            <p
+                class="mt-2 inline-flex rounded-full bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning-darken"
+            >
+                {{ valuationStatus() }}
+            </p>
+            } @if (rangeResult() !== null) {
             <p
                 class="mt-1 text-lg font-medium tabular-nums"
                 [class.text-success]="!rangeResult()?.result?.isNegative() && !rangeResult()?.result?.isZero()"

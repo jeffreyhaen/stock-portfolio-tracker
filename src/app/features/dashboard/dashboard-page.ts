@@ -4,8 +4,10 @@ import Decimal from 'decimal.js';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { cashAt } from '../../domain/engine';
+import { buildImportedFxResolver, convertToReportingCurrency } from '../../domain/fx';
 import { PriceBar, buildMarketValueSeries } from '../../domain/market-value';
 import { holdingStats } from '../../domain/holdings';
+import { buildPriceResolver } from '../../domain/price-resolution';
 import { timeWeightedReturn } from '../../domain/twr';
 import { Transaction } from '../../domain/types';
 import { buildValuation, rangeTotals } from '../../domain/valuation';
@@ -117,7 +119,12 @@ export class DashboardPage {
 
     readonly isEmpty = computed(() => this.context.transactions().length === 0);
 
-    readonly holdings = computed(() => holdingStats(this.context.transactions()));
+    readonly holdings = computed(() =>
+        holdingStats(this.context.transactions().filter((txn) => txn.date <= this.today), {
+            reportingCurrency: this.reportingCurrency(),
+            fxFallback: this.marketData.fxResolver(),
+        }),
+    );
 
     readonly valuation = computed(() =>
         buildValuation(
@@ -135,6 +142,15 @@ export class DashboardPage {
             const list = map.get(bar.isin) ?? [];
             list.push({ date: bar.date, close: new Decimal(bar.close), currency: bar.currency });
             map.set(bar.isin, list);
+        }
+        for (const [isin, quote] of this.marketData.quoteMap()) {
+            if (quote.date === undefined) continue;
+            const list = map.get(isin) ?? [];
+            const current = { date: quote.date, close: quote.price, currency: quote.currency };
+            const sameDay = list.findIndex((bar) => bar.date === quote.date);
+            if (sameDay === -1) list.push(current);
+            else list[sameDay] = current;
+            map.set(isin, list);
         }
         for (const list of map.values()) {
             list.sort((a, b) => a.date.localeCompare(b.date));
@@ -200,7 +216,12 @@ export class DashboardPage {
         }
         const first = points[0];
         const last = points[points.length - 1];
-        if (first.value === null || last.value === null) {
+        if (
+            first.value === null ||
+            last.value === null ||
+            ('complete' in first && first.complete === false) ||
+            ('complete' in last && last.complete === false)
+        ) {
             return null;
         }
         const netInvestedInRange = last.netInvested.minus(first.netInvested);
@@ -216,7 +237,7 @@ export class DashboardPage {
         this.theme.theme(); // herbereken kleuren bij themawissel
         const points = this.filteredSeriesPoints();
         const valuePoints = points
-            .filter((p) => p.value !== null)
+            .filter((p) => p.value !== null && p.complete)
             .map((p) => ({ time: p.date, value: p.value?.toNumber() ?? 0 }));
         return [
             {
@@ -237,27 +258,79 @@ export class DashboardPage {
     });
 
     readonly twr = computed(() => {
-        if (!this.hasHistory()) {
+        const points = this.filteredSeriesPoints();
+        if (
+            !this.hasHistory() ||
+            points.some((point) => (!point.complete || point.value === null) && !point.flow.isZero())
+        ) {
             return { twr: null, twrPct: null, days: 0 };
         }
-        return timeWeightedReturn(this.filteredSeriesPoints());
+        return timeWeightedReturn(points.filter((point) => point.complete && point.value !== null));
+    });
+
+    readonly valuationStatus = computed(() => {
+        const valuation = this.valuation();
+        const statuses: string[] = [];
+        const missing = valuation.missingQuotes.length + valuation.missingFx.length;
+        if (missing > 0)
+            statuses.push(`Partial value: ${missing} missing price or FX input${missing === 1 ? '' : 's'}`);
+        if (valuation.estimatedIsins.length > 0) {
+            statuses.push(
+                `Estimated: ${valuation.estimatedIsins.length} latest-trade price${valuation.estimatedIsins.length === 1 ? '' : 's'}`,
+            );
+        }
+        if (valuation.estimatedFx.length > 0) {
+            statuses.push(
+                `Estimated FX: ${valuation.estimatedFx.length} imported exchange rate${valuation.estimatedFx.length === 1 ? '' : 's'}`,
+            );
+        }
+        if (valuation.staleIsins.length > 0) {
+            statuses.push(
+                `Stale: ${valuation.staleIsins.length} cached price${valuation.staleIsins.length === 1 ? '' : 's'}`,
+            );
+        }
+        if (statuses.length === 0 && [...valuation.priceProvenance.values()].some((source) => source === 'cache')) {
+            statuses.push('Cached market prices');
+        }
+        if ([...valuation.priceProvenance.values()].some((source) => source === 'manual')) {
+            statuses.push('Includes manual prices');
+        }
+        return statuses.length === 0 ? null : statuses.join(' · ');
     });
 
     readonly topHoldings = computed<TopHoldingView[]>(() => {
         const quotes = this.marketData.quoteMap();
         const fx = this.marketData.fxResolver();
-        const total = this.valuation().totals.value;
+        const transactions = this.context.transactions();
+        const resolvePrice = buildPriceResolver(transactions, quotes);
+        const importedFx = buildImportedFxResolver(transactions, this.reportingCurrency());
+        const totals = this.valuation().totals;
+        const total = totals.complete ? totals.value : null;
         return this.holdings()
             .map((h) => {
-                const quote = quotes.get(h.isin);
-                let value: Decimal | null = null;
-                if (quote !== undefined) {
-                    const rate = fx(quote.currency, this.today);
-                    value = rate === null ? null : h.quantity.times(quote.price).times(rate);
-                }
+                const price = resolvePrice(h.isin, this.today);
+                const converted =
+                    price === null
+                        ? null
+                        : convertToReportingCurrency(
+                              h.quantity.times(price.price),
+                              price.currency,
+                              this.today,
+                              this.reportingCurrency(),
+                              fx,
+                              price.transactionFxRate,
+                              importedFx,
+                          );
+                const value = converted?.amount ?? null;
                 const weightPct =
                     value === null || total === null || total.isZero() ? null : value.div(total).times(100);
-                return { isin: h.isin, product: h.product, quantity: h.quantity, value, weightPct };
+                return {
+                    isin: h.isin,
+                    product: h.product,
+                    quantity: h.quantity,
+                    value,
+                    weightPct,
+                };
             })
             .sort((a, b) => {
                 if (a.value === null) {
@@ -286,7 +359,7 @@ export class DashboardPage {
     );
 
     readonly cashBalances = computed<CashBalanceView[]>(() =>
-        [...cashAt(this.context.transactions()).values()]
+        [...cashAt(this.context.transactions(), this.today).values()]
             .filter((position) => !position.amount.isZero())
             .map((position) => ({ currency: position.currency, balance: position.amount }))
             .sort((a, b) => b.balance.comparedTo(a.balance)),
@@ -308,12 +381,18 @@ export class DashboardPage {
     });
 
     readonly xirrPerYear = computed<{ pct: Decimal; perYear: boolean } | null>(() => {
-        const points = this.filteredSeriesPoints().filter((p) => p.value !== null);
-        if (points.length === 0) {
-            return null;
-        }
+        const points = this.filteredSeriesPoints();
+        if (points.length === 0) return null;
         const first = points[0];
         const last = points[points.length - 1];
+        const { from, to } = this.bounds();
+        if (
+            (from !== null && (!first.complete || first.value === null)) ||
+            !last.complete ||
+            last.value === null
+        ) {
+            return null;
+        }
         const windowDays = cashflowWindowDays([
             { date: first.date, amount: new Decimal(0) },
             { date: last.date, amount: new Decimal(0) },
@@ -322,19 +401,27 @@ export class DashboardPage {
             const rr = this.rangeResult();
             return rr === null ? null : { pct: rr.resultPct, perYear: false };
         }
-        const { from, to } = this.bounds();
         const txns = this.context
             .transactions()
             .filter((t) => (from === null || t.date >= from) && (to === null || t.date <= to));
+        const reportingCurrency = this.reportingCurrency();
+        const importedFx = buildImportedFxResolver(txns, reportingCurrency);
+        const marketFx = this.marketData.fxResolver();
         const external = portfolioCashflows(txns, {
-            reportingCurrency: this.reportingCurrency(),
-            fxFallback: this.marketData.fxResolver(),
+            reportingCurrency,
+            fxFallback: (currency, date) => importedFx(currency, date) ?? marketFx(currency, date),
         });
-        if (external === null || first.value === null || last.value === null) {
+        if (external === null || (from !== null && first.value === null) || last.value === null) {
             return null;
         }
+        const boundaryFlows = external
+            .filter((flow) => flow.date === first.date)
+            .reduce((sum, flow) => sum.plus(flow.amount), new Decimal(0));
+        const openingValue = from === null ? null : first.value;
         const flows: Cashflow[] = [
-            ...(from === null ? [] : [{ date: first.date, amount: first.value.neg() }]),
+            ...(openingValue === null
+                ? []
+                : [{ date: first.date, amount: openingValue.neg().minus(boundaryFlows) }]),
             ...external,
             { date: last.date, amount: last.value },
         ];

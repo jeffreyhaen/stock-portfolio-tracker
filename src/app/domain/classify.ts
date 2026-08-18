@@ -1,8 +1,10 @@
+import Decimal from 'decimal.js';
 import { parseLocalizedNumber } from './numbers';
 import { Classification, CorporateAction, TransactionTypes as T, TransactionType } from './types';
 
 const TRADE =
     /^(?:(STOCK SPLIT|SPIN-OFF|PRODUCTWIJZIGING|WIJZIGING ISIN)\s*:\s*)?(Koop|Verkoop)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})$/;
+const SPLIT_ADJUSTMENT = /^SPLIT AANPASSING:\s*([\d.,]+)\s+.+?\s+@\s*([\d.,]+)\s+([A-Z]{3})(?:\s+\([A-Z0-9]+\))?$/i;
 const MMF_CONVERSION = /^Conversie geldmarktfonds: (Koop|Verkoop)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})$/;
 const MMF_PRICE_CHANGE = /^Koersverandering geldmarktfonds \([A-Z]{3}\)$/;
 const CONNECTION_FEE = /^DEGIRO Aansluitingskosten [\d.,]+ \(.+ - [A-Z]{3}\)$/;
@@ -42,7 +44,7 @@ function classified(type: TransactionType): Classification {
     return { type, corporateAction: null, quantity: null, price: null, tradeCurrency: null };
 }
 
-export function classifyDescription(description: string): Classification {
+export function classifyDescription(description: string, mutation: Decimal | null = null): Classification {
     const text = description.trim().replace(/\s+/g, ' ');
 
     const trade = TRADE.exec(text);
@@ -59,6 +61,23 @@ export function classifyDescription(description: string): Classification {
             quantity: parseLocalizedNumber(trade[3]),
             price: parseLocalizedNumber(trade[4]),
             tradeCurrency: trade[5],
+        };
+    }
+
+    const splitAdjustment = SPLIT_ADJUSTMENT.exec(text);
+    if (splitAdjustment) {
+        const type =
+            mutation === null || mutation.isZero()
+                ? T.Unknown
+                : mutation.isNegative()
+                  ? T.CorporateBuy
+                  : T.CorporateSell;
+        return {
+            type,
+            corporateAction: 'STOCK_SPLIT',
+            quantity: parseLocalizedNumber(splitAdjustment[1]),
+            price: parseLocalizedNumber(splitAdjustment[2]),
+            tradeCurrency: splitAdjustment[3].toUpperCase(),
         };
     }
 
@@ -82,6 +101,9 @@ export function classifyDescription(description: string): Classification {
     }
     if (MMF_PRICE_CHANGE.test(text)) {
         return classified(T.MmfPriceChange);
+    }
+    if (/^Inkomsten uit Securities Lending(?: - .+)?$/.test(text)) {
+        return classified(T.InterestIncome);
     }
     if (CONNECTION_FEE.test(text)) {
         return classified(T.ConnectionFee);

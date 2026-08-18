@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import { classifyDescription } from './classify';
+import { isHeaderRow } from './csv/repair-csv-rows';
 import { parseLocalizedDate, parseLocalizedNumber } from './numbers';
 import { ImportWarning, RawCsvRow, Transaction, TransactionTypes } from './types';
 
@@ -55,7 +56,8 @@ function optionalNumber(raw: string): Decimal | null {
 }
 
 export function toTransaction(row: RawCsvRow, warnings: ImportWarning[]): Transaction {
-    const classification = classifyDescription(row.description);
+    const mutation = optionalNumber(row.mutation);
+    const classification = classifyDescription(row.description, mutation);
     if (classification.type === TransactionTypes.Unknown) {
         warnings.push({
             rowIndex: row.rowIndex,
@@ -77,7 +79,7 @@ export function toTransaction(row: RawCsvRow, warnings: ImportWarning[]): Transa
         quantity: classification.quantity,
         price: classification.price,
         tradeCurrency: classification.tradeCurrency,
-        mutation: optionalNumber(row.mutation),
+        mutation,
         mutationCurrency: row.mutationCurrency.trim() === '' ? null : row.mutationCurrency,
         balance: optionalNumber(row.balance),
         balanceCurrency: row.balanceCurrency.trim() === '' ? null : row.balanceCurrency,
@@ -91,7 +93,7 @@ export function toTransaction(row: RawCsvRow, warnings: ImportWarning[]): Transa
 export function buildLedger(rows: readonly string[][]): { transactions: Transaction[]; warnings: ImportWarning[] } {
     const warnings: ImportWarning[] = [];
     const transactions = rows
-        .filter((columns) => columns[0] !== 'Datum')
+        .filter((columns) => !isHeaderRow(columns))
         .map((columns, index) => toTransaction(toRawRow(columns, index), warnings));
     return { transactions, warnings };
 }

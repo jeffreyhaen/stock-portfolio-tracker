@@ -6,6 +6,21 @@ export function isDataRowStart(row: readonly string[]): boolean {
     return DATE_PATTERN.test(row[0] ?? '');
 }
 
+function normalizedHeaderCell(value: string | undefined): string {
+    return (value ?? '').trim().toLowerCase();
+}
+
+export function isHeaderRow(row: readonly string[]): boolean {
+    const firstPair = `${normalizedHeaderCell(row[0])}|${normalizedHeaderCell(row[1])}`;
+    return (
+        firstPair === 'datum|tijd' ||
+        firstPair === 'date|time' ||
+        (normalizedHeaderCell(row[3]) === 'product' &&
+            normalizedHeaderCell(row[4]) === 'isin' &&
+            normalizedHeaderCell(row[11]) === 'order id')
+    );
+}
+
 export function repairCsvRows(rows: readonly string[][], columnCount = 12): string[][] {
     const repaired: string[][] = [];
     for (const raw of rows) {
@@ -13,7 +28,7 @@ export function repairCsvRows(rows: readonly string[][], columnCount = 12): stri
         while (row.length < columnCount) {
             row.push('');
         }
-        if (isDataRowStart(row) || row[0] === 'Datum') {
+        if (isDataRowStart(row) || isHeaderRow(row)) {
             repaired.push(row);
             continue;
         }

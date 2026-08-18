@@ -114,7 +114,7 @@
             (dragleave)="onDragLeave()"
             (drop)="onDrop($event)"
         >
-            @if (busy()) {
+            @if (busy() || importPhase() === 'linking') {
             <p class="text-sm font-medium">{{ importPhase() === 'linking' ? 'Linking tickers…' : 'Importing…' }}</p>
             } @else if (selectedPortfolioId() === '') {
             <p class="text-sm text-base-content/60">Create a portfolio first.</p>

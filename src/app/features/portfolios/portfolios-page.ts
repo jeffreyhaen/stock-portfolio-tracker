@@ -74,6 +74,7 @@ export class PortfoliosPage {
         this.showCreateForm.set(false);
         this.report.set(null);
         this.autoLinkResult.set(null);
+        this.importPhase.set('importing');
         this.error.set(null);
     }
 
@@ -83,6 +84,7 @@ export class PortfoliosPage {
         this.cancelRename();
         this.report.set(null);
         this.autoLinkResult.set(null);
+        this.importPhase.set('importing');
         this.error.set(null);
     }
 
@@ -197,13 +199,16 @@ export class PortfoliosPage {
             await this.reloadBatches(portfolioId);
             if (report.newSecurityIsins.length > 0) {
                 const fromDate = report.earliestTransactionDate ?? new Date().toISOString().slice(0, 10);
+                this.importPhase.set('linking');
                 void this.autoLinkImported(portfolioId, fromDate, generation, report.newSecurityIsins);
             }
         } catch (error: unknown) {
             this.error.set(error instanceof Error ? error.message : String(error));
         } finally {
             this.busy.set(false);
-            this.importPhase.set('importing');
+            if (this.importPhase() !== 'linking') {
+                this.importPhase.set('importing');
+            }
         }
     }
 
@@ -240,6 +245,10 @@ export class PortfoliosPage {
             }
             const message = error instanceof Error ? error.message : String(error);
             this.autoLinkResult.set({ tone: 'warning', text: `Auto-link failed: ${message}` });
+        } finally {
+            if (this.isCurrentAutoLink(portfolioId, generation)) {
+                this.importPhase.set('importing');
+            }
         }
     }
 
@@ -250,5 +259,4 @@ export class PortfoliosPage {
     private async reloadBatches(portfolioId: string): Promise<void> {
         this.batches.set(portfolioId === '' ? [] : await this.importService.batchesFor(portfolioId));
     }
-
 }

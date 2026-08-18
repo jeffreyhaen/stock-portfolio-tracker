@@ -3,7 +3,7 @@ import http from 'node:http';
 const PORT = Number(process.env.MARKET_DATA_PROXY_PORT ?? 8787);
 const QUOTE_TTL_MS = 15 * 60 * 1000;
 const YAHOO_HOST = 'query1.finance.yahoo.com';
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) StockPortfolioApp/1.0';
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) App/1.0';
 
 // LSE quotes are in pence (GBp): normalize them to GBP.
 function normalizeCurrency(price, currency) {

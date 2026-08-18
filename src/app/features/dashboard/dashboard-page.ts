@@ -120,10 +120,13 @@ export class DashboardPage {
     readonly isEmpty = computed(() => this.context.transactions().length === 0);
 
     readonly holdings = computed(() =>
-        holdingStats(this.context.transactions().filter((txn) => txn.date <= this.today), {
-            reportingCurrency: this.reportingCurrency(),
-            fxFallback: this.marketData.fxResolver(),
-        }),
+        holdingStats(
+            this.context.transactions().filter((txn) => txn.date <= this.today),
+            {
+                reportingCurrency: this.reportingCurrency(),
+                fxFallback: this.marketData.fxResolver(),
+            },
+        ),
     );
 
     readonly valuation = computed(() =>
@@ -386,11 +389,7 @@ export class DashboardPage {
         const first = points[0];
         const last = points[points.length - 1];
         const { from, to } = this.bounds();
-        if (
-            (from !== null && (!first.complete || first.value === null)) ||
-            !last.complete ||
-            last.value === null
-        ) {
+        if ((from !== null && (!first.complete || first.value === null)) || !last.complete || last.value === null) {
             return null;
         }
         const windowDays = cashflowWindowDays([
@@ -419,9 +418,7 @@ export class DashboardPage {
             .reduce((sum, flow) => sum.plus(flow.amount), new Decimal(0));
         const openingValue = from === null ? null : first.value;
         const flows: Cashflow[] = [
-            ...(openingValue === null
-                ? []
-                : [{ date: first.date, amount: openingValue.neg().minus(boundaryFlows) }]),
+            ...(openingValue === null ? [] : [{ date: first.date, amount: openingValue.neg().minus(boundaryFlows) }]),
             ...external,
             { date: last.date, amount: last.value },
         ];

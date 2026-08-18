@@ -121,9 +121,7 @@ export function buildMarketValueSeries(
                 amount: converted?.amount ?? null,
                 missingPair: converted === null ? `${txn.mutationCurrency}/${reportingCurrency}` : null,
                 estimatedPair:
-                    converted?.provenance === 'imported'
-                        ? `${txn.mutationCurrency}/${reportingCurrency}`
-                        : null,
+                    converted?.provenance === 'imported' ? `${txn.mutationCurrency}/${reportingCurrency}` : null,
             });
         }
     }

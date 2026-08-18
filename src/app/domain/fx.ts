@@ -75,9 +75,7 @@ export function convertTransactionToReportingCurrency(
         return { amount: amount.times(rate), rate, provenance: 'imported' };
     }
     const marketRate = marketFx?.(currency, date) ?? null;
-    return marketRate === null
-        ? null
-        : { amount: amount.times(marketRate), rate: marketRate, provenance: 'market' };
+    return marketRate === null ? null : { amount: amount.times(marketRate), rate: marketRate, provenance: 'market' };
 }
 
 export function mutationInReportingCurrency(
@@ -99,15 +97,7 @@ export function mutationInReportingCurrency(
 export function buildImportedFxResolver(
     transactions: readonly Pick<
         Transaction,
-        | 'date'
-        | 'time'
-        | 'rowIndex'
-        | 'type'
-        | 'orderId'
-        | 'mutation'
-        | 'mutationCurrency'
-        | 'tradeCurrency'
-        | 'fxRate'
+        'date' | 'time' | 'rowIndex' | 'type' | 'orderId' | 'mutation' | 'mutationCurrency' | 'tradeCurrency' | 'fxRate'
     >[],
     reportingCurrency = 'EUR',
 ): FxResolver {
@@ -161,7 +151,10 @@ export function buildImportedFxResolver(
         for (const txn of group) {
             const currency = txn.mutationCurrency as string;
             if (currency === reportingCurrency) continue;
-            foreignAmounts.set(currency, (foreignAmounts.get(currency) ?? new Decimal(0)).plus((txn.mutation as Decimal).abs()));
+            foreignAmounts.set(
+                currency,
+                (foreignAmounts.get(currency) ?? new Decimal(0)).plus((txn.mutation as Decimal).abs()),
+            );
         }
         const anchor = [...group].sort(
             (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || b.rowIndex - a.rowIndex,

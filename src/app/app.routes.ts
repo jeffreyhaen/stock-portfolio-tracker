@@ -1,32 +1,55 @@
 import { Routes } from '@angular/router';
-import { CashPage } from './features/cash/cash-page';
-import { DashboardPage } from './features/dashboard/dashboard-page';
-import { HoldingsPage } from './features/holdings/holdings-page';
-import { PortfoliosPage } from './features/portfolios/portfolios-page';
-import { PortfolioRedirectComponent } from './features/portfolio/portfolio-redirect';
-import { PortfolioShellComponent } from './features/portfolio/portfolio-shell';
-import { PricesPage } from './features/prices/prices-page';
-import { SettingsPage } from './features/settings/settings-page';
-import { TransactionsPage } from './features/transactions/transactions-page';
 
 const portfolioRoutes: Routes = [
-    { path: 'dashboard', component: DashboardPage },
-    { path: 'holdings', component: HoldingsPage },
-    { path: 'cash', component: CashPage },
-    { path: 'transactions', component: TransactionsPage },
-    { path: 'prices', component: PricesPage },
+    {
+        path: 'dashboard',
+        loadComponent: () => import('./features/dashboard/dashboard-page').then((m) => m.DashboardPage),
+    },
+    {
+        path: 'holdings',
+        loadComponent: () => import('./features/holdings/holdings-page').then((m) => m.HoldingsPage),
+    },
+    {
+        path: 'cash',
+        loadComponent: () => import('./features/cash/cash-page').then((m) => m.CashPage),
+    },
+    {
+        path: 'transactions',
+        loadComponent: () => import('./features/transactions/transactions-page').then((m) => m.TransactionsPage),
+    },
+    {
+        path: 'prices',
+        loadComponent: () => import('./features/prices/prices-page').then((m) => m.PricesPage),
+    },
     { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 ];
 
+const portfolioRedirectRoutes: Routes = [
+    { path: 'dashboard', data: { target: 'dashboard' } },
+    { path: 'holdings', data: { target: 'holdings' } },
+    { path: 'cash', data: { target: 'cash' } },
+    { path: 'transactions', data: { target: 'transactions' } },
+    { path: 'prices', data: { target: 'prices' } },
+].map((route) => ({
+    ...route,
+    loadComponent: () => import('./features/portfolio/portfolio-redirect').then((m) => m.PortfolioRedirectComponent),
+}));
+
 export const routes: Routes = [
-    { path: 'portfolios', component: PortfoliosPage },
+    {
+        path: 'portfolios',
+        loadComponent: () => import('./features/portfolios/portfolios-page').then((m) => m.PortfoliosPage),
+    },
     { path: 'import', pathMatch: 'full', redirectTo: 'portfolios' },
-    { path: 'settings', component: SettingsPage },
-    { path: 'portfolio/:portfolioId', component: PortfolioShellComponent, children: portfolioRoutes },
-    { path: 'dashboard', component: PortfolioRedirectComponent, data: { target: 'dashboard' } },
-    { path: 'holdings', component: PortfolioRedirectComponent, data: { target: 'holdings' } },
-    { path: 'cash', component: PortfolioRedirectComponent, data: { target: 'cash' } },
-    { path: 'transactions', component: PortfolioRedirectComponent, data: { target: 'transactions' } },
-    { path: 'prices', component: PortfolioRedirectComponent, data: { target: 'prices' } },
+    {
+        path: 'settings',
+        loadComponent: () => import('./features/settings/settings-page').then((m) => m.SettingsPage),
+    },
+    {
+        path: 'portfolio/:portfolioId',
+        loadComponent: () => import('./features/portfolio/portfolio-shell').then((m) => m.PortfolioShellComponent),
+        children: portfolioRoutes,
+    },
+    ...portfolioRedirectRoutes,
     { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 ];

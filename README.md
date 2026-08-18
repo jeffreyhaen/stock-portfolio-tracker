@@ -46,7 +46,7 @@ To start only the market-data proxy:
 npm run market-data-proxy
 ```
 
-The proxy retrieves quote data from Yahoo Finance and listens on `http://localhost:8787` by default. Foreign-exchange (FX) rates are retrieved from Frankfurter. Review the terms and availability of these external services before relying on the data.
+The market-data proxy is experimental and intended for local development only. It listens on `http://localhost:8787` by default, and retrieves quote data from Yahoo Finance through unofficial endpoints. Do not deploy or expose it to the public internet. Foreign-exchange (FX) rates are retrieved from Frankfurter. Review the terms and availability of these external services before relying on the data.
 
 ## Verification
 
@@ -67,7 +67,7 @@ Live quote search and refresh remain optional. The bundled provider is enabled o
 - Imported CSV files and exported backups can contain sensitive financial information. Keep them local and do not commit them.
 - This application is a portfolio tracking tool, not financial advice.
 - Quote and foreign-exchange data may be delayed, incomplete, or unavailable.
-- The market-data proxy is intended for local development. Do not expose it to the public internet without adding suitable authentication, rate limiting, and operational controls.
+- The market-data proxy is experimental and intended for local development only. It uses unofficial Yahoo Finance endpoints; do not expose it to the public internet or use it as a public/commercial data service without confirming the applicable provider terms and adding suitable authentication, rate limiting, and operational controls.
 
 ## License
 

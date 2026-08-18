@@ -41,8 +41,8 @@
                                 : ''
                         "
                     >
-                        {{ row.balanceReportingEstimated ? '≈ ' : ''
-                        }}{{ row.balanceReporting | money: reportingCurrency() }}
+                        {{ row.balanceReportingEstimated ? '≈ ' : '' }}{{ row.balanceReporting | money:
+                        reportingCurrency() }}
                     </p>
                     } @else {
                     <p class="text-sm text-base-content/60" title="No FX rate available for this currency">–</p>

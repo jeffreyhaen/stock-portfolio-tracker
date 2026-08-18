@@ -4,7 +4,9 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 function start(script) {
     if (process.platform === 'win32') {
-        return spawn(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `${npm} run ${script}`], { stdio: 'inherit' });
+        return spawn(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `${npm} run ${script}`], {
+            stdio: 'inherit',
+        });
     }
     return spawn(npm, ['run', script], { stdio: 'inherit' });
 }

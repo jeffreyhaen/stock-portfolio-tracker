@@ -76,12 +76,7 @@ function compareChronological(a: Transaction, b: Transaction): number {
     return a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || b.rowIndex - a.rowIndex;
 }
 
-function convertedMutation(
-    txn: Transaction,
-    fx: FxResolver,
-    reportingCurrency: string,
-    importedFx?: FxResolver,
-) {
+function convertedMutation(txn: Transaction, fx: FxResolver, reportingCurrency: string, importedFx?: FxResolver) {
     if (txn.mutation === null) return null;
     const currency = txn.mutationCurrency ?? txn.tradeCurrency;
     if (currency === null || currency === '') return null;

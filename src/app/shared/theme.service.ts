@@ -42,8 +42,7 @@ export class ThemeService {
     }
 
     private applyTheme(): void {
-        this.document.documentElement.dataset['theme'] =
-            this.theme() === 'dark' ? 'portfolio-dark' : 'portfolio';
+        this.document.documentElement.dataset['theme'] = this.theme() === 'dark' ? 'portfolio-dark' : 'portfolio';
     }
 }
 

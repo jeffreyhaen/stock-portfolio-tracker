@@ -1,7 +1,7 @@
 # market-data-proxy
 
-Local market-data proxy (milestone M5). Runs on port 8787, only talks to
-allowlisted Yahoo hosts (no open proxy), and serves:
+Experimental, local-development-only market-data proxy. Runs on
+port 8787, only talks to allowlisted Yahoo hosts (no open proxy), and serves:
 
 - `GET /api/search?q=...` → ticker suggestions `[{ symbol, name, exchange }]`
 - `GET /api/quote?symbols=A,B` → latest quotes `{ symbol: { price, currency, time } }`
@@ -15,3 +15,7 @@ node tools/market-data-proxy/server.js
 ```
 
 In-memory cache: quotes 15 minutes, history persistent (daily prices don't change).
+
+This proxy uses unofficial Yahoo Finance endpoints. Do not deploy or expose it
+as a public or commercial service without confirming the applicable provider
+terms and adding suitable authentication, rate limiting, and operational controls.

@@ -3,16 +3,17 @@
 A client-side Angular application for tracking an investment portfolio from DEGIRO CSV exports.
 
 <p align="center">
-  <img src="public/github-showcase.png" alt="StockPortfolioApp header">
+  <img src="public/github-header.jpg" alt="StockPortfolioApp header">
 </p>
 
 ## Features
 
 - Import and reconcile DEGIRO transactions
-  - The parser currently supports Dutch language DEGIRO exports only
+    - The parser currently supports Dutch language DEGIRO exports only
 - Holdings, cash, transactions, valuation, return, and market-value history
 - Multiple portfolios
 - Local JSON backup and restore
+- Light and dark mode
 - Optional live quotes and historical prices through the local market-data proxy
 
 Portfolio data is stored in the browser's IndexedDB. The application has no backend and does not upload imported portfolio data to this repository or to an application server.

@@ -43,11 +43,12 @@ __screenshots__/
 .DS_Store
 Thumbs.db
 
-# Private data: nooit committen
+# Private
 /test/fixtures/
 /docs/example/
 /docs/agents/
 AGENTS.md
+DESIGN.md
 .env
 .env.*
 !.env.example
@@ -62,9 +63,5 @@ AGENTS.md
 *.portfolio.json
 /backups/
 /exports/
-
-# Lavish review-artifacts (sessie-state)
 /.lavish/
-
-# Coding agents
-.pi/extensions/emdash-hook.ts
+/.pi/

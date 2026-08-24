@@ -299,7 +299,7 @@ export class DashboardPage {
             return 'Compare your portfolio with a stock, ETF or index fund of your choice.';
         }
         const benchmarkPct = this.benchmarkRangePct();
-        const base = `Tracks the price return of ${symbol}. The chart's € view adds a shadow line: your portfolio's value at the range start invested in ${symbol}, with the same deposits and withdrawals since. In the % view both lines are indexed to 100 at the start of the selected range.`;
+        const base = `Tracks the price return of ${symbol}. The chart's ${this.currencySymbol()} view adds a shadow line: your portfolio's value at the range start invested in ${symbol}, with the same deposits and withdrawals since. In the % view both lines are indexed to 100 at the start of the selected range.`;
         const caveat = 'Price return only: benchmark dividends and transaction costs are not included.';
         return benchmarkPct === null
             ? `${base} ${caveat}`
@@ -377,7 +377,7 @@ export class DashboardPage {
             .map((p) => ({ time: p.date, value: p.value.toNumber() }));
     });
 
-    readonly chartMode = signal<'eur' | 'pct'>('eur');
+    readonly chartMode = signal<'currency' | 'pct'>('currency');
 
     /** Indexed portfolio performance (TWR index, 100 = range start) for the % comparison view. */
     private readonly portfolioIndexPoints = computed<ChartPoint[]>(() =>
@@ -673,7 +673,7 @@ export class DashboardPage {
 
     async clearBenchmark(): Promise<void> {
         await this.benchmark.clearBenchmark();
-        this.chartMode.set('eur');
+        this.chartMode.set('currency');
         this.closeBenchmarkEditor();
     }
 

@@ -264,7 +264,7 @@ describe('DashboardPage', () => {
         const page = await createPage();
         await waitFor(() => page.benchmark.symbol() === 'VUSA.AS');
 
-        // € view adds a shadow line: same external flows invested in the benchmark
+        // currency view adds a shadow line: same external flows invested in the benchmark
         expect(page.chartSeries().map((s) => s.name)).toEqual(['Value', 'Net invested', 'VUSA.AS (same deposits)']);
         expect(page.pctMode()).toBe(false);
         const anchor = page.marketSeries().points.find((p) => p.complete && p.value !== null)!;

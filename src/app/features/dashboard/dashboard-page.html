@@ -129,12 +129,12 @@
                 <button
                     type="button"
                     class="rounded-full px-3 py-1 text-xs font-medium"
-                    [class.border]="chartMode() === 'eur'"
-                    [class.border-base-300]="chartMode() === 'eur'"
-                    [class.bg-base-100]="chartMode() === 'eur'"
-                    [class.text-primary]="chartMode() === 'eur'"
-                    [class.text-base-content/60]="chartMode() !== 'eur'"
-                    (click)="chartMode.set('eur')"
+                    [class.border]="chartMode() === 'currency'"
+                    [class.border-base-300]="chartMode() === 'currency'"
+                    [class.bg-base-100]="chartMode() === 'currency'"
+                    [class.text-primary]="chartMode() === 'currency'"
+                    [class.text-base-content/60]="chartMode() !== 'currency'"
+                    (click)="chartMode.set('currency')"
                 >
                     {{ currencySymbol() }}
                 </button>

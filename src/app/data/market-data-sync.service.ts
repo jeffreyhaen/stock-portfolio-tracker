@@ -90,6 +90,7 @@ export class MarketDataSyncService {
         const allowedIsins = onlyIsins === undefined ? null : new Set(onlyIsins);
         const unlinked = securities.filter(
             (s) =>
+                !s.isin.startsWith('BENCH:') &&
                 (allowedIsins === null || allowedIsins.has(s.isin)) &&
                 (s.quoteTicker === null || s.quoteTicker === undefined),
         );

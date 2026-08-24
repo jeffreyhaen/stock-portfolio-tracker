@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import { buildFxResolver } from './fx';
 import { buildMarketValueSeries, PriceBar } from './market-value';
-import { timeWeightedReturn } from './twr';
+import { buildTwrIndexSeries, timeWeightedReturn } from './twr';
 import { MINI_CSV } from '../../testing/seed';
 import { parseCsv } from './csv/parse-csv';
 import { repairCsvRows } from './csv/repair-csv-rows';
@@ -189,5 +189,36 @@ describe('timeWeightedReturn', () => {
             { date: '2020-03-05', value: new Decimal('1100'), flow: new Decimal('0') },
         ]);
         expect(r.twrPct?.toFixed(4)).toBe('9.9560');
+    });
+});
+
+describe('buildTwrIndexSeries', () => {
+    it('starts at 100 and compounds the same per-period factors as timeWeightedReturn', () => {
+        const points = [
+            { date: '2026-01-01', value: new Decimal('1000'), flow: new Decimal('1000') },
+            { date: '2026-01-02', value: new Decimal('1100'), flow: new Decimal('0') },
+            { date: '2026-01-03', value: new Decimal('2150'), flow: new Decimal('1000') },
+        ];
+        const index = buildTwrIndexSeries(points);
+        expect(index.map((p) => p.index.toFixed(4))).toEqual(['100.0000', '110.0000', '112.6190']);
+        expect(index[2].index.minus(100).toFixed(4)).toBe(timeWeightedReturn(points).twrPct?.toFixed(4));
+    });
+
+    it('skips points without a value', () => {
+        const index = buildTwrIndexSeries([
+            { date: '2026-01-01', value: new Decimal('1000'), flow: new Decimal('0') },
+            { date: '2026-01-02', value: null, flow: new Decimal('0') },
+            { date: '2026-01-03', value: new Decimal('1100'), flow: new Decimal('0') },
+        ]);
+        expect(index.map((p) => [p.date, p.index.toFixed(2)])).toEqual([
+            ['2026-01-01', '100.00'],
+            ['2026-01-03', '110.00'],
+        ]);
+    });
+
+    it('returns an empty series without usable points', () => {
+        expect(buildTwrIndexSeries([{ date: '2026-01-01', value: new Decimal('0'), flow: new Decimal('0') }])).toEqual(
+            [],
+        );
     });
 });

@@ -25,12 +25,21 @@ export interface ChartSeries {
     readonly points: ChartPoint[];
 }
 
+const eurFormatter = (value: number): string =>
+    new Intl.NumberFormat('nl-NL', { notation: 'compact', maximumFractionDigits: 0 }).format(value);
+
+/** Values are index points (100 = range start); labels show the signed return %. */
+const pctFormatter = (value: number): string =>
+    `${new Intl.NumberFormat('nl-NL', { signDisplay: 'exceptZero', maximumFractionDigits: 1 }).format(value - 100)}%`;
+
 @Component({
     selector: 'app-value-chart',
     template: '<div #host class="h-80 w-full"></div>',
 })
 export class ValueChartComponent implements AfterViewInit, OnDestroy {
     readonly series = input.required<ChartSeries[]>();
+    /** Render the chart in indexed performance mode: % labels, all series indexed to 100 at range start. */
+    readonly pct = input(false);
 
     private readonly themeService = inject(ThemeService);
     private readonly host = viewChild<ElementRef<HTMLDivElement>>('host');
@@ -44,8 +53,22 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
             this.render();
         });
         effect(() => {
+            this.pct();
+            this.applyPriceFormatter();
+            this.render();
+        });
+        effect(() => {
             this.themeService.theme();
             this.applyTheme();
+        });
+    }
+
+    private applyPriceFormatter(): void {
+        this.chart?.applyOptions({
+            localization: {
+                locale: 'nl-NL',
+                priceFormatter: this.pct() ? pctFormatter : eurFormatter,
+            },
         });
     }
 
@@ -81,8 +104,7 @@ export class ValueChartComponent implements AfterViewInit, OnDestroy {
                 timeScale: { borderVisible: false },
                 localization: {
                     locale: 'nl-NL',
-                    priceFormatter: (value: number): string =>
-                        new Intl.NumberFormat('nl-NL', { notation: 'compact', maximumFractionDigits: 0 }).format(value),
+                    priceFormatter: this.pct() ? pctFormatter : eurFormatter,
                 },
                 autoSize: false,
                 width: element.clientWidth,

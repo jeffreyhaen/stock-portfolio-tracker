@@ -76,42 +76,11 @@
                             </button>
                         </span>
                         } @else {
-                        <div class="flex items-center gap-2">
-                            <input
-                                type="text"
-                                class="input input-sm input-bordered w-36 font-mono"
-                                placeholder="search…"
-                                [value]="searchState(row.isin).query"
-                                (input)="onSearchInput(row.isin, $any($event.target).value)"
-                                (keydown.enter)="onSearchEnter(row.isin, row.product)"
-                            />
-                            <button
-                                type="button"
-                                class="btn btn-ghost btn-xs"
-                                [disabled]="searchState(row.isin).searching"
-                                (click)="find(row.isin, row.product)"
-                            >
-                                Find
-                            </button>
-                        </div>
-                        @if (searchState(row.isin).error !== null) {
-                        <p class="mt-1 text-[0.8125rem] text-error">{{ searchState(row.isin).error }}</p>
-                        } @if (searchState(row.isin).suggestions.length > 0) {
-                        <ul class="mt-1 space-y-0.5">
-                            @for (sug of searchState(row.isin).suggestions; track sug.symbol) {
-                            <li>
-                                <button
-                                    type="button"
-                                    class="text-left text-[0.8125rem] text-primary hover:underline"
-                                    (click)="link(row.isin, sug.symbol, sug.exchange)"
-                                >
-                                    <span class="font-mono font-medium">{{ sug.symbol }}</span>
-                                    <span class="text-base-content/60"> — {{ sug.name }} ({{ sug.exchange }})</span>
-                                </button>
-                            </li>
-                            }
-                        </ul>
-                        } }
+                        <app-ticker-search
+                            [fallbackQuery]="row.product"
+                            (pick)="link(row.isin, $event.symbol, $event.exchange)"
+                        />
+                        }
                     </td>
                     <td class="text-right tabular-nums">
                         @if (row.quote !== null) {

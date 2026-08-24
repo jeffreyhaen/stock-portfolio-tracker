@@ -111,11 +111,53 @@
         </div>
     </div>
     <div class="mt-4">
-        <app-value-chart [series]="chartSeries()" />
+        <app-value-chart [series]="chartSeries()" [pct]="pctMode()" />
+        @if (chartSeries().length > 0) {
+        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/70">
+            @for (series of chartSeries(); track series.name) {
+            <span class="inline-flex items-center gap-1.5">
+                @if (series.dashed) {
+                <span class="inline-block w-4" [style.border-top]='"2px dashed " + series.color'></span>
+                } @else {
+                <span class="inline-block h-0.5 w-4 rounded-full" [style.background-color]="series.color"></span>
+                } {{ series.name }}
+            </span>
+            } @if (pctMode()) {
+            <span class="text-base-content/50">Indexed: 100 = start of range</span>
+            } @if (benchmark.symbol() !== null) {
+            <span class="ml-auto inline-flex items-center">
+                <button
+                    type="button"
+                    class="rounded-full px-3 py-1 text-xs font-medium"
+                    [class.border]="chartMode() === 'eur'"
+                    [class.border-base-300]="chartMode() === 'eur'"
+                    [class.bg-base-100]="chartMode() === 'eur'"
+                    [class.text-primary]="chartMode() === 'eur'"
+                    [class.text-base-content/60]="chartMode() !== 'eur'"
+                    (click)="chartMode.set('eur')"
+                >
+                    {{ currencySymbol() }}
+                </button>
+                <button
+                    type="button"
+                    class="rounded-full px-3 py-1 text-xs font-medium"
+                    [class.border]="chartMode() === 'pct'"
+                    [class.border-base-300]="chartMode() === 'pct'"
+                    [class.bg-base-100]="chartMode() === 'pct'"
+                    [class.text-primary]="chartMode() === 'pct'"
+                    [class.text-base-content/60]="chartMode() !== 'pct'"
+                    (click)="chartMode.set('pct')"
+                >
+                    %
+                </button>
+            </span>
+            }
+        </div>
+        }
     </div>
 </section>
 
-<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+<div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <div class="flex items-center gap-1">
             <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Net invested</p>
@@ -180,6 +222,65 @@
         <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
         <p class="mt-1 text-[0.8125rem] text-base-content/60">Needs prices</p>
         }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <div class="flex items-center gap-1">
+            <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                {{ benchmark.symbol() === null ? 'Benchmark' : 'Benchmark ' + benchmark.symbol() }}
+            </p>
+            <app-info-tooltip [text]="benchmarkTooltip()" />
+            @if (!benchmarkEditing() && benchmark.symbol() !== null) {
+            <button
+                type="button"
+                class="btn btn-ghost btn-xs px-1"
+                title="Edit benchmark"
+                (click)="openBenchmarkEditor()"
+            >
+                ✎
+            </button>
+            }
+        </div>
+        @if (benchmarkEditing()) {
+        <div class="mt-2">
+            <app-ticker-search
+                [initialQuery]="benchmark.symbol() ?? ''"
+                [busy]="benchmarkSaving()"
+                cancelLabel="Cancel"
+                (pick)="pickBenchmark($event)"
+                (cancelled)="closeBenchmarkEditor()"
+            />
+            @if (benchmarkError() !== null) {
+            <p class="mt-1 text-[0.8125rem] text-error">{{ benchmarkError() }}</p>
+            } @if (benchmark.symbol() !== null) {
+            <button
+                type="button"
+                class="btn btn-ghost btn-xs mt-1 text-error"
+                [disabled]="benchmarkSaving()"
+                (click)="clearBenchmark()"
+            >
+                Remove benchmark
+            </button>
+            }
+        </div>
+        } @else if (benchmark.symbol() === null) {
+        <div class="mt-1 flex items-center gap-2">
+            <p class="text-xl font-semibold tabular-nums">–</p>
+            <button type="button" class="btn btn-outline btn-xs" (click)="openBenchmarkEditor()">Set benchmark</button>
+        </div>
+        } @else { @if (benchmarkDeltaPct() !== null) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!benchmarkDeltaPct()?.isNegative() && !benchmarkDeltaPct()?.isZero()"
+            [class.text-error]="benchmarkDeltaPct()?.isNegative()"
+        >
+            {{ benchmarkDeltaPct()?.isNegative() ? '' : '+' }}{{ benchmarkDeltaPct() | localizedNumber: 2 }}%
+        </p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            {{ benchmarkSeries() === null ? 'No benchmark data' : 'Needs prices' }}
+        </p>
+        } }
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <div class="flex items-center gap-1">

@@ -1,9 +1,8 @@
-import { Component, computed, inject, input, OnDestroy, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import Decimal from 'decimal.js';
 import { MarketDataService } from '../../data/market-data.service';
 import { QuoteService } from '../../data/quote.service';
 import { MARKET_DATA_SERVICE_UNAVAILABLE_MESSAGE, MarketDataSyncService } from '../../data/market-data-sync.service';
-import { TickerSuggestion } from '../../data/market-data-provider';
 import { StoredQuote, StoredSecurity } from '../../data/stored-types';
 import { HoldingStats } from '../../domain/holdings';
 import { parseLocalizedNumber } from '../../domain/numbers';
@@ -12,6 +11,7 @@ import { MoneyPipe } from '../../shared/money.pipe';
 import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { TableSort } from '../../shared/sort';
 import { SortThComponent } from '../../shared/ui/sort-th';
+import { TickerSearchComponent } from '../../shared/ui/ticker-search';
 
 interface QuoteRow {
     readonly isin: string;
@@ -26,26 +26,17 @@ interface QuoteRow {
     readonly tickerDisplay: string;
 }
 
-interface SearchState {
-    readonly query: string;
-    readonly suggestions: TickerSuggestion[];
-    readonly searching: boolean;
-    readonly error: string | null;
-}
-
 interface QuotePanelMessage {
     readonly tone: 'info' | 'warning';
     readonly text: string;
 }
 
-const SEARCH_DEBOUNCE_MS = 400;
-
 @Component({
     selector: 'app-quote-panel',
-    imports: [MoneyPipe, LocalizedDatePipe, SortThComponent],
+    imports: [MoneyPipe, LocalizedDatePipe, SortThComponent, TickerSearchComponent],
     templateUrl: './quote-panel.html',
 })
-export class QuotePanelComponent implements OnDestroy {
+export class QuotePanelComponent {
     readonly holdings = input.required<readonly HoldingStats[]>();
     readonly fromDate = input.required<string>();
 
@@ -63,10 +54,7 @@ export class QuotePanelComponent implements OnDestroy {
     );
 
     readonly edits = signal<Record<string, { input: string; invalid: boolean }>>({});
-    readonly searches = signal<Record<string, SearchState>>({});
     readonly saving = signal(false);
-    private readonly searchTimers = new Map<string, ReturnType<typeof setTimeout>>();
-    private readonly searchRequestIds = new Map<string, number>();
     readonly autoLinking = signal(false);
     readonly statusMessage = signal<QuotePanelMessage | null>(null);
 
@@ -101,7 +89,7 @@ export class QuotePanelComponent implements OnDestroy {
     }
 
     readonly rows = computed<QuoteRow[]>(() => {
-        const securities = this.marketData.securities();
+        const securities = this.marketData.securities().filter((s) => !s.isin.startsWith('BENCH:'));
         const quotes = this.marketData.quotes();
         const stale = this.marketData.staleIsins();
         const edits = this.edits();
@@ -167,97 +155,17 @@ export class QuotePanelComponent implements OnDestroy {
         }
     }
 
-    searchState(isin: string): SearchState {
-        return this.searches()[isin] ?? { query: '', suggestions: [], searching: false, error: null };
-    }
-
-    onSearchInput(isin: string, query: string): void {
-        this.cancelScheduledSearch(isin);
-        this.invalidateSearch(isin);
-        this.searches.update((s) => ({
-            ...s,
-            [isin]: { ...this.searchState(isin), query, suggestions: [], searching: false, error: null },
-        }));
-        if (query.trim() === '') {
-            return;
-        }
-        const timer = setTimeout(() => {
-            this.searchTimers.delete(isin);
-            void this.find(isin, '');
-        }, SEARCH_DEBOUNCE_MS);
-        this.searchTimers.set(isin, timer);
-    }
-
-    onSearchEnter(isin: string, fallbackQuery: string): void {
-        this.cancelScheduledSearch(isin);
-        void this.find(isin, fallbackQuery);
-    }
-
-    async find(isin: string, fallbackQuery: string): Promise<void> {
-        this.cancelScheduledSearch(isin);
-        const state = this.searchState(isin);
-        const query = state.query.trim() === '' ? fallbackQuery.trim() : state.query.trim();
-        const requestId = this.invalidateSearch(isin);
-        this.searches.update((s) => ({ ...s, [isin]: { ...state, query, searching: true, error: null } }));
-        try {
-            const suggestions = await this.marketDataSync.searchTicker(query);
-            if (this.searchRequestIds.get(isin) !== requestId) {
-                return;
-            }
-            this.searches.update((s) => ({ ...s, [isin]: { query, suggestions, searching: false, error: null } }));
-        } catch (error) {
-            if (this.searchRequestIds.get(isin) !== requestId) {
-                return;
-            }
-            this.searches.update((s) => ({
-                ...s,
-                [isin]: { query, suggestions: [], searching: false, error: String((error as Error).message ?? error) },
-            }));
-        }
-    }
-
     async link(isin: string, symbol: string, exchange?: string): Promise<void> {
-        this.cancelScheduledSearch(isin);
-        this.invalidateSearch(isin);
         await this.marketDataSync.linkTicker(isin, symbol, exchange);
-        this.searches.update((s) => {
-            const rest = { ...s };
-            delete rest[isin];
-            return rest;
-        });
         await this.marketDataSync.refreshSecurity(isin, this.fromDate());
     }
 
     async unlink(isin: string): Promise<void> {
-        this.cancelScheduledSearch(isin);
-        this.invalidateSearch(isin);
         await this.marketDataSync.unlinkTicker(isin);
-    }
-
-    ngOnDestroy(): void {
-        for (const timer of this.searchTimers.values()) {
-            clearTimeout(timer);
-        }
-        this.searchTimers.clear();
     }
 
     onPriceInput(isin: string, input: string): void {
         this.edits.update((e) => ({ ...e, [isin]: { input, invalid: false } }));
-    }
-
-    private cancelScheduledSearch(isin: string): void {
-        const timer = this.searchTimers.get(isin);
-        if (timer === undefined) {
-            return;
-        }
-        clearTimeout(timer);
-        this.searchTimers.delete(isin);
-    }
-
-    private invalidateSearch(isin: string): number {
-        const requestId = (this.searchRequestIds.get(isin) ?? 0) + 1;
-        this.searchRequestIds.set(isin, requestId);
-        return requestId;
     }
 
     async saveManual(): Promise<void> {

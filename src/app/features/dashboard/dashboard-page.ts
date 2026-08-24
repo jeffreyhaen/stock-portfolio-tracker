@@ -1,14 +1,18 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import Decimal from 'decimal.js';
+import { BenchmarkService, benchmarkIsin, isBenchmarkIsin } from '../../data/benchmark.service';
+import { TickerSuggestion } from '../../data/market-data-provider';
 import { MarketDataService } from '../../data/market-data.service';
+import { MarketDataSyncService } from '../../data/market-data-sync.service';
 import { PortfolioContext } from '../../data/portfolio-context';
+import { buildBenchmarkSeries } from '../../domain/benchmark';
 import { cashAt } from '../../domain/engine';
 import { buildImportedFxResolver, convertToReportingCurrency } from '../../domain/fx';
 import { PriceBar, buildMarketValueSeries } from '../../domain/market-value';
 import { holdingStats } from '../../domain/holdings';
 import { buildPriceResolver } from '../../domain/price-resolution';
-import { timeWeightedReturn } from '../../domain/twr';
+import { buildTwrIndexSeries, timeWeightedReturn } from '../../domain/twr';
 import { Transaction } from '../../domain/types';
 import { buildValuation, rangeTotals } from '../../domain/valuation';
 import { Cashflow, cashflowWindowDays, MIN_ANNUALIZED_RETURN_DAYS, portfolioCashflows, xirr } from '../../domain/xirr';
@@ -20,7 +24,8 @@ import { transactionTypeLabel } from '../../shared/transaction-type';
 import { themeColor } from '../../shared/theme-colors';
 import { ThemeService } from '../../shared/theme.service';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
-import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
+import { TickerSearchComponent } from '../../shared/ui/ticker-search';
+import { ChartPoint, ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
 
 type Range = 'all' | 'mtd' | '1y' | '3y' | '6m' | 'ytd' | '1m' | '1w' | '1d' | 'custom';
 
@@ -89,12 +94,22 @@ interface RangeResult {
 
 @Component({
     selector: 'app-dashboard-page',
-    imports: [RouterLink, MoneyPipe, LocalizedDatePipe, LocalizedNumberPipe, InfoTooltipComponent, ValueChartComponent],
+    imports: [
+        RouterLink,
+        MoneyPipe,
+        LocalizedDatePipe,
+        LocalizedNumberPipe,
+        InfoTooltipComponent,
+        ValueChartComponent,
+        TickerSearchComponent,
+    ],
     templateUrl: './dashboard-page.html',
 })
 export class DashboardPage {
     private readonly context = inject(PortfolioContext);
     readonly marketData = inject(MarketDataService);
+    readonly benchmark = inject(BenchmarkService);
+    private readonly marketDataSync = inject(MarketDataSyncService);
     private readonly theme = inject(ThemeService);
 
     readonly portfolioId = this.context.selectedPortfolioId;
@@ -107,11 +122,26 @@ export class DashboardPage {
     readonly customTo = signal<string | null>(null);
     readonly customVanDraft = signal('');
     readonly customToDraft = signal('');
+    readonly benchmarkEditing = signal(false);
+    readonly benchmarkError = signal<string | null>(null);
+    readonly benchmarkSaving = signal(false);
+
     readonly maxDate = new Date().toISOString().slice(0, 10);
 
     private readonly today = new Date().toISOString().slice(0, 10);
 
     readonly reportingCurrency = this.marketData.reportingCurrency;
+
+    readonly currencySymbol = computed(
+        () =>
+            new Intl.NumberFormat('nl-NL', {
+                style: 'currency',
+                currency: this.reportingCurrency(),
+                currencyDisplay: 'narrowSymbol',
+            })
+                .formatToParts(0)
+                .find((part) => part.type === 'currency')?.value ?? this.reportingCurrency(),
+    );
 
     constructor() {
         void this.marketData.reload();
@@ -142,6 +172,7 @@ export class DashboardPage {
     private readonly barsMap = computed<ReadonlyMap<string, PriceBar[]>>(() => {
         const map = new Map<string, PriceBar[]>();
         for (const bar of this.marketData.priceHistory()) {
+            if (isBenchmarkIsin(bar.isin)) continue;
             const list = map.get(bar.isin) ?? [];
             list.push({ date: bar.date, close: new Decimal(bar.close), currency: bar.currency });
             map.set(bar.isin, list);
@@ -194,6 +225,76 @@ export class DashboardPage {
             .map((p) => ({ ...p, flow: new Decimal(0) }));
     });
 
+    readonly benchmarkSeries = computed(() => {
+        const symbol = this.benchmark.symbol();
+        if (symbol === null) {
+            return null;
+        }
+        const key = benchmarkIsin(symbol);
+        const bars: PriceBar[] = this.marketData
+            .priceHistory()
+            .filter((bar) => bar.isin === key)
+            .map((bar) => ({ date: bar.date, close: new Decimal(bar.close), currency: bar.currency }));
+        const dates = (this.hasHistory() ? this.marketSeries().points : this.valuation().points).map((p) => p.date);
+        const series = buildBenchmarkSeries(bars, dates, this.marketData.fxResolver(), this.reportingCurrency());
+        return series.points.length === 0 ? null : series;
+    });
+
+    private readonly benchmarkRangePoints = computed(() => {
+        const series = this.benchmarkSeries();
+        if (series === null) {
+            return [];
+        }
+        const { from, to } = this.bounds();
+        return series.points.filter((p) => (from === null || p.date >= from) && (to === null || p.date <= to));
+    });
+
+    readonly benchmarkChartPoints = computed<ChartPoint[]>(() => {
+        const points = this.benchmarkRangePoints();
+        if (points.length === 0) {
+            return [];
+        }
+        const base = points[0].close;
+        if (base.lte(0)) {
+            return [];
+        }
+        return points.map((p) => ({ time: p.date, value: p.close.div(base).times(100).toNumber() }));
+    });
+
+    readonly benchmarkRangePct = computed<Decimal | null>(() => {
+        const points = this.benchmarkRangePoints();
+        if (points.length === 0) {
+            return null;
+        }
+        const first = points[0].close;
+        if (first.lte(0)) {
+            return null;
+        }
+        return points[points.length - 1].close.div(first).minus(1).times(100);
+    });
+
+    readonly benchmarkDeltaPct = computed<Decimal | null>(() => {
+        const benchmarkPct = this.benchmarkRangePct();
+        const twrPct = this.twr().twrPct;
+        if (benchmarkPct === null || twrPct === null) {
+            return null;
+        }
+        return twrPct.minus(benchmarkPct);
+    });
+
+    readonly benchmarkTooltip = computed(() => {
+        const symbol = this.benchmark.symbol();
+        if (symbol === null) {
+            return 'Compare your portfolio with a stock, ETF or index fund of your choice.';
+        }
+        const benchmarkPct = this.benchmarkRangePct();
+        const base = `Tracks the price return of ${symbol}. In the chart's % view both lines are indexed to 100 at the start of the selected range.`;
+        const caveat = 'Price return only: benchmark dividends and transaction costs are not included.';
+        return benchmarkPct === null
+            ? `${base} ${caveat}`
+            : `${base} ${symbol} over this range: ${formatPct(benchmarkPct)}%. ${caveat}`;
+    });
+
     readonly bounds = computed<{ from: string | null; to: string | null }>(() => {
         if (this.range() === 'custom') {
             return { from: this.customVan(), to: this.customTo() };
@@ -236,8 +337,44 @@ export class DashboardPage {
         return { result, resultPct: result.div(denominator).times(100) };
     });
 
+    readonly chartMode = signal<'eur' | 'pct'>('eur');
+
+    /** Indexed portfolio performance (TWR index, 100 = range start) for the % comparison view. */
+    private readonly portfolioIndexPoints = computed<ChartPoint[]>(() =>
+        buildTwrIndexSeries(this.filteredSeriesPoints().filter((p) => p.complete && p.value !== null)).map((p) => ({
+            time: p.date,
+            value: p.index.toNumber(),
+        })),
+    );
+
+    readonly pctMode = computed(
+        () =>
+            this.chartMode() === 'pct' &&
+            this.benchmarkChartPoints().length > 0 &&
+            this.portfolioIndexPoints().length >= 2,
+    );
+
     readonly chartSeries = computed<ChartSeries[]>(() => {
         this.theme.theme(); // herbereken kleuren bij themawissel
+        const symbol = this.benchmark.symbol();
+        if (this.pctMode() && symbol !== null) {
+            return [
+                {
+                    name: 'Portfolio',
+                    color: themeColor('--color-chart-line', '#0068f0'),
+                    dashed: false,
+                    fill: true,
+                    points: this.portfolioIndexPoints(),
+                },
+                {
+                    name: symbol,
+                    color: themeColor('--color-chart-compare', '#d97706'),
+                    dashed: false,
+                    fill: false,
+                    points: this.benchmarkChartPoints(),
+                },
+            ];
+        }
         const points = this.filteredSeriesPoints();
         const valuePoints = points
             .filter((p) => p.value !== null && p.complete)
@@ -457,6 +594,36 @@ export class DashboardPage {
         this.customTo.set(this.customToDraft());
         this.range.set('custom');
         this.customOpen.set(false);
+    }
+
+    openBenchmarkEditor(): void {
+        this.benchmarkError.set(null);
+        this.benchmarkEditing.set(true);
+    }
+
+    closeBenchmarkEditor(): void {
+        this.benchmarkEditing.set(false);
+        this.benchmarkError.set(null);
+    }
+
+    async pickBenchmark(suggestion: TickerSuggestion): Promise<void> {
+        this.benchmarkSaving.set(true);
+        this.benchmarkError.set(null);
+        try {
+            await this.benchmark.setBenchmark(suggestion.symbol, suggestion.exchange);
+            this.chartMode.set('pct');
+            this.closeBenchmarkEditor();
+        } catch (error) {
+            this.benchmarkError.set(String((error as Error).message ?? error));
+        } finally {
+            this.benchmarkSaving.set(false);
+        }
+    }
+
+    async clearBenchmark(): Promise<void> {
+        await this.benchmark.clearBenchmark();
+        this.chartMode.set('eur');
+        this.closeBenchmarkEditor();
     }
 
     private readonly rangeLabel = computed(() =>

@@ -49,6 +49,7 @@ export class PortfolioContext {
         if (wasSelected) {
             await this.db.settings.delete(SELECTION_KEY);
         }
+        await this.db.settings.delete(`benchmark:${id}`);
         this.portfoliosState.set(await this.portfolioRepository.list());
         if (!wasSelected) {
             return;

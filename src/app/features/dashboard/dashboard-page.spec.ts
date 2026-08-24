@@ -245,4 +245,59 @@ describe('DashboardPage', () => {
         page.range.set('all');
         expect(page.rangeResult()?.result.toFixed(2)).toBe('500.00');
     });
+
+    it('adds a scaled benchmark line and delta when a benchmark is set', async () => {
+        const db = TestBed.inject(PortfolioDatabase);
+        await db.priceHistory.bulkPut([
+            { isin: 'US0079031078', date: '2026-02-12', close: '100', currency: 'USD' },
+            { isin: 'US0079031078', date: '2026-02-13', close: '110', currency: 'USD' },
+            { isin: 'US0079031078', date: '2026-02-16', close: '120', currency: 'USD' },
+            { isin: 'USN070592100', date: '2026-02-16', close: '600', currency: 'EUR' },
+            { isin: 'BENCH:VUSA.AS', date: '2026-02-12', close: '95', currency: 'EUR' },
+            { isin: 'BENCH:VUSA.AS', date: '2026-02-13', close: '100', currency: 'EUR' },
+            { isin: 'BENCH:VUSA.AS', date: '2026-02-14', close: '105', currency: 'EUR' },
+            { isin: 'BENCH:VUSA.AS', date: '2026-02-16', close: '110', currency: 'EUR' },
+        ]);
+        await db.fxCache.put({ pair: 'USD/EUR', date: '2026-02-13', rate: '0.9' });
+        await db.settings.put({ key: 'benchmark:p1', value: 'VUSA.AS' });
+        const page = await createPage();
+        await waitFor(() => page.benchmark.symbol() === 'VUSA.AS');
+
+        // € view keeps the original chart; the benchmark comparison lives in % view
+        expect(page.chartSeries().map((s) => s.name)).toEqual(['Value', 'Net invested']);
+        expect(page.pctMode()).toBe(false);
+
+        page.chartMode.set('pct');
+        expect(page.pctMode()).toBe(true);
+        const series = page.chartSeries();
+        expect(series.map((s) => s.name)).toEqual(['Portfolio', 'VUSA.AS']);
+        // both lines are indexed to 100 at the range start and share the same scale
+        expect(series[1].points.map((p) => p.time)).toEqual(['2026-02-12', '2026-02-13', '2026-02-16']);
+        expect(series[1].points.map((p) => p.value)).toEqual([100, (100 / 95) * 100, expect.closeTo(115.789, 3)]);
+        expect(series[0].points[0].value).toBe(100);
+        const complete = page.marketSeries().points.filter((p) => p.complete && p.value !== null);
+        const expectedLast = complete[complete.length - 1].value!.div(complete[0].value!).times(100).toNumber();
+        expect(series[0].points[series[0].points.length - 1].value).toBeCloseTo(expectedLast, 6);
+        expect(page.benchmarkSeries()?.startDate).toBe('2026-02-12');
+        expect(page.benchmarkRangePct()?.toFixed(1)).toBe('15.8');
+        expect(page.benchmarkDeltaPct()?.toFixed(2)).toBe(
+            page
+                .twr()
+                .twrPct?.minus(page.benchmarkRangePct() ?? 0)
+                .toFixed(2),
+        );
+
+        // benchmark-only bar dates must not extend the portfolio series
+        expect(page.marketSeries().points.map((p) => p.date)).toEqual(['2026-02-12', '2026-02-13', '2026-02-16']);
+    });
+
+    it('shows no benchmark line or delta without a benchmark setting', async () => {
+        const page = await createPage();
+        await waitFor(() => page.marketData.quotes().length === 0);
+        expect(page.benchmark.symbol()).toBeNull();
+        expect(page.currencySymbol()).toBe('€');
+        expect(page.chartSeries().map((s) => s.name)).toEqual(['Value', 'Net invested']);
+        expect(page.benchmarkSeries()).toBeNull();
+        expect(page.benchmarkDeltaPct()).toBeNull();
+    });
 });

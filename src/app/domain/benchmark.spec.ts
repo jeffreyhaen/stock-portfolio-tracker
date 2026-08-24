@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
 import { describe, expect, it } from 'vitest';
-import { buildBenchmarkSeries } from './benchmark';
+import { buildBenchmarkSeries, buildBenchmarkShadowSeries } from './benchmark';
 import { FxResolver } from './fx';
 import { PriceBar } from './market-value';
 
@@ -61,5 +61,52 @@ describe('buildBenchmarkSeries', () => {
         expect(buildBenchmarkSeries([], ['2024-01-01'], eurFx, 'EUR').points).toEqual([]);
         expect(buildBenchmarkSeries([bar('2024-01-01', '100')], [], eurFx, 'EUR').points).toEqual([]);
         expect(buildBenchmarkSeries([], [], eurFx, 'EUR').startDate).toBeNull();
+    });
+});
+
+describe('buildBenchmarkShadowSeries', () => {
+    function point(date: string, flow: string): { date: string; flow: Decimal } {
+        return { date, flow: new Decimal(flow) };
+    }
+
+    it('accumulates benchmark units with each external flow', () => {
+        const bars = [
+            bar('2020-03-03', '95'),
+            bar('2020-12-01', '110'),
+            bar('2021-06-01', '130'),
+            bar('2026-08-01', '247'),
+        ];
+        const portfolio = [
+            point('2020-03-03', '0.40'),
+            point('2020-12-01', '10000'),
+            point('2021-06-01', '5000'),
+            point('2026-08-01', '0'),
+        ];
+        const shadow = buildBenchmarkShadowSeries(portfolio, bars, eurFx, 'EUR');
+        expect(shadow.missingFx).toBe(false);
+        expect(shadow.points.map((p) => p.date)).toEqual(['2020-03-03', '2020-12-01', '2021-06-01', '2026-08-01']);
+        expect(shadow.points[0].value.toFixed(2)).toBe('0.40');
+        expect(shadow.points[1].value.toFixed(2)).toBe('10000.46');
+        expect(shadow.points[2].value.toFixed(2)).toBe('16818.73');
+        expect(shadow.points[3].value.toFixed(2)).toBe('31955.59');
+    });
+
+    it('applies flows before the first benchmark close at that first close', () => {
+        const bars = [bar('2024-02-01', '100')];
+        const portfolio = [point('2024-01-15', '500'), point('2024-02-01', '0')];
+        const shadow = buildBenchmarkShadowSeries(portfolio, bars, eurFx, 'EUR');
+        expect(shadow.points.map((p) => [p.date, p.value.toFixed(2)])).toEqual([['2024-02-01', '500.00']]);
+    });
+
+    it('values flows against the forward-filled close and handles withdrawals', () => {
+        const bars = [bar('2024-01-01', '100'), bar('2024-01-10', '200')];
+        const portfolio = [point('2024-01-01', '1000'), point('2024-01-05', '-500'), point('2024-01-10', '0')];
+        const shadow = buildBenchmarkShadowSeries(portfolio, bars, eurFx, 'EUR');
+        expect(shadow.points.map((p) => p.value.toFixed(2))).toEqual(['1000.00', '500.00', '1000.00']);
+    });
+
+    it('returns no points without benchmark closes', () => {
+        const shadow = buildBenchmarkShadowSeries([point('2024-01-01', '1000')], [], eurFx, 'EUR');
+        expect(shadow.points).toEqual([]);
     });
 });

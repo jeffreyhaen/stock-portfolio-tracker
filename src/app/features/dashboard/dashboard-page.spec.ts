@@ -9,6 +9,7 @@ import { QuoteService } from '../../data/quote.service';
 import { MarketDataProvider } from '../../data/market-data-provider';
 import { YahooMarketDataProvider } from '../../data/yahoo-market-data-provider';
 import Decimal from 'decimal.js';
+import { buildBenchmarkShadowSeries } from '../../domain/benchmark';
 import { seedMiniCsv, waitFor } from '../../../testing/seed';
 import { DashboardPage } from './dashboard-page';
 
@@ -263,9 +264,23 @@ describe('DashboardPage', () => {
         const page = await createPage();
         await waitFor(() => page.benchmark.symbol() === 'VUSA.AS');
 
-        // € view keeps the original chart; the benchmark comparison lives in % view
-        expect(page.chartSeries().map((s) => s.name)).toEqual(['Value', 'Net invested']);
+        // € view adds a shadow line: same external flows invested in the benchmark
+        expect(page.chartSeries().map((s) => s.name)).toEqual(['Value', 'Net invested', 'VUSA.AS (same deposits)']);
         expect(page.pctMode()).toBe(false);
+        const expectedShadow = buildBenchmarkShadowSeries(
+            page.marketSeries().points,
+            [
+                { date: '2026-02-12', close: new Decimal('95'), currency: 'EUR' },
+                { date: '2026-02-13', close: new Decimal('100'), currency: 'EUR' },
+                { date: '2026-02-14', close: new Decimal('105'), currency: 'EUR' },
+                { date: '2026-02-16', close: new Decimal('110'), currency: 'EUR' },
+            ],
+            page.marketData.fxResolver(),
+            'EUR',
+        );
+        expect(page.chartSeries()[2].points.map((p) => p.value)).toEqual(
+            expectedShadow.points.map((p) => expect.closeTo(p.value.toNumber(), 6)),
+        );
 
         page.chartMode.set('pct');
         expect(page.pctMode()).toBe(true);

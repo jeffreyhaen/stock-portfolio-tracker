@@ -6,7 +6,7 @@ import { TickerSuggestion } from '../../data/market-data-provider';
 import { MarketDataService } from '../../data/market-data.service';
 import { MarketDataSyncService } from '../../data/market-data-sync.service';
 import { PortfolioContext } from '../../data/portfolio-context';
-import { buildBenchmarkSeries } from '../../domain/benchmark';
+import { buildBenchmarkSeries, buildBenchmarkShadowSeries } from '../../domain/benchmark';
 import { cashAt } from '../../domain/engine';
 import { buildImportedFxResolver, convertToReportingCurrency } from '../../domain/fx';
 import { PriceBar, buildMarketValueSeries } from '../../domain/market-value';
@@ -225,18 +225,29 @@ export class DashboardPage {
             .map((p) => ({ ...p, flow: new Decimal(0) }));
     });
 
-    readonly benchmarkSeries = computed(() => {
+    private readonly benchmarkBars = computed<PriceBar[]>(() => {
         const symbol = this.benchmark.symbol();
         if (symbol === null) {
-            return null;
+            return [];
         }
         const key = benchmarkIsin(symbol);
-        const bars: PriceBar[] = this.marketData
+        return this.marketData
             .priceHistory()
             .filter((bar) => bar.isin === key)
             .map((bar) => ({ date: bar.date, close: new Decimal(bar.close), currency: bar.currency }));
+    });
+
+    readonly benchmarkSeries = computed(() => {
+        if (this.benchmark.symbol() === null) {
+            return null;
+        }
         const dates = (this.hasHistory() ? this.marketSeries().points : this.valuation().points).map((p) => p.date);
-        const series = buildBenchmarkSeries(bars, dates, this.marketData.fxResolver(), this.reportingCurrency());
+        const series = buildBenchmarkSeries(
+            this.benchmarkBars(),
+            dates,
+            this.marketData.fxResolver(),
+            this.reportingCurrency(),
+        );
         return series.points.length === 0 ? null : series;
     });
 
@@ -288,7 +299,7 @@ export class DashboardPage {
             return 'Compare your portfolio with a stock, ETF or index fund of your choice.';
         }
         const benchmarkPct = this.benchmarkRangePct();
-        const base = `Tracks the price return of ${symbol}. In the chart's % view both lines are indexed to 100 at the start of the selected range.`;
+        const base = `Tracks the price return of ${symbol}. The chart's € view adds a shadow line: your deposits and withdrawals invested in ${symbol} instead. In the % view both lines are indexed to 100 at the start of the selected range.`;
         const caveat = 'Price return only: benchmark dividends and transaction costs are not included.';
         return benchmarkPct === null
             ? `${base} ${caveat}`
@@ -337,6 +348,29 @@ export class DashboardPage {
         return { result, resultPct: result.div(denominator).times(100) };
     });
 
+    /**
+     * Fictitious benchmark shadow portfolio: every external deposit/withdrawal
+     * of the real portfolio invested in the benchmark at that day's close.
+     * Built over the full history, then sliced to the selected range.
+     */
+    private readonly benchmarkShadowPoints = computed<ChartPoint[]>(() => {
+        const bars = this.benchmarkBars();
+        const portfolioPoints = this.hasHistory() ? this.marketSeries().points : [];
+        if (bars.length === 0 || portfolioPoints.length === 0) {
+            return [];
+        }
+        const shadow = buildBenchmarkShadowSeries(
+            portfolioPoints,
+            bars,
+            this.marketData.fxResolver(),
+            this.reportingCurrency(),
+        );
+        const { from, to } = this.bounds();
+        return shadow.points
+            .filter((p) => (from === null || p.date >= from) && (to === null || p.date <= to))
+            .map((p) => ({ time: p.date, value: p.value.toNumber() }));
+    });
+
     readonly chartMode = signal<'eur' | 'pct'>('eur');
 
     /** Indexed portfolio performance (TWR index, 100 = range start) for the % comparison view. */
@@ -379,7 +413,7 @@ export class DashboardPage {
         const valuePoints = points
             .filter((p) => p.value !== null && p.complete)
             .map((p) => ({ time: p.date, value: p.value?.toNumber() ?? 0 }));
-        return [
+        const series: ChartSeries[] = [
             {
                 name: 'Value',
                 color: themeColor('--color-chart-line', '#0068f0'),
@@ -395,6 +429,17 @@ export class DashboardPage {
                 points: points.map((p) => ({ time: p.date, value: p.netInvested.toNumber() })),
             },
         ];
+        const shadow = this.benchmarkShadowPoints();
+        if (symbol !== null && shadow.length >= 2) {
+            series.push({
+                name: `${symbol} (same deposits)`,
+                color: themeColor('--color-chart-compare', '#d97706'),
+                dashed: false,
+                fill: false,
+                points: shadow,
+            });
+        }
+        return series;
     });
 
     readonly twr = computed(() => {

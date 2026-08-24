@@ -267,8 +267,9 @@ describe('DashboardPage', () => {
         // € view adds a shadow line: same external flows invested in the benchmark
         expect(page.chartSeries().map((s) => s.name)).toEqual(['Value', 'Net invested', 'VUSA.AS (same deposits)']);
         expect(page.pctMode()).toBe(false);
+        const anchor = page.marketSeries().points.find((p) => p.complete && p.value !== null)!;
         const expectedShadow = buildBenchmarkShadowSeries(
-            page.marketSeries().points,
+            page.marketSeries().points.filter((p) => p.date >= anchor.date),
             [
                 { date: '2026-02-12', close: new Decimal('95'), currency: 'EUR' },
                 { date: '2026-02-13', close: new Decimal('100'), currency: 'EUR' },
@@ -277,7 +278,10 @@ describe('DashboardPage', () => {
             ],
             page.marketData.fxResolver(),
             'EUR',
+            anchor.value!,
         );
+        // both lines start at the same point of the selected range
+        expect(page.chartSeries()[2].points[0].value).toBeCloseTo(anchor.value!.toNumber(), 6);
         expect(page.chartSeries()[2].points.map((p) => p.value)).toEqual(
             expectedShadow.points.map((p) => expect.closeTo(p.value.toNumber(), 6)),
         );

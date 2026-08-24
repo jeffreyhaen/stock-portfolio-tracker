@@ -109,4 +109,35 @@ describe('buildBenchmarkShadowSeries', () => {
         const shadow = buildBenchmarkShadowSeries([point('2024-01-01', '1000')], [], eurFx, 'EUR');
         expect(shadow.points).toEqual([]);
     });
+
+    it('anchors at the given value, skipping the anchor point flow, and applies later flows', () => {
+        const bars = [
+            bar('2020-03-03', '95'),
+            bar('2020-12-01', '110'),
+            bar('2021-06-01', '130'),
+            bar('2026-08-01', '247'),
+        ];
+        const portfolio = [
+            point('2020-03-03', '0.40'),
+            point('2020-12-01', '10000'),
+            point('2021-06-01', '5000'),
+            point('2026-08-01', '0'),
+        ];
+        const shadow = buildBenchmarkShadowSeries(portfolio, bars, eurFx, 'EUR', new Decimal('10200'));
+        expect(shadow.points[0]).toEqual({ date: '2020-03-03', value: new Decimal('10200') });
+        // anchor flow (0.40) is skipped; 10000/110 and 5000/130 units are added on top of 10200/95 units
+        const units = new Decimal('10200')
+            .div(95)
+            .plus(new Decimal('10000').div(110))
+            .plus(new Decimal('5000').div(130));
+        expect(shadow.points[3].value.toFixed(2)).toBe(units.times(247).toFixed(2));
+    });
+
+    it('anchored shadow matches the unanchored shadow when the anchor is the first flow value', () => {
+        const bars = [bar('2020-03-03', '95'), bar('2026-08-01', '247')];
+        const portfolio = [point('2020-03-03', '1000'), point('2026-08-01', '0')];
+        const anchored = buildBenchmarkShadowSeries(portfolio, bars, eurFx, 'EUR', new Decimal('1000'));
+        const plain = buildBenchmarkShadowSeries(portfolio, bars, eurFx, 'EUR');
+        expect(anchored.points.map((p) => p.value.toFixed(6))).toEqual(plain.points.map((p) => p.value.toFixed(6)));
+    });
 });

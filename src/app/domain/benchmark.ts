@@ -85,12 +85,19 @@ export interface BenchmarkShadowSeries {
  * not a range slice, so earlier flows are included. Flows before the first
  * available benchmark close are converted at that first close. Price return
  * only: benchmark dividends are not reinvested.
+ *
+ * When `anchorValue` is given, the shadow starts at the first portfolio point
+ * with an available close at that value (units = anchorValue / close) and
+ * that point's own flow is skipped, because the anchor value already includes
+ * it. Later flows are applied normally. Use this to make both chart lines
+ * start at the same point for a selected range.
  */
 export function buildBenchmarkShadowSeries(
     portfolioPoints: readonly { date: string; flow: Decimal }[],
     bars: readonly PriceBar[],
     fx: FxResolver,
     reportingCurrency: string,
+    anchorValue?: Decimal,
 ): BenchmarkShadowSeries {
     const { closes, missingFx } = convertedCloses(bars, fx, reportingCurrency);
     const points: BenchmarkShadowPoint[] = [];
@@ -102,6 +109,7 @@ export function buildBenchmarkShadowSeries(
     let latestClose: Decimal | null = null;
     let units = new Decimal(0);
     let pendingFlow = new Decimal(0);
+    let anchorPending = anchorValue !== undefined;
     const sorted = [...portfolioPoints].sort((a, b) => a.date.localeCompare(b.date));
     for (const point of sorted) {
         while (barIndex < closes.length && closes[barIndex].date <= point.date) {
@@ -110,6 +118,16 @@ export function buildBenchmarkShadowSeries(
         }
         if (latestClose === null) {
             pendingFlow = pendingFlow.plus(point.flow);
+            continue;
+        }
+        if (anchorPending) {
+            if (latestClose.lte(0)) {
+                continue;
+            }
+            units = anchorValue!.dividedBy(latestClose);
+            anchorPending = false;
+            pendingFlow = new Decimal(0);
+            points.push({ date: point.date, value: anchorValue! });
             continue;
         }
         const flow = point.flow.plus(pendingFlow);

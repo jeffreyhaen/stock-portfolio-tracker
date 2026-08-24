@@ -15,7 +15,7 @@ A client-side Angular application for tracking an investment portfolio from DEGI
 - Local JSON backup and restore
 - Light and dark mode
 - Optional live quotes and historical prices through the local market-data proxy
-- Optional benchmark comparison on the dashboard chart, set per portfolio from the benchmark card below the chart: in the € view a shadow line shows what your deposits would be worth if invested in the benchmark; the % view compares indexed performance (both lines start at 100)
+- Optional benchmark comparison on the dashboard chart (per portfolio): a € shadow line invests your money in the benchmark with the same timing as your real deposits, and a % view compares indexed performance from the range start
 
 Portfolio data is stored in the browser's IndexedDB. The application has no backend and does not upload imported portfolio data to this repository or to an application server.
 

@@ -299,7 +299,7 @@ export class DashboardPage {
             return 'Compare your portfolio with a stock, ETF or index fund of your choice.';
         }
         const benchmarkPct = this.benchmarkRangePct();
-        const base = `Tracks the price return of ${symbol}. The chart's € view adds a shadow line: your deposits and withdrawals invested in ${symbol} instead. In the % view both lines are indexed to 100 at the start of the selected range.`;
+        const base = `Tracks the price return of ${symbol}. The chart's € view adds a shadow line: your portfolio's value at the range start invested in ${symbol}, with the same deposits and withdrawals since. In the % view both lines are indexed to 100 at the start of the selected range.`;
         const caveat = 'Price return only: benchmark dividends and transaction costs are not included.';
         return benchmarkPct === null
             ? `${base} ${caveat}`
@@ -349,21 +349,27 @@ export class DashboardPage {
     });
 
     /**
-     * Fictitious benchmark shadow portfolio: every external deposit/withdrawal
-     * of the real portfolio invested in the benchmark at that day's close.
-     * Built over the full history, then sliced to the selected range.
+     * Fictitious benchmark shadow portfolio, anchored at the selected range:
+     * the portfolio's value at the first complete point of the range is
+     * invested in the benchmark at that day's close, and later external
+     * deposits/withdrawals buy/sell units. Both chart lines therefore start
+     * at the same point and diverge by performance within the range.
      */
     private readonly benchmarkShadowPoints = computed<ChartPoint[]>(() => {
         const bars = this.benchmarkBars();
-        const portfolioPoints = this.hasHistory() ? this.marketSeries().points : [];
-        if (bars.length === 0 || portfolioPoints.length === 0) {
+        const anchor = this.filteredSeriesPoints().find((p) => p.complete && p.value !== null);
+        if (bars.length === 0 || anchor?.value === undefined || anchor.value === null || anchor.value.lte(0)) {
             return [];
         }
+        const portfolioPoints = (this.hasHistory() ? this.marketSeries().points : []).filter(
+            (p) => p.date >= anchor.date,
+        );
         const shadow = buildBenchmarkShadowSeries(
             portfolioPoints,
             bars,
             this.marketData.fxResolver(),
             this.reportingCurrency(),
+            anchor.value,
         );
         const { from, to } = this.bounds();
         return shadow.points

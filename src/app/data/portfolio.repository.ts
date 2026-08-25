@@ -17,6 +17,7 @@ export class PortfolioRepository {
             id: crypto.randomUUID(),
             name,
             reportingCurrency,
+            lotStrategy: 'fifo',
             createdAt: new Date().toISOString(),
         };
         await this.db.portfolios.add(portfolio);
@@ -36,6 +37,13 @@ export class PortfolioRepository {
 
     async updateReportingCurrency(id: string, currency: string): Promise<void> {
         const updated = await this.db.portfolios.update(id, { reportingCurrency: currency });
+        if (updated === 0) {
+            throw new Error('Portfolio not found.');
+        }
+    }
+
+    async updateLotStrategy(id: string, lotStrategy: 'fifo' | 'lifo'): Promise<void> {
+        const updated = await this.db.portfolios.update(id, { lotStrategy });
         if (updated === 0) {
             throw new Error('Portfolio not found.');
         }

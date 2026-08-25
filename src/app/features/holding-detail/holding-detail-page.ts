@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import Decimal from 'decimal.js';
@@ -9,6 +9,7 @@ import { buildImportedFxResolver, convertToReportingCurrency, mutationInReportin
 import { accountLots } from '../../domain/lot-accounting';
 import { buildClosedLotViews, buildLotViews, ClosedLotView, LotView } from '../../domain/lot-valuation';
 import { buildPriceResolver } from '../../domain/price-resolution';
+import { mergeSplitExecutions } from '../../domain/split-execution-merge';
 import { exchangeCode, stripYahooSuffix } from '../../domain/ticker-match';
 import { Transaction } from '../../domain/types';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -59,6 +60,8 @@ interface TransactionView {
 type LotSortKey = 'acquiredAt' | 'quantity' | 'costPerShare' | 'costBasis' | 'value' | 'pnl' | 'holdingDays';
 type ClosedSortKey = 'soldAt' | 'quantity' | 'acquiredAt' | 'proceeds' | 'costBasis' | 'pnl';
 type TransactionSortKey = 'date' | 'type' | 'quantity' | 'price' | 'amount';
+
+const TRANSACTION_PAGE_SIZE = 50;
 
 @Component({
     selector: 'app-holding-detail-page',
@@ -120,6 +123,7 @@ export class HoldingDetailPage {
 
     readonly reportingCurrency = computed(() => this.context.selectedPortfolio()?.reportingCurrency ?? 'EUR');
     readonly portfolioId = computed(() => this.context.selectedPortfolioId());
+    readonly strategy = computed(() => this.context.selectedPortfolio()?.lotStrategy ?? 'fifo');
 
     private readonly transactions = computed(() => this.context.transactions().filter((txn) => txn.date <= this.today));
 
@@ -127,6 +131,7 @@ export class HoldingDetailPage {
         accountLots(this.transactions(), {
             reportingCurrency: this.reportingCurrency(),
             fxFallback: this.marketData.fxResolver(),
+            strategy: this.strategy(),
         }),
     );
 
@@ -240,11 +245,21 @@ export class HoldingDetailPage {
         const isin = this.isin();
         const currency = this.reportingCurrency();
         const fx = this.marketData.fxResolver();
-        const rows = this.transactions()
+        const rows = mergeSplitExecutions(this.transactions())
             .filter((txn) => txn.isin === isin)
             .map((txn) => this.toTransactionView(txn, currency, fx));
         return this.transactionSort.apply(rows);
     });
+
+    readonly visibleCount = signal(TRANSACTION_PAGE_SIZE);
+
+    readonly pagedHoldingTransactions = computed(() => this.holdingTransactions().slice(0, this.visibleCount()));
+
+    readonly hasMoreTransactions = computed(() => this.holdingTransactions().length > this.visibleCount());
+
+    showMoreTransactions(): void {
+        this.visibleCount.update((count) => count + TRANSACTION_PAGE_SIZE);
+    }
 
     private toTransactionView(
         txn: Transaction,

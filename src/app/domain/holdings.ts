@@ -1,12 +1,13 @@
 import Decimal from 'decimal.js';
 import { FxResolver } from './fx';
-import { accountLots } from './lot-accounting';
+import { accountLots, LotConsumptionStrategy } from './lot-accounting';
 import { Transaction } from './types';
 
 export interface HoldingStatsOptions {
     readonly reportingCurrency?: string;
     readonly fxFallback?: FxResolver;
     readonly includeClosed?: boolean;
+    readonly strategy?: LotConsumptionStrategy;
 }
 
 export interface HoldingStats {
@@ -28,8 +29,8 @@ export interface HoldingStats {
 }
 
 export function holdingStats(transactions: readonly Transaction[], options: HoldingStatsOptions = {}): HoldingStats[] {
-    const { reportingCurrency = 'EUR', fxFallback, includeClosed = false } = options;
-    const accounting = accountLots(transactions, { reportingCurrency, fxFallback });
+    const { reportingCurrency = 'EUR', fxFallback, includeClosed = false, strategy = 'fifo' } = options;
+    const accounting = accountLots(transactions, { reportingCurrency, fxFallback, strategy });
     const open: HoldingStats[] = [];
     const closed: HoldingStats[] = [];
     for (const position of accounting.positions.values()) {

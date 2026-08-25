@@ -20,7 +20,11 @@ export class PricesPage {
 
     readonly isEmpty = computed(() => this.context.transactions().length === 0);
 
-    readonly holdings = computed(() => holdingStats(this.context.transactions()));
+    readonly holdings = computed(() =>
+        holdingStats(this.context.transactions(), {
+            strategy: this.context.selectedPortfolio()?.lotStrategy ?? 'fifo',
+        }),
+    );
 
     readonly firstDate = computed(() => {
         const txns = this.context.transactions();

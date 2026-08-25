@@ -142,7 +142,12 @@ export class HoldingsPage {
         const currency = this.reportingCurrency();
         const today = this.today;
         const txns = this.context.transactions().filter((txn) => txn.date <= today);
-        const stats = holdingStats(txns, { reportingCurrency: currency, fxFallback: fx, includeClosed: true });
+        const stats = holdingStats(txns, {
+            reportingCurrency: currency,
+            fxFallback: fx,
+            includeClosed: true,
+            strategy: this.context.selectedPortfolio()?.lotStrategy ?? 'fifo',
+        });
         const resolvePrice = buildPriceResolver(txns, quotes);
         const importedFx = buildImportedFxResolver(txns, currency);
         const cashflows = cashflowsPerIsin(txns, {

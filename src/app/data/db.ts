@@ -243,6 +243,14 @@ export class PortfolioDatabase extends Dexie {
             splitEventsMigration: null,
             settingsMigration: null,
         });
+        this.version(8).upgrade((transaction) =>
+            transaction
+                .table('portfolios')
+                .toCollection()
+                .modify((row) => {
+                    row['lotStrategy'] = 'fifo';
+                }),
+        );
     }
 }
 

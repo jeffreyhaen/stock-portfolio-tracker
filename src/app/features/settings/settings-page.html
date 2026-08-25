@@ -36,6 +36,38 @@
     </section>
 
     <section class="rounded-xl border border-base-300 bg-base-100 p-6">
+        <h2 class="text-base font-semibold">Lot consumption strategy</h2>
+        @if (selectedPortfolio(); as portfolio) {
+        <p class="mt-2 max-w-2xl text-sm text-base-content/80">
+            When selling shares of <span class="font-medium">{{ portfolio.name }}</span>, realized P&amp;L is calculated
+            by consuming purchase lots in this order. FIFO sells the oldest lot first; LIFO sells the newest lot first.
+        </p>
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+            <select
+                class="select select-bordered select-sm"
+                [disabled]="strategyBusy()"
+                [value]="strategyDraft()"
+                (change)="strategyDraft.set($any($event.target).value)"
+                aria-label="Lot consumption strategy"
+            >
+                <option value="fifo" [selected]="strategyDraft() === 'fifo'">FIFO (oldest first)</option>
+                <option value="lifo" [selected]="strategyDraft() === 'lifo'">LIFO (newest first)</option>
+            </select>
+            <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                [disabled]="!strategyDirty() || strategyBusy()"
+                (click)="saveLotStrategy()"
+            >
+                {{ strategyBusy() ? 'Saving…' : 'Save strategy' }}
+            </button>
+        </div>
+        } @else {
+        <p class="mt-2 text-sm text-base-content/60">Select a portfolio first to change its lot strategy.</p>
+        }
+    </section>
+
+    <section class="rounded-xl border border-base-300 bg-base-100 p-6">
         <h2 class="text-base font-semibold">Backup &amp; restore</h2>
         <p class="mt-2 max-w-2xl text-sm text-base-content/80">
             Export all your data to a JSON file and restore it in a fresh browser. The file contains portfolios,

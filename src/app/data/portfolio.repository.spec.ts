@@ -21,14 +21,23 @@ describe('PortfolioRepository', () => {
             id: 'p1',
             name: 'First',
             reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
             createdAt: new Date().toISOString(),
         });
         await db.portfolios.add({
             id: 'p2',
             name: 'Tweede',
             reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
             createdAt: new Date().toISOString(),
         });
+    });
+
+    it('creates portfolios with FIFO lot consumption', async () => {
+        const portfolio = await repository.create('Created', 'USD');
+
+        expect(portfolio.lotStrategy).toBe('fifo');
+        expect((await db.portfolios.get(portfolio.id))?.lotStrategy).toBe('fifo');
     });
 
     it('renames only the selected portfolio', async () => {
@@ -36,6 +45,14 @@ describe('PortfolioRepository', () => {
 
         expect((await db.portfolios.get('p1'))?.name).toBe('Renamed');
         expect((await db.portfolios.get('p2'))?.name).toBe('Tweede');
+    });
+
+    it('updates the lot strategy and rejects an unknown portfolio', async () => {
+        await repository.updateLotStrategy('p1', 'lifo');
+
+        expect((await db.portfolios.get('p1'))?.lotStrategy).toBe('lifo');
+        expect((await db.portfolios.get('p2'))?.lotStrategy).toBe('fifo');
+        await expect(repository.updateLotStrategy('missing', 'fifo')).rejects.toThrow('Portfolio not found.');
     });
 
     it('deletes portfolio, transactions and import batches only for that portfolio', async () => {

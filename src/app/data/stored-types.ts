@@ -4,6 +4,7 @@ export interface StoredPortfolio {
     id: string;
     name: string;
     reportingCurrency: string;
+    lotStrategy: 'fifo' | 'lifo';
     createdAt: string;
 }
 

@@ -155,6 +155,7 @@ export class DashboardPage {
             {
                 reportingCurrency: this.reportingCurrency(),
                 fxFallback: this.marketData.fxResolver(),
+                strategy: this.context.selectedPortfolio()?.lotStrategy ?? 'fifo',
             },
         ),
     );

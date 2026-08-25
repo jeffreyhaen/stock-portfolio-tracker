@@ -246,7 +246,7 @@ function normalizeBundle(input: unknown): BackupBundle {
     if (
         typeof source['schemaVersion'] !== 'number' ||
         source['schemaVersion'] < 1 ||
-        source['schemaVersion'] >= CURRENT_SCHEMA_VERSION ||
+        source['schemaVersion'] > CURRENT_SCHEMA_VERSION ||
         data === null ||
         typeof data !== 'object'
     ) {
@@ -309,10 +309,12 @@ function nullableString(row: UnknownRecord, current: string, legacy: string): st
 }
 
 function normalizePortfolio(row: UnknownRecord): StoredPortfolio {
+    const lotStrategy = row['lotStrategy'];
     return {
         id: String(row['id']),
         name: String(value(row, 'name', 'naam') ?? ''),
         reportingCurrency: String(value(row, 'reportingCurrency', 'rapportagevaluta') ?? 'EUR'),
+        lotStrategy: lotStrategy === 'lifo' ? 'lifo' : 'fifo',
         createdAt: String(value(row, 'createdAt', 'aangemaaktOp') ?? new Date(0).toISOString()),
     };
 }

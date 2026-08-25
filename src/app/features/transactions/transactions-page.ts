@@ -4,6 +4,7 @@ import Decimal from 'decimal.js';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { mutationInReportingCurrency } from '../../domain/fx';
+import { mergeSplitExecutions } from '../../domain/split-execution-merge';
 import { Transaction, TransactionType } from '../../domain/types';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
@@ -13,6 +14,8 @@ import { TableSort } from '../../shared/sort';
 import { SortThComponent } from '../../shared/ui/sort-th';
 
 type SortKey = 'date' | 'type' | 'description' | 'quantity' | 'amount';
+
+const PAGE_SIZE = 100;
 
 interface TransactionView {
     readonly id: string;
@@ -32,8 +35,6 @@ interface TransactionView {
     readonly showOriginalMutation: boolean;
 }
 
-const PAGINA_GROOTTE = 100;
-
 @Component({
     selector: 'app-transactions-page',
     imports: [RouterLink, MoneyPipe, LocalizedDatePipe, LocalizedNumberPipe, SortThComponent],
@@ -45,7 +46,7 @@ export class TransactionsPage {
 
     readonly search = signal('');
     readonly typeFilter = signal('ALL');
-    readonly visibleCount = signal(PAGINA_GROOTTE);
+    readonly visibleCount = signal(PAGE_SIZE);
 
     constructor() {
         void this.marketData.reload();
@@ -76,7 +77,7 @@ export class TransactionsPage {
     private readonly filtered = computed(() => {
         const search = this.search().trim().toLowerCase();
         const typeFilter = this.typeFilter();
-        return this.context.transactions().filter((txn) => {
+        return mergeSplitExecutions(this.context.transactions()).filter((txn) => {
             if (typeFilter !== 'ALL' && txn.type !== typeFilter) {
                 return false;
             }
@@ -101,16 +102,16 @@ export class TransactionsPage {
 
     onSearch(value: string): void {
         this.search.set(value);
-        this.visibleCount.set(PAGINA_GROOTTE);
+        this.visibleCount.set(PAGE_SIZE);
     }
 
     onTypeFilter(value: string): void {
         this.typeFilter.set(value);
-        this.visibleCount.set(PAGINA_GROOTTE);
+        this.visibleCount.set(PAGE_SIZE);
     }
 
     showMore(): void {
-        this.visibleCount.update((n) => n + PAGINA_GROOTTE);
+        this.visibleCount.update((count) => count + PAGE_SIZE);
     }
 
     typeLabel(type: TransactionType): string {

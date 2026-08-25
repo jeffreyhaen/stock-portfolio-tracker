@@ -43,6 +43,11 @@ export class PortfolioContext {
         await this.refresh();
     }
 
+    async updateLotStrategy(id: string, lotStrategy: 'fifo' | 'lifo'): Promise<void> {
+        await this.portfolioRepository.updateLotStrategy(id, lotStrategy);
+        await this.refresh();
+    }
+
     async deletePortfolio(id: string): Promise<void> {
         await this.portfolioRepository.delete(id);
         const wasSelected = this.selectedPortfolioId() === id;

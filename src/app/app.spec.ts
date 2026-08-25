@@ -18,6 +18,7 @@ describe('App', () => {
             id: 'p1',
             name: 'DEGIRO',
             reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
             createdAt: new Date().toISOString(),
         });
         await TestBed.configureTestingModule({

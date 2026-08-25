@@ -1,7 +1,10 @@
 import Decimal from 'decimal.js';
 import { compareTransactions, groupCorporateActions } from './corporate-action-grouping';
 import { FxResolver, mutationInReportingCurrency } from './fx';
+import { mergeSplitExecutions } from './split-execution-merge';
 import { Transaction, TransactionTypes as T } from './types';
+
+export type LotConsumptionStrategy = 'fifo' | 'lifo';
 
 export interface AccountingLot {
     readonly quantity: Decimal;
@@ -51,6 +54,7 @@ export interface LotAccountingResult {
 export interface LotAccountingOptions {
     readonly reportingCurrency?: string;
     readonly fxFallback?: FxResolver;
+    readonly strategy?: LotConsumptionStrategy;
 }
 
 interface MutableLot {
@@ -116,12 +120,17 @@ function positionFor(positions: Map<string, MutablePosition>, txn: Transaction):
     return position;
 }
 
-function consumeLots(position: MutablePosition, requested: Decimal): { lots: MutableLot[]; basis: Decimal } {
+function consumeLots(
+    position: MutablePosition,
+    requested: Decimal,
+    strategy: LotConsumptionStrategy,
+): { lots: MutableLot[]; basis: Decimal } {
     let remaining = requested;
     const consumed: MutableLot[] = [];
     let basis = new Decimal(0);
     while (remaining.gt(0) && position.lots.length > 0) {
-        const lot = position.lots[0];
+        const index = strategy === 'lifo' ? position.lots.length - 1 : 0;
+        const lot = position.lots[index];
         const quantity = Decimal.min(remaining, lot.quantity);
         const lotBasis = lot.basis.times(quantity).div(lot.quantity);
         consumed.push({
@@ -135,7 +144,7 @@ function consumeLots(position: MutablePosition, requested: Decimal): { lots: Mut
         basis = basis.plus(lotBasis);
         remaining = remaining.minus(quantity);
         if (lot.quantity.isZero()) {
-            position.lots.shift();
+            position.lots.splice(index, 1);
         }
     }
     return { lots: consumed, basis };
@@ -178,8 +187,8 @@ export function accountLots(
     transactions: readonly Transaction[],
     options: LotAccountingOptions = {},
 ): LotAccountingResult {
-    const { reportingCurrency = 'EUR', fxFallback } = options;
-    const sorted = [...transactions].sort(compareTransactions);
+    const { reportingCurrency = 'EUR', fxFallback, strategy = 'fifo' } = options;
+    const sorted = [...mergeSplitExecutions(transactions)].sort(compareTransactions);
     const positions = new Map<string, MutablePosition>();
     const diagnostics: LotAccountingDiagnostic[] = [];
     const associated = new Map<Transaction, Transaction[]>();
@@ -278,7 +287,7 @@ export function accountLots(
             for (const sell of sells) {
                 const position = positionFor(positions, sell);
                 const available = quantityOf(position);
-                const consumed = consumeLots(position, sell.quantity as Decimal);
+                const consumed = consumeLots(position, sell.quantity as Decimal, strategy);
                 transferred.push(...consumed.lots);
                 transferredBasisComplete &&= position.basisComplete;
                 if ((sell.quantity as Decimal).gt(available)) {
@@ -396,7 +405,7 @@ export function accountLots(
             position.grossInvested = position.grossInvested.plus(basis);
         } else {
             const available = quantityOf(position);
-            const consumed = consumeLots(position, txn.quantity);
+            const consumed = consumeLots(position, txn.quantity, strategy);
             recordClosedLots(position, txn, consumed, monetary);
             const oversold = txn.quantity.gt(available);
             if (oversold) {

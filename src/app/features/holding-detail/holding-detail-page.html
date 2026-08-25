@@ -184,7 +184,8 @@
         </table>
     </div>
     <p class="mt-2 text-xs text-base-content/60">
-        FIFO: the oldest open lot is consumed first when selling. Sorting this table does not change that order.
+        {{ strategy() === 'lifo' ? 'LIFO: the newest open lot is consumed first when selling.' : 'FIFO: the oldest open
+        lot is consumed first when selling.' }} Sorting this table does not change that order.
     </p>
     }
 </section>
@@ -205,7 +206,11 @@
                     <th class="text-right">
                         <app-sort-th [sort]="closedSort" sortKey="quantity">Quantity</app-sort-th>
                     </th>
-                    <th><app-sort-th [sort]="closedSort" sortKey="acquiredAt">Acquired (FIFO)</app-sort-th></th>
+                    <th>
+                        <app-sort-th [sort]="closedSort" sortKey="acquiredAt"
+                            >Acquired ({{ strategy() === 'lifo' ? 'LIFO' : 'FIFO' }})</app-sort-th
+                        >
+                    </th>
                     <th class="text-right">
                         <app-sort-th [sort]="closedSort" sortKey="proceeds">Proceeds</app-sort-th>
                     </th>
@@ -253,8 +258,8 @@
         </table>
     </div>
     <p class="mt-2 text-xs text-base-content/60">
-        Proceeds are net of transaction costs. A sale that partially consumes multiple FIFO lots produces one row per
-        lot.
+        Proceeds are net of transaction costs. A sale that partially consumes multiple {{ strategy() === 'lifo' ? 'LIFO'
+        : 'FIFO' }} lots produces one row per lot.
     </p>
 </section>
 }
@@ -282,7 +287,7 @@
                 </tr>
             </thead>
             <tbody>
-                @for (txn of holdingTransactions(); track txn.id) {
+                @for (txn of pagedHoldingTransactions(); track txn.id) {
                 <tr class="hover">
                     <td class="align-top">
                         <p class="text-sm">{{ txn.date | localizedDate }}</p>
@@ -318,7 +323,13 @@
             </tbody>
         </table>
     </div>
-    }
+    @if (hasMoreTransactions()) {
+    <div class="mt-4 text-center">
+        <button type="button" class="btn btn-outline btn-sm" (click)="showMoreTransactions()">
+            Show more ({{ (holdingTransactions().length - visibleCount()) | localizedNumber: 0 }} remaining)
+        </button>
+    </div>
+    } }
 </section>
 } @else {
 <section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">

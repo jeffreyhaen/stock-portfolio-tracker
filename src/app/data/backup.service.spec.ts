@@ -119,6 +119,13 @@ describe('BackupService', () => {
     });
 
     it('roundtrip: import and export on a fresh DB preserves totals', async () => {
+        await db.portfolios.put({
+            id: 'pf-1',
+            name: 'LIFO portfolio',
+            reportingCurrency: 'EUR',
+            lotStrategy: 'lifo',
+            createdAt: '2026-01-01',
+        });
         await db.quoteCache.put({
             key: 'US0079031078',
             price: '120',
@@ -150,6 +157,7 @@ describe('BackupService', () => {
             expect(await db2.priceHistory.count()).toBe(bundle.totals.priceHistory);
             expect(await db2.fxCache.count()).toBe(bundle.totals.fxCache);
             expect(await db2.settings.count()).toBe(bundle.totals.settings);
+            expect((await db2.portfolios.get('pf-1'))?.lotStrategy).toBe('lifo');
             expect(await db2.transactions.toArray()).toEqual(bundle.data.transactions);
             expect(await db2.quoteCache.toArray()).toEqual(bundle.data.quoteCache);
 
@@ -188,6 +196,35 @@ describe('BackupService', () => {
         expect(() => parseBundle('[]')).toThrow(BackupError);
     });
 
+    it('restores FIFO for a current-schema backup without a valid lot strategy', async () => {
+        const oldShape = {
+            schemaVersion: CURRENT_SCHEMA_VERSION,
+            data: {
+                ...emptyData(),
+                portfolios: [
+                    {
+                        id: 'pf-old-shape',
+                        name: 'Old shape',
+                        reportingCurrency: 'EUR',
+                        createdAt: '2026-01-01',
+                    },
+                    {
+                        id: 'pf-invalid',
+                        name: 'Invalid strategy',
+                        reportingCurrency: 'EUR',
+                        lotStrategy: 'weighted-average',
+                        createdAt: '2026-01-02',
+                    },
+                ],
+            },
+        };
+
+        await service.import(parseBundle(JSON.stringify(oldShape)));
+
+        expect((await db.portfolios.get('pf-old-shape'))?.lotStrategy).toBe('fifo');
+        expect((await db.portfolios.get('pf-invalid'))?.lotStrategy).toBe('fifo');
+    });
+
     it('normalizes legacy backup field names', () => {
         const legacy = {
             schemaVersion: 3,
@@ -203,6 +240,7 @@ describe('BackupService', () => {
             id: 'pf-legacy',
             name: 'Legacy',
             reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
             createdAt: '2026-01-01',
         });
         expect(bundle.data.settings[0]).toEqual({ key: 'selectedPortfolio', value: 'pf-legacy' });

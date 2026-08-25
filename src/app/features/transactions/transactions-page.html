@@ -87,7 +87,7 @@
     </div>
     @if (hasMore()) {
     <div class="mt-4 text-center">
-        <button class="btn btn-outline btn-sm" (click)="showMore()">
+        <button type="button" class="btn btn-outline btn-sm" (click)="showMore()">
             Show more ({{ (totalCount() - visibleCount()) | localizedNumber: 0 }} remaining)
         </button>
     </div>

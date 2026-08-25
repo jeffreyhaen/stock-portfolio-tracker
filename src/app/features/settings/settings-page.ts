@@ -61,6 +61,13 @@ export class SettingsPage {
         return current !== undefined && this.currencyDraft() !== '' && this.currencyDraft() !== current;
     });
 
+    readonly strategyDraft = signal<'fifo' | 'lifo'>('fifo');
+    readonly strategyBusy = signal(false);
+    readonly strategyDirty = computed(() => {
+        const current = this.selectedPortfolio()?.lotStrategy;
+        return current !== undefined && this.strategyDraft() !== current;
+    });
+
     readonly transactionCount = computed(() => this.context.transactions().length);
 
     constructor() {
@@ -68,6 +75,12 @@ export class SettingsPage {
             const current = this.selectedPortfolio()?.reportingCurrency;
             if (current !== undefined && !this.currencyBusy()) {
                 this.currencyDraft.set(current);
+            }
+        });
+        effect(() => {
+            const current = this.selectedPortfolio()?.lotStrategy;
+            if (current !== undefined && !this.strategyBusy()) {
+                this.strategyDraft.set(current);
             }
         });
     }
@@ -102,6 +115,28 @@ export class SettingsPage {
             this.message.set({ kind: 'error', text: this.errorMessage(error, 'Saving currency failed.') });
         } finally {
             this.currencyBusy.set(false);
+        }
+    }
+
+    async saveLotStrategy(): Promise<void> {
+        const portfolio = this.selectedPortfolio();
+        const strategy = this.strategyDraft();
+        if (portfolio === null || this.strategyBusy() || strategy === portfolio.lotStrategy) {
+            return;
+        }
+        this.strategyBusy.set(true);
+        this.message.set(null);
+        try {
+            await this.context.updateLotStrategy(portfolio.id, strategy);
+            this.message.set({
+                kind: 'success',
+                text: `Lot consumption strategy set to ${strategy.toUpperCase()} for portfolio "${portfolio.name}".`,
+            });
+        } catch (error: unknown) {
+            this.strategyDraft.set(portfolio.lotStrategy);
+            this.message.set({ kind: 'error', text: this.errorMessage(error, 'Saving strategy failed.') });
+        } finally {
+            this.strategyBusy.set(false);
         }
     }
 

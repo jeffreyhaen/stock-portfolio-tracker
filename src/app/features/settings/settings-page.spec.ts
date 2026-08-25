@@ -21,6 +21,7 @@ describe('SettingsPage', () => {
             id: 'p1',
             name: 'DEGIRO',
             reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
             createdAt: new Date().toISOString(),
         });
         TestBed.resetTestingModule();
@@ -65,6 +66,25 @@ describe('SettingsPage', () => {
         } finally {
             db2.close();
         }
+    });
+
+    it('saves the lot consumption strategy for the selected portfolio', async () => {
+        const fixture = TestBed.createComponent(SettingsPage);
+        fixture.detectChanges();
+        const page = fixture.componentInstance;
+        await waitFor(() => page.selectedPortfolio() !== null && page.transactionCount() > 0);
+
+        expect(page.strategyDraft()).toBe('fifo');
+        expect(page.strategyDirty()).toBe(false);
+
+        page.strategyDraft.set('lifo');
+        expect(page.strategyDirty()).toBe(true);
+        await page.saveLotStrategy();
+        await waitFor(() => page.selectedPortfolio()?.lotStrategy === 'lifo');
+
+        expect(page.strategyDirty()).toBe(false);
+        expect((await db.portfolios.get('p1'))?.lotStrategy).toBe('lifo');
+        expect(page.message()?.kind).toBe('success');
     });
 
     it('preview is ignored when the file is an invalid bundle', async () => {

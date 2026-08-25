@@ -286,4 +286,71 @@ describe('accountLots', () => {
         expect(result.positions.get('OLD')?.closedLots).toHaveLength(0);
         expect(result.positions.get('NEW')?.closedLots).toHaveLength(0);
     });
+
+    it('merges split executions of the same order into a single lot', () => {
+        const result = accountLots([
+            transaction({ id: 'fill-1', fingerprint: 'fill-1', orderId: 'order-1', mutation: new Decimal(-397.73) }),
+            transaction({
+                id: 'fill-2',
+                fingerprint: 'fill-2',
+                orderId: 'order-1',
+                rowIndex: 2,
+                time: '10:01',
+                quantity: new Decimal(24),
+                price: new Decimal(397.97),
+                mutation: new Decimal(-9551.28),
+            }),
+            transaction({
+                id: 'fee',
+                fingerprint: 'fee',
+                rowIndex: 3,
+                time: '10:01',
+                type: T.TransactionFee,
+                isin: null,
+                quantity: null,
+                price: null,
+                orderId: 'order-1',
+                mutation: new Decimal(-1),
+            }),
+        ]);
+
+        const position = result.positions.get('TEST');
+        expect(position?.lots).toHaveLength(1);
+        expect(position?.lots[0].quantity.toFixed()).toBe('25');
+        expect(position?.lots[0].basis.toFixed(2)).toBe('9950.01');
+        expect(result.diagnostics).toHaveLength(0);
+    });
+
+    it('consumes the newest lot first with the lifo strategy', () => {
+        const rows = [
+            transaction({ id: 'buy-old', fingerprint: 'buy-old' }),
+            transaction({
+                id: 'buy-new',
+                fingerprint: 'buy-new',
+                date: '2024-06-01',
+                rowIndex: 2,
+                price: new Decimal(20),
+                mutation: new Decimal(-20),
+            }),
+            transaction({
+                id: 'sell',
+                fingerprint: 'sell',
+                date: '2024-07-01',
+                rowIndex: 3,
+                type: T.TradeSell,
+                price: new Decimal(25),
+                mutation: new Decimal(25),
+            }),
+        ];
+
+        const fifo = accountLots(rows);
+        expect(fifo.positions.get('TEST')?.lots[0].acquiredAt).toBe('2024-06-01');
+        expect(fifo.positions.get('TEST')?.realizedPnl?.toFixed(2)).toBe('15.00');
+        expect(fifo.positions.get('TEST')?.closedLots[0].acquiredAt).toBe('2024-01-01');
+
+        const lifo = accountLots(rows, { strategy: 'lifo' });
+        expect(lifo.positions.get('TEST')?.lots[0].acquiredAt).toBe('2024-01-01');
+        expect(lifo.positions.get('TEST')?.realizedPnl?.toFixed(2)).toBe('5.00');
+        expect(lifo.positions.get('TEST')?.closedLots[0].acquiredAt).toBe('2024-06-01');
+    });
 });

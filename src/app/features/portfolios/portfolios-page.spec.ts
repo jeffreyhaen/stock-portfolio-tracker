@@ -67,6 +67,7 @@ describe('PortfoliosPage', () => {
         await page.createPortfolio();
         await waitFor(() => page.portfolios().length === 1);
         expect(page.selectedPortfolioId()).toBe(page.portfolios()[0].id);
+        expect(page.portfolios()[0].lotStrategy).toBe('fifo');
 
         await page.importCsvText('Account.csv', MINI_CSV);
         await waitFor(() => page.autoLinkResult() !== null);
@@ -172,6 +173,7 @@ describe('PortfoliosPage', () => {
             id: 'p2',
             name: 'Other',
             reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
             createdAt: new Date().toISOString(),
         });
         await page.context.refresh();
@@ -215,6 +217,7 @@ describe('PortfoliosPage', () => {
             id: 'p2',
             name: 'Broker',
             reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
             createdAt: new Date().toISOString(),
         });
         await page.context.refresh();

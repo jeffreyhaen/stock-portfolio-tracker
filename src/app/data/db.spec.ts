@@ -41,9 +41,42 @@ describe('PortfolioDatabase migrations', () => {
 
         expect(portfolio?.name).toBe('Legacy');
         expect(portfolio?.reportingCurrency).toBe('EUR');
+        expect(portfolio?.lotStrategy).toBe('fifo');
         expect(alias).toEqual({ oldIsin: 'OLD', newIsin: 'NEW', date: '2026-01-02', reason: 'split' });
         expect(quote).toEqual({ key: 'OLD', price: '10', currency: 'EUR', timestamp: '2026-01-02', source: 'manual' });
         expect(setting).toEqual({ key: 'selectedPortfolio', value: 'pf-1' });
+        migrated.close();
+    });
+
+    it('adds FIFO lot consumption to portfolios upgraded from version 7', async () => {
+        const indexedDB = new IDBFactory();
+        const options = { indexedDB, IDBKeyRange };
+        const version7 = new Dexie('stock-portfolio', options);
+        version7.version(7).stores({
+            portfolios: 'id',
+            importBatches: 'id, portfolioId',
+            transactions: '++id, [portfolioId+date], fingerprint',
+            securities: 'isin',
+            securityAliases: 'oldIsin, newIsin',
+            quoteCache: 'key',
+            fxCache: '[pair+date]',
+            priceHistory: '[isin+date], isin',
+            splitEvents: '[isin+date]',
+            settings: 'key',
+        });
+        await version7.open();
+        await version7.table('portfolios').put({
+            id: 'pf-1',
+            name: 'Existing',
+            reportingCurrency: 'EUR',
+            createdAt: '2026-01-01',
+        });
+        version7.close();
+
+        const migrated = new PortfolioDatabase(options);
+        await migrated.open();
+
+        expect((await migrated.portfolios.get('pf-1'))?.lotStrategy).toBe('fifo');
         migrated.close();
     });
 });

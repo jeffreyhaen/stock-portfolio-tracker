@@ -310,6 +310,22 @@ describe('DashboardPage', () => {
         expect(page.marketSeries().points.map((p) => p.date)).toEqual(['2026-02-12', '2026-02-13', '2026-02-16']);
     });
 
+    it('keeps the transaction-price fallback when only unrelated or benchmark history exists', async () => {
+        const db = TestBed.inject(PortfolioDatabase);
+        await db.priceHistory.bulkPut([
+            { isin: 'UNRELATED', date: '2026-02-12', close: '100', currency: 'EUR' },
+            { isin: 'BENCH:SPY', date: '2026-02-12', close: '500', currency: 'USD' },
+        ]);
+        await db.settings.put({ key: 'benchmark:p1', value: 'SPY' });
+
+        const page = await createPage();
+        await waitFor(() => page.benchmark.symbol() === 'SPY');
+
+        expect(page.hasHistory()).toBe(false);
+        expect(page.chartSeries()[0].points[0].time).toBe('2021-01-01');
+        expect(page.rangeResult()?.result.toFixed(2)).toBe('500.00');
+    });
+
     it('shows no benchmark line or delta without a benchmark setting', async () => {
         const page = await createPage();
         await waitFor(() => page.marketData.quotes().length === 0);

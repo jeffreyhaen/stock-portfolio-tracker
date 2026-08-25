@@ -29,6 +29,8 @@ jobs:
             - run: npm ci
             - name: Build for repository path
               run: npx ng build --configuration production --base-href "/${{ github.event.repository.name }}/"
+            - name: Verify demo asset
+              run: test -f dist/stock-portfolio/browser/examples/demo/degiro-demo.csv
             - name: Add SPA route fallback
               run: cp dist/stock-portfolio/browser/index.html dist/stock-portfolio/browser/404.html
             - uses: actions/configure-pages@v5

@@ -23,6 +23,11 @@
                             {
                                 "glob": "**/*",
                                 "input": "public"
+                            },
+                            {
+                                "glob": "demo/degiro-demo.csv",
+                                "input": "examples",
+                                "output": "examples"
                             }
                         ],
                         "styles": ["src/styles.css"]

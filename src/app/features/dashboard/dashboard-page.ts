@@ -169,16 +169,27 @@ export class DashboardPage {
         ),
     );
 
+    private readonly portfolioIsins = computed(() => {
+        const isins = new Set<string>();
+        for (const transaction of this.context.transactions()) {
+            if (transaction.isin !== null && !isBenchmarkIsin(transaction.isin)) {
+                isins.add(transaction.isin);
+            }
+        }
+        return isins;
+    });
+
     private readonly barsMap = computed<ReadonlyMap<string, PriceBar[]>>(() => {
+        const portfolioIsins = this.portfolioIsins();
         const map = new Map<string, PriceBar[]>();
         for (const bar of this.marketData.priceHistory()) {
-            if (isBenchmarkIsin(bar.isin)) continue;
+            if (!portfolioIsins.has(bar.isin)) continue;
             const list = map.get(bar.isin) ?? [];
             list.push({ date: bar.date, close: new Decimal(bar.close), currency: bar.currency });
             map.set(bar.isin, list);
         }
         for (const [isin, quote] of this.marketData.quoteMap()) {
-            if (quote.date === undefined) continue;
+            if (!portfolioIsins.has(isin) || quote.date === undefined) continue;
             const list = map.get(isin) ?? [];
             const current = { date: quote.date, close: quote.price, currency: quote.currency };
             const sameDay = list.findIndex((bar) => bar.date === quote.date);
@@ -192,7 +203,10 @@ export class DashboardPage {
         return map;
     });
 
-    readonly hasHistory = computed(() => this.marketData.priceHistory().length > 0);
+    readonly hasHistory = computed(() => {
+        const portfolioIsins = this.portfolioIsins();
+        return this.marketData.priceHistory().some((bar) => portfolioIsins.has(bar.isin));
+    });
 
     readonly marketSeries = computed(() =>
         buildMarketValueSeries(

@@ -73,19 +73,21 @@
                 @for (holding of holdings(); track holding.isin) {
                 <tr class="hover align-top" [class.text-base-content\/60]="!holding.open">
                     <td>
-                        <p class="text-sm font-medium" [class.text-base-content]="holding.open">
-                            {{ holding.product }} @if (!holding.open) {
-                            <span class="badge badge-ghost badge-sm ml-1">closed</span>
-                            }
-                        </p>
-                        <p class="font-mono text-[0.8125rem] text-base-content/60">
-                            {{ holding.isin }} @if (holding.ticker !== null) {
-                            <span class="font-sans"
-                                >· {{ holding.exchange !== null ? holding.exchange + ':' : '' }}{{ holding.ticker
-                                }}</span
-                            >
-                            }
-                        </p>
+                        <a [routerLink]="['/portfolio', portfolioId(), 'holdings', holding.isin]" class="link-hover">
+                            <p class="text-sm font-medium" [class.text-base-content]="holding.open">
+                                {{ holding.product }} @if (!holding.open) {
+                                <span class="badge badge-ghost badge-sm ml-1">closed</span>
+                                }
+                            </p>
+                            <p class="font-mono text-[0.8125rem] text-base-content/60">
+                                {{ holding.isin }} @if (holding.ticker !== null) {
+                                <span class="font-sans"
+                                    >· {{ holding.exchange !== null ? holding.exchange + ':' : '' }}{{ holding.ticker
+                                    }}</span
+                                >
+                                }
+                            </p>
+                        </a>
                     </td>
                     <td class="text-right">
                         @if (holding.allocationPct !== null) {

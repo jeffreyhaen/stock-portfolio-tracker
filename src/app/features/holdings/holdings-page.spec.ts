@@ -49,6 +49,11 @@ describe('HoldingsPage', () => {
         expect(asml?.netInvested?.toFixed(2)).toBe('1500.00');
         expect(asml?.realizedPnl?.toFixed(2)).toBe('0.00');
         fixture.detectChanges();
+        const links = [...fixture.nativeElement.querySelectorAll('td a')] as HTMLAnchorElement[];
+        expect(links.map((link) => link.getAttribute('href'))).toEqual([
+            '/portfolio/p1/holdings/USN070592100',
+            '/portfolio/p1/holdings/US0079031078',
+        ]);
         expect(fixture.nativeElement.querySelectorAll('app-info-tooltip')).toHaveLength(2);
         const tooltip = fixture.nativeElement.querySelector('app-info-tooltip .tooltip');
         expect(tooltip?.classList.contains('tooltip-end')).toBe(true);

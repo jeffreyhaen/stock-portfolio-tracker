@@ -10,6 +10,10 @@ const portfolioRoutes: Routes = [
         loadComponent: () => import('./features/holdings/holdings-page').then((m) => m.HoldingsPage),
     },
     {
+        path: 'holdings/:isin',
+        loadComponent: () => import('./features/holding-detail/holding-detail-page').then((m) => m.HoldingDetailPage),
+    },
+    {
         path: 'cash',
         loadComponent: () => import('./features/cash/cash-page').then((m) => m.CashPage),
     },

@@ -1,0 +1,332 @@
+<a [routerLink]="['/portfolio', portfolioId(), 'holdings']" class="link link-hover text-sm">&larr; Holdings</a>
+
+@if (header(); as header) {
+<div class="mt-2 flex flex-wrap items-baseline gap-x-3">
+    <h1 class="text-3xl font-bold">{{ header.product }}</h1>
+    @if (!header.open) {
+    <span class="badge badge-ghost badge-sm">closed</span>
+    }
+</div>
+<p class="mt-1 font-mono text-[0.8125rem] text-base-content/60">
+    {{ isin() }} @if (header.ticker !== null) {
+    <span class="font-sans">· {{ header.exchange !== null ? header.exchange + ':' : '' }}{{ header.ticker }}</span> }
+</p>
+<p class="mt-1 text-sm text-base-content/60">
+    Valued in {{ reportingCurrency() }} @if (header.priceDate !== null) { · price as of {{ header.priceDate |
+    localizedDate }} }
+</p>
+
+<div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Current price</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.currentPrice | money: reportingCurrency() }}</p>
+        @if (header.priceLabel !== null) {
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">{{ header.priceLabel }}</p>
+        }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Quantity</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.quantity | localizedNumber: 4 : 0 }}</p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Total value</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.value | money: reportingCurrency() }}</p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Average cost</p>
+        @if (header.costPerShare !== null) {
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.costPerShare | money: reportingCurrency() }}</p>
+        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
+            {{ header.costBasis | money: reportingCurrency() }} total
+        </p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
+        @if (header.basisUnavailableText !== null) {
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                Basis unavailable
+                <app-info-tooltip [text]="header.basisUnavailableText" tone="warning" placement="bottom-end" />
+            </span>
+        </p>
+        } }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Unrealized P&amp;L</p>
+        @if (header.unrealizedPnl !== null) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!header.unrealizedPnl.isNegative() && !header.unrealizedPnl.isZero()"
+            [class.text-error]="header.unrealizedPnl.isNegative()"
+        >
+            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                {{ header.unrealizedPnl | money: reportingCurrency() }} @if (header.marketDataWarningText !== null) {
+                <app-info-tooltip [text]="header.marketDataWarningText" tone="warning" placement="bottom-end" /> }
+            </span>
+        </p>
+        @if (header.unrealizedPnlPct !== null) {
+        <p
+            class="mt-1 text-[0.8125rem] tabular-nums"
+            [class.text-success]="!header.unrealizedPnlPct.isNegative() && !header.unrealizedPnlPct.isZero()"
+            [class.text-error]="header.unrealizedPnlPct.isNegative()"
+        >
+            {{ header.unrealizedPnlPct | localizedNumber: 2 }}%
+        </p>
+        } } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
+        @if (header.marketDataWarningText !== null) {
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                Value unavailable
+                <app-info-tooltip [text]="header.marketDataWarningText" tone="warning" placement="bottom-end" />
+            </span>
+        </p>
+        } }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Realized P&amp;L</p>
+        @if (header.realizedPnl !== null) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!header.realizedPnl.isNegative() && !header.realizedPnl.isZero()"
+            [class.text-error]="header.realizedPnl.isNegative()"
+        >
+            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                {{ header.realizedPnl | money: reportingCurrency() }} @if (header.realizedBasisAssumedZero) {
+                <app-info-tooltip
+                    text="Broker calculation assumes zero recorded spin-off basis; economic cost basis is unavailable."
+                    tone="warning"
+                    placement="bottom-end"
+                />
+                } @else if (header.realizedUnavailableText !== null) {
+                <app-info-tooltip [text]="header.realizedUnavailableText" tone="warning" placement="bottom-end" /> }
+            </span>
+        </p>
+        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
+            {{ header.realizedCount | localizedNumber: 0 }} closed {{ header.realizedCount === 1 ? 'sale' : 'sales' }}
+        </p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
+        @if (header.realizedUnavailableText !== null) {
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                Realized unavailable
+                <app-info-tooltip [text]="header.realizedUnavailableText" tone="warning" placement="bottom-end" />
+            </span>
+        </p>
+        } }
+    </div>
+</div>
+
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <h2 class="text-lg font-semibold">Open lots (purchase history)</h2>
+    @if (lots().length === 0) {
+    <p class="mt-4 text-sm text-base-content/60">No open lots.</p>
+    } @else {
+    <div class="mt-4 overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                    <th><app-sort-th [sort]="lotSort" sortKey="acquiredAt">Acquired</app-sort-th></th>
+                    <th class="text-right"><app-sort-th [sort]="lotSort" sortKey="quantity">Quantity</app-sort-th></th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="lotSort" sortKey="costPerShare">Average cost</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="lotSort" sortKey="costBasis">Total cost</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="lotSort" sortKey="value">Current value</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="lotSort" sortKey="pnl">Unrealized P&amp;L</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="lotSort" sortKey="holdingDays">Holding period</app-sort-th>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (lot of lots(); track lot.acquiredAt) {
+                <tr class="hover">
+                    <td class="text-sm tabular-nums">{{ lot.acquiredAt | localizedDate }}</td>
+                    <td class="text-right text-sm tabular-nums">{{ lot.quantity | localizedNumber: 4 : 0 }}</td>
+                    <td class="text-right text-sm tabular-nums">{{ lot.costPerShare | money: reportingCurrency() }}</td>
+                    <td class="text-right text-sm tabular-nums">{{ lot.costBasis | money: reportingCurrency() }}</td>
+                    <td class="text-right text-sm tabular-nums">{{ lot.value | money: reportingCurrency() }}</td>
+                    <td class="text-right">
+                        @if (lot.pnl !== null) {
+                        <p
+                            class="text-sm font-medium tabular-nums"
+                            [class.text-success]="!lot.pnl.isNegative() && !lot.pnl.isZero()"
+                            [class.text-error]="lot.pnl.isNegative()"
+                        >
+                            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                                {{ lot.pnl | money: reportingCurrency() }} @if (lot.pnlPct !== null) { ({{ lot.pnlPct |
+                                localizedNumber: 2 }}%) } @if (lot.basisAssumedZero) {
+                                <app-info-tooltip
+                                    text="Broker calculation assumes zero recorded spin-off basis; economic cost basis is unavailable."
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
+                                }
+                            </span>
+                        </p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                    <td class="text-right text-sm tabular-nums text-base-content/60">
+                        {{ lot.holdingDays | localizedNumber: 0 }} days
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="mt-2 text-xs text-base-content/60">
+        FIFO: the oldest open lot is consumed first when selling. Sorting this table does not change that order.
+    </p>
+    }
+</section>
+
+@if (closedLots().length > 0) {
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="flex items-center gap-1">
+        <h2 class="text-lg font-semibold">Realized per sale</h2>
+        @if (header.realizedUnavailableText !== null) {
+        <app-info-tooltip [text]="header.realizedUnavailableText" tone="warning" />
+        }
+    </div>
+    <div class="mt-4 overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                    <th><app-sort-th [sort]="closedSort" sortKey="soldAt">Sold</app-sort-th></th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="closedSort" sortKey="quantity">Quantity</app-sort-th>
+                    </th>
+                    <th><app-sort-th [sort]="closedSort" sortKey="acquiredAt">Acquired (FIFO)</app-sort-th></th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="closedSort" sortKey="proceeds">Proceeds</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="closedSort" sortKey="costBasis">Cost basis</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="closedSort" sortKey="pnl">Realized P&amp;L</app-sort-th>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (match of closedLots(); track match.soldAt + match.acquiredAt) {
+                <tr class="hover">
+                    <td class="text-sm tabular-nums">{{ match.soldAt | localizedDate }}</td>
+                    <td class="text-right text-sm tabular-nums">{{ match.quantity | localizedNumber: 4 : 0 }}</td>
+                    <td class="text-sm tabular-nums">{{ match.acquiredAt | localizedDate }}</td>
+                    <td class="text-right text-sm tabular-nums">{{ match.proceeds | money: reportingCurrency() }}</td>
+                    <td class="text-right text-sm tabular-nums">{{ match.costBasis | money: reportingCurrency() }}</td>
+                    <td class="text-right">
+                        @if (match.pnl !== null) {
+                        <p
+                            class="text-sm font-medium tabular-nums"
+                            [class.text-success]="!match.pnl.isNegative() && !match.pnl.isZero()"
+                            [class.text-error]="match.pnl.isNegative()"
+                        >
+                            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                                {{ match.pnl | money: reportingCurrency() }} @if (match.pnlPct !== null) { ({{
+                                match.pnlPct | localizedNumber: 2 }}%) } @if (match.basisAssumedZero) {
+                                <app-info-tooltip
+                                    text="Broker calculation assumes zero recorded spin-off basis; economic cost basis is unavailable."
+                                    tone="warning"
+                                    placement="bottom-end"
+                                />
+                                }
+                            </span>
+                        </p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="mt-2 text-xs text-base-content/60">
+        Proceeds are net of transaction costs. A sale that partially consumes multiple FIFO lots produces one row per
+        lot.
+    </p>
+</section>
+}
+
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <h2 class="text-lg font-semibold">Transactions</h2>
+    @if (holdingTransactions().length === 0) {
+    <p class="mt-4 text-sm text-base-content/60">No transactions for this ISIN.</p>
+    } @else {
+    <div class="mt-4 overflow-x-auto">
+        <table class="table table-sm w-full">
+            <thead>
+                <tr class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                    <th><app-sort-th [sort]="transactionSort" sortKey="date">Date</app-sort-th></th>
+                    <th><app-sort-th [sort]="transactionSort" sortKey="type">Type</app-sort-th></th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="transactionSort" sortKey="quantity">Quantity</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="transactionSort" sortKey="price">Price</app-sort-th>
+                    </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="transactionSort" sortKey="amount">Amount</app-sort-th>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (txn of holdingTransactions(); track txn.id) {
+                <tr class="hover">
+                    <td class="align-top">
+                        <p class="text-sm">{{ txn.date | localizedDate }}</p>
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">{{ txn.time }}</p>
+                    </td>
+                    <td class="align-top">
+                        <span
+                            class="inline-block rounded-full px-2 py-0.5 text-xs font-medium tracking-wide"
+                            [class]="txn.badgeClass"
+                            >{{ txn.label }}</span
+                        >
+                    </td>
+                    <td class="text-right align-top">
+                        @if (txn.quantity !== null) {
+                        <p class="text-sm tabular-nums">{{ txn.quantity | localizedNumber: 4 : 0 }}</p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                    <td class="text-right align-top">
+                        <p class="text-sm tabular-nums">{{ txn.price | money: txn.tradeCurrency }}</p>
+                    </td>
+                    <td class="text-right align-top">
+                        <p class="text-sm font-medium tabular-nums">{{ txn.amount | money: reportingCurrency() }}</p>
+                        @if (txn.originalAmount !== null) {
+                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">
+                            {{ txn.originalAmount | money: txn.originalCurrency }}
+                        </p>
+                        }
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    }
+</section>
+} @else {
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="py-10 text-center">
+        <p class="text-sm text-base-content/60">Holding not found for ISIN {{ isin() }}.</p>
+        <a [routerLink]="['/portfolio', portfolioId(), 'holdings']" class="btn btn-primary btn-sm mt-4"
+            >Back to holdings</a
+        >
+    </div>
+</section>
+}

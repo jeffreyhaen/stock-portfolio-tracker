@@ -202,4 +202,88 @@ describe('accountLots', () => {
         expect(result.positions.get('TEST')?.realizedPnl).toBeNull();
         expect(result.diagnostics.some((diagnostic) => diagnostic.kind === 'UNMATCHED_CORPORATE_ACTION')).toBe(true);
     });
+
+    it('records a closed lot match per consumed FIFO fragment', () => {
+        const result = accountLots([
+            transaction({ id: 'buy-1', quantity: new Decimal(5), mutation: new Decimal(-50) }),
+            transaction({
+                id: 'buy-2',
+                date: '2024-02-01',
+                quantity: new Decimal(5),
+                mutation: new Decimal(-70),
+                rowIndex: 2,
+            }),
+            transaction({
+                id: 'sell',
+                date: '2024-03-01',
+                type: T.TradeSell,
+                quantity: new Decimal(7),
+                mutation: new Decimal(105),
+                rowIndex: 3,
+            }),
+        ]);
+
+        const position = result.positions.get('TEST');
+        expect(position?.closedLots).toHaveLength(2);
+        const [first, second] = position?.closedLots ?? [];
+        expect(first.soldAt).toBe('2024-03-01');
+        expect(first.soldTransactionId).toBe('sell');
+        expect(first.quantity.toFixed()).toBe('5');
+        expect(first.acquiredAt).toBe('2024-01-01');
+        expect(first.basis.toFixed(2)).toBe('50.00');
+        expect(first.proceeds?.toFixed(2)).toBe('75.00');
+        expect(second.quantity.toFixed()).toBe('2');
+        expect(second.acquiredAt).toBe('2024-02-01');
+        expect(second.basis.toFixed(2)).toBe('28.00');
+        expect(second.proceeds?.toFixed(2)).toBe('30.00');
+        const proceedsTotal = (first.proceeds ?? new Decimal(0)).plus(second.proceeds ?? 0);
+        expect(proceedsTotal.toFixed(2)).toBe('105.00');
+        expect(position?.realizedPnl?.toFixed(2)).toBe('27.00');
+    });
+
+    it('keeps closed lot proceeds empty when sale money is missing', () => {
+        const result = accountLots([
+            transaction({ id: 'buy' }),
+            transaction({
+                id: 'sell',
+                date: '2024-03-01',
+                type: T.TradeSell,
+                mutation: null,
+                mutationCurrency: null,
+                rowIndex: 2,
+            }),
+        ]);
+
+        const [match] = result.positions.get('TEST')?.closedLots ?? [];
+        expect(match.quantity.toFixed()).toBe('1');
+        expect(match.basis.toFixed(2)).toBe('10.00');
+        expect(match.proceeds).toBeNull();
+    });
+
+    it('does not record closed lots for corporate-action transfers', () => {
+        const result = accountLots([
+            transaction({ id: 'old-buy', isin: 'OLD', date: '2023-01-01', mutation: new Decimal(-10) }),
+            transaction({
+                id: 'old-out',
+                isin: 'OLD',
+                date: '2025-01-01',
+                type: T.CorporateSell,
+                corporateAction: 'ISIN_CHANGE',
+                mutation: new Decimal(0),
+                rowIndex: 2,
+            }),
+            transaction({
+                id: 'new-in',
+                isin: 'NEW',
+                date: '2025-01-01',
+                type: T.CorporateBuy,
+                corporateAction: 'ISIN_CHANGE',
+                mutation: new Decimal(0),
+                rowIndex: 1,
+            }),
+        ]);
+
+        expect(result.positions.get('OLD')?.closedLots).toHaveLength(0);
+        expect(result.positions.get('NEW')?.closedLots).toHaveLength(0);
+    });
 });

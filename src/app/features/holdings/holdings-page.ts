@@ -95,6 +95,7 @@ export class HoldingsPage {
     }
 
     readonly reportingCurrency = computed(() => this.context.selectedPortfolio()?.reportingCurrency ?? 'EUR');
+    readonly portfolioId = computed(() => this.context.selectedPortfolioId());
 
     private readonly valuation = computed(() =>
         buildValuation(

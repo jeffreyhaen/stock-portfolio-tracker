@@ -10,11 +10,22 @@ export interface AccountingLot {
     readonly basisAssumedZero: boolean;
 }
 
+export interface ClosedLotMatch {
+    readonly soldAt: string;
+    readonly soldTransactionId: string;
+    readonly quantity: Decimal;
+    readonly acquiredAt: string;
+    readonly basis: Decimal;
+    readonly proceeds: Decimal | null;
+    readonly basisAssumedZero: boolean;
+}
+
 export interface LotAccountingPosition {
     readonly isin: string;
     readonly product: string;
     readonly currency: string;
     readonly lots: readonly AccountingLot[];
+    readonly closedLots: readonly ClosedLotMatch[];
     readonly grossInvested: Decimal;
     readonly realizedPnl: Decimal | null;
     readonly basisComplete: boolean;
@@ -54,6 +65,7 @@ interface MutablePosition {
     product: string;
     currency: string;
     lots: MutableLot[];
+    closedLots: ClosedLotMatch[];
     grossInvested: Decimal;
     realizedPnl: Decimal;
     basisComplete: boolean;
@@ -84,6 +96,7 @@ function positionFor(positions: Map<string, MutablePosition>, txn: Transaction):
             product: txn.product,
             currency: txn.mutationCurrency ?? txn.tradeCurrency ?? '',
             lots: [],
+            closedLots: [],
             grossInvested: new Decimal(0),
             realizedPnl: new Decimal(0),
             basisComplete: true,
@@ -126,6 +139,39 @@ function consumeLots(position: MutablePosition, requested: Decimal): { lots: Mut
         }
     }
     return { lots: consumed, basis };
+}
+
+function recordClosedLots(
+    position: MutablePosition,
+    txn: Transaction,
+    consumed: { lots: MutableLot[]; basis: Decimal },
+    monetary: { amount: Decimal | null; fee: Decimal | null },
+): void {
+    if (consumed.lots.length === 0) {
+        return;
+    }
+    const netProceeds = monetary.amount !== null && monetary.fee !== null ? monetary.amount.minus(monetary.fee) : null;
+    const totalQuantity = consumed.lots.reduce((sum, lot) => sum.plus(lot.quantity), new Decimal(0));
+    let allocated = new Decimal(0);
+    for (const [index, lot] of consumed.lots.entries()) {
+        let proceeds: Decimal | null = null;
+        if (netProceeds !== null && !totalQuantity.isZero()) {
+            proceeds =
+                index === consumed.lots.length - 1
+                    ? netProceeds.minus(allocated)
+                    : netProceeds.times(lot.quantity).div(totalQuantity);
+            allocated = allocated.plus(proceeds);
+        }
+        position.closedLots.push({
+            soldAt: txn.date,
+            soldTransactionId: txn.id,
+            quantity: lot.quantity,
+            acquiredAt: lot.acquiredAt,
+            basis: lot.basis,
+            proceeds,
+            basisAssumedZero: lot.basisAssumedZero,
+        });
+    }
 }
 
 export function accountLots(
@@ -351,6 +397,7 @@ export function accountLots(
         } else {
             const available = quantityOf(position);
             const consumed = consumeLots(position, txn.quantity);
+            recordClosedLots(position, txn, consumed, monetary);
             const oversold = txn.quantity.gt(available);
             if (oversold) {
                 position.realizedComplete = false;

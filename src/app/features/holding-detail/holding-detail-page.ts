@@ -57,8 +57,8 @@ interface TransactionView {
     readonly originalCurrency: string | null;
 }
 
-type LotSortKey = 'acquiredAt' | 'quantity' | 'costPerShare' | 'costBasis' | 'value' | 'pnl' | 'holdingDays';
-type ClosedSortKey = 'soldAt' | 'quantity' | 'acquiredAt' | 'proceeds' | 'costBasis' | 'pnl';
+type LotSortKey = 'acquiredAt' | 'quantity' | 'costPerShare' | 'costBasis' | 'value' | 'pnl' | 'pnlPct' | 'holdingDays';
+type ClosedSortKey = 'soldAt' | 'quantity' | 'acquiredAt' | 'proceeds' | 'costBasis' | 'pnl' | 'pnlPct';
 type TransactionSortKey = 'date' | 'type' | 'quantity' | 'price' | 'amount';
 
 const TRANSACTION_PAGE_SIZE = 50;
@@ -86,6 +86,7 @@ export class HoldingDetailPage {
             costBasis: (lot) => lot.costBasis,
             value: (lot) => lot.value,
             pnl: (lot) => lot.pnl,
+            pnlPct: (lot) => lot.pnlPct,
             holdingDays: (lot) => lot.holdingDays,
         },
         'acquiredAt',
@@ -100,6 +101,7 @@ export class HoldingDetailPage {
             proceeds: (match) => match.proceeds,
             costBasis: (match) => match.costBasis,
             pnl: (match) => match.pnl,
+            pnlPct: (match) => match.pnlPct,
         },
         'soldAt',
         'desc',

@@ -141,6 +141,9 @@
                         <app-sort-th [sort]="lotSort" sortKey="pnl">Unrealized P&amp;L</app-sort-th>
                     </th>
                     <th class="text-right">
+                        <app-sort-th [sort]="lotSort" sortKey="pnlPct">P&amp;L %</app-sort-th>
+                    </th>
+                    <th class="text-right">
                         <app-sort-th [sort]="lotSort" sortKey="holdingDays">Holding period</app-sort-th>
                     </th>
                 </tr>
@@ -161,8 +164,7 @@
                             [class.text-error]="lot.pnl.isNegative()"
                         >
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                                {{ lot.pnl | money: reportingCurrency() }} @if (lot.pnlPct !== null) { ({{ lot.pnlPct |
-                                localizedNumber: 2 }}%) } @if (lot.basisAssumedZero) {
+                                {{ lot.pnl | money: reportingCurrency() }} @if (lot.basisAssumedZero) {
                                 <app-info-tooltip
                                     text="Broker calculation assumes zero recorded spin-off basis; economic cost basis is unavailable."
                                     tone="warning"
@@ -170,6 +172,19 @@
                                 />
                                 }
                             </span>
+                        </p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                    <td class="text-right">
+                        @if (lot.pnlPct !== null) {
+                        <p
+                            class="text-sm font-medium tabular-nums"
+                            [class.text-success]="!lot.pnlPct.isNegative() && !lot.pnlPct.isZero()"
+                            [class.text-error]="lot.pnlPct.isNegative()"
+                        >
+                            {{ lot.pnlPct | localizedNumber: 2 }}%
                         </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
@@ -220,6 +235,9 @@
                     <th class="text-right">
                         <app-sort-th [sort]="closedSort" sortKey="pnl">Realized P&amp;L</app-sort-th>
                     </th>
+                    <th class="text-right">
+                        <app-sort-th [sort]="closedSort" sortKey="pnlPct">P&amp;L %</app-sort-th>
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -238,8 +256,7 @@
                             [class.text-error]="match.pnl.isNegative()"
                         >
                             <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                                {{ match.pnl | money: reportingCurrency() }} @if (match.pnlPct !== null) { ({{
-                                match.pnlPct | localizedNumber: 2 }}%) } @if (match.basisAssumedZero) {
+                                {{ match.pnl | money: reportingCurrency() }} @if (match.basisAssumedZero) {
                                 <app-info-tooltip
                                     text="Broker calculation assumes zero recorded spin-off basis; economic cost basis is unavailable."
                                     tone="warning"
@@ -247,6 +264,19 @@
                                 />
                                 }
                             </span>
+                        </p>
+                        } @else {
+                        <p class="text-sm text-base-content/60">–</p>
+                        }
+                    </td>
+                    <td class="text-right">
+                        @if (match.pnlPct !== null) {
+                        <p
+                            class="text-sm font-medium tabular-nums"
+                            [class.text-success]="!match.pnlPct.isNegative() && !match.pnlPct.isZero()"
+                            [class.text-error]="match.pnlPct.isNegative()"
+                        >
+                            {{ match.pnlPct | localizedNumber: 2 }}%
                         </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>

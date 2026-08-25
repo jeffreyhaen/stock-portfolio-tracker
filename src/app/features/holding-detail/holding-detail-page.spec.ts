@@ -97,6 +97,12 @@ describe('HoldingDetailPage', () => {
         page.lotSort.toggle('quantity');
         expect(page.lots().map((lot) => lot.quantity.toFixed(0))).toEqual(['3', '1']);
 
+        page.lotSort.toggle('pnlPct');
+        const byPct = page.lots().map((lot) => lot.pnlPct?.toFixed(2));
+        expect(byPct).toEqual([...byPct].sort());
+        page.lotSort.toggle('pnlPct');
+        expect(page.lots().map((lot) => lot.pnlPct?.toFixed(2))).toEqual([...byPct].reverse());
+
         expect(page.closedLots()).toHaveLength(0);
         const header = page.header();
         expect(header?.realizedPnl?.toFixed(2)).toBe('0.00');

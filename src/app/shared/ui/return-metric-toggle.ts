@@ -4,22 +4,23 @@ import { ReturnMetric, ReturnMetricService } from '../return-metric.service';
 @Component({
     selector: 'app-return-metric-toggle',
     template: `
-        <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-base-content/60">Return</span>
+        <div class="inline-flex rounded-full border border-base-300 bg-base-200 p-0.5">
             <button
                 type="button"
-                class="btn btn-sm"
-                [class.btn-primary]="metric() === 'simple'"
-                [class.btn-ghost]="metric() !== 'simple'"
+                class="rounded-full px-3 py-0.5 text-xs font-medium transition-colors"
+                [class.bg-primary]="metric() === 'simple'"
+                [class.text-primary-content]="metric() === 'simple'"
+                [class.text-base-content/60]="metric() !== 'simple'"
                 (click)="select('simple')"
             >
-                Simple
+                Cumulative
             </button>
             <button
                 type="button"
-                class="btn btn-sm"
-                [class.btn-primary]="metric() === 'money-weighted'"
-                [class.btn-ghost]="metric() !== 'money-weighted'"
+                class="rounded-full px-3 py-0.5 text-xs font-medium transition-colors"
+                [class.bg-primary]="metric() === 'money-weighted'"
+                [class.text-primary-content]="metric() === 'money-weighted'"
+                [class.text-base-content/60]="metric() !== 'money-weighted'"
                 (click)="select('money-weighted')"
             >
                 Money-weighted

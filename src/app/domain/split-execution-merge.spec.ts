@@ -94,13 +94,17 @@ describe('mergeSplitExecutions', () => {
         ];
         const withFx = [
             transaction({ ...fill(1, 1, 100), fxRate: new Decimal(1.2) }),
-            transaction({ ...fill(2, 3, 100), fxRate: new Decimal(1.1) }),
+            transaction({
+                ...fill(2, 3, 200),
+                mutation: new Decimal(-600),
+                fxRate: new Decimal(1.1),
+            }),
         ];
         expect(mergeSplitExecutions(rows)).toHaveLength(3);
         expect(mergeSplitExecutions(rows)[1].type).toBe(T.FxDebit);
         const merged = mergeSplitExecutions(withFx);
         expect(merged).toHaveLength(1);
-        expect(merged[0].fxRate?.toFixed(4)).toBe('1.1250');
+        expect(merged[0].fxRate?.toFixed(4)).toBe('1.1133');
     });
 
     it('does not merge fills with mixed fx rate presence', () => {

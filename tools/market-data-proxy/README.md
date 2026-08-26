@@ -5,7 +5,8 @@ port 8787, only talks to allowlisted Yahoo hosts (no open proxy), and serves:
 
 - `GET /api/search?q=...` → ticker suggestions `[{ symbol, name, exchange }]`
 - `GET /api/quote?symbols=A,B` → latest quotes `{ symbol: { price, currency, time } }`
-- `GET /api/history?symbol=X&from=YYYY-MM-DD&to=YYYY-MM-DD` → daily prices `[{ date, close }]`
+- `GET /api/history?symbol=X&from=YYYY-MM-DD&to=YYYY-MM-DD` → `{ currency, bars: [{ date, close }], splits: [{ date, factor }] }`
+- `GET /api/health` → `{ ok: true }`
 
 Start:
 
@@ -14,7 +15,7 @@ node tools/market-data-proxy/server.js
 # or: npm run market-data-proxy
 ```
 
-In-memory cache: quotes 15 minutes, history persistent (daily prices don't change).
+In-memory cache: quotes and search results 15 minutes; history stays cached for the lifetime of the process.
 
 This proxy uses unofficial Yahoo Finance endpoints. Do not deploy or expose it
 as a public or commercial service without confirming the applicable provider

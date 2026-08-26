@@ -27,12 +27,24 @@ function mergeGroup(orderId: string, rows: Transaction[]): Transaction {
     const fxRate =
         first.fxRate === null
             ? null
-            : sorted
-                  .reduce(
-                      (sum, row) => sum.plus((row.quantity as Decimal).times(row.fxRate as Decimal)),
+            : (() => {
+                  const foreignAmount = sorted.reduce(
+                      (sum, row) => sum.plus((row.mutation as Decimal).abs()),
                       new Decimal(0),
-                  )
-                  .div(quantity);
+                  );
+                  const reportingAmount = sorted.reduce(
+                      (sum, row) => sum.plus((row.mutation as Decimal).abs().div(row.fxRate as Decimal)),
+                      new Decimal(0),
+                  );
+                  return reportingAmount.isZero()
+                      ? sorted
+                            .reduce(
+                                (sum, row) => sum.plus((row.quantity as Decimal).times(row.fxRate as Decimal)),
+                                new Decimal(0),
+                            )
+                            .div(quantity)
+                      : foreignAmount.div(reportingAmount);
+              })();
     const id = `merged:${orderId}:${first.type}:${first.isin}`;
     return {
         ...first,

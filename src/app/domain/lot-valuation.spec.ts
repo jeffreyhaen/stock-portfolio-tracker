@@ -28,6 +28,40 @@ describe('buildLotViews', () => {
         expect(view.holdingDays).toBe(904);
     });
 
+    it('assigns unique keys when lots share dates', () => {
+        const lots = buildLotViews(
+            [
+                { quantity: new Decimal(1), basis: new Decimal(10), acquiredAt: '2024-01-01', basisAssumedZero: false },
+                { quantity: new Decimal(2), basis: new Decimal(20), acquiredAt: '2024-01-01', basisAssumedZero: false },
+            ],
+            null,
+            AS_OF,
+        );
+        const closedLots = buildClosedLotViews([
+            {
+                soldAt: '2024-02-01',
+                soldTransactionId: 'sell-1',
+                quantity: new Decimal(1),
+                acquiredAt: '2024-01-01',
+                basis: new Decimal(10),
+                proceeds: null,
+                basisAssumedZero: false,
+            },
+            {
+                soldAt: '2024-02-01',
+                soldTransactionId: 'sell-1',
+                quantity: new Decimal(2),
+                acquiredAt: '2024-01-01',
+                basis: new Decimal(20),
+                proceeds: null,
+                basisAssumedZero: false,
+            },
+        ]);
+
+        expect(new Set(lots.map((lot) => lot.key)).size).toBe(2);
+        expect(new Set(closedLots.map((lot) => lot.key)).size).toBe(2);
+    });
+
     it('leaves value and pnl empty when no price is available', () => {
         const [view] = buildLotViews(
             [{ quantity: new Decimal(5), basis: new Decimal(100), acquiredAt: '2026-01-01', basisAssumedZero: false }],

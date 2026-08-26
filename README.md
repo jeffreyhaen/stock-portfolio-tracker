@@ -10,7 +10,9 @@ A client-side Angular application for tracking an investment portfolio from DEGI
 
 - Import and reconcile DEGIRO transactions
     - The parser currently supports Dutch language DEGIRO exports only
-- Holdings, cash, transactions, valuation, return, and market-value history
+- Holdings, per-holding lot details, cash, transactions, valuation, return, and market-value history
+- Configurable FIFO/LIFO lot consumption with realized P&L per sale
+- Simple and money-weighted return views
 - Multiple portfolios
 - Local JSON backup and restore
 - Light and dark mode
@@ -34,7 +36,7 @@ npm start
 `npm start` opens `http://localhost:4200/` automatically in your browser by calling `ng serve -o`.
 
 A synthetic DEGIRO import file is available at [examples/demo/degiro-demo.csv](examples/demo/degiro-demo.csv). It contains fictional transactions from January 2020 through January 2026 for well-known large-cap stocks and ETFs, including staged ASML sales and repurchases that make the offline valuation trend visible. When re-importing an updated demo file, use a fresh portfolio because imports are incremental.
-The published [GitHub Pages demo](https://jeffreyhaen.github.io/stock-portfolio-tracker) at automatically loads this file into a `Demo` portfolio for new visitors. Local development and other deployments do not load demo data. Existing browser data is left untouched, and deleting the automatically created `Demo` portfolio does not cause it to return on a later visit.
+The published [GitHub Pages demo](https://jeffreyhaen.github.io/stock-portfolio-tracker) automatically loads this file into a `Demo` portfolio for new visitors. Local development and other deployments do not load demo data. Existing browser data is left untouched, and deleting the automatically created `Demo` portfolio does not cause it to return on a later visit.
 
 Start both the portfolio app and the market-data proxy together:
 

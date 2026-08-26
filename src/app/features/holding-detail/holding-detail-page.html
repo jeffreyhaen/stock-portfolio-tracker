@@ -205,7 +205,7 @@
                 </tr>
             </thead>
             <tbody>
-                @for (lot of lots(); track lot.acquiredAt) {
+                @for (lot of lots(); track lot.key) {
                 <tr class="hover">
                     <td class="text-sm tabular-nums">{{ lot.acquiredAt | localizedDate }}</td>
                     <td class="text-right text-sm tabular-nums">{{ lot.quantity | localizedNumber: 4 : 0 }}</td>
@@ -297,7 +297,7 @@
                 </tr>
             </thead>
             <tbody>
-                @for (match of closedLots(); track match.soldAt + match.acquiredAt) {
+                @for (match of closedLots(); track match.key) {
                 <tr class="hover">
                     <td class="text-sm tabular-nums">{{ match.soldAt | localizedDate }}</td>
                     <td class="text-right text-sm tabular-nums">{{ match.quantity | localizedNumber: 4 : 0 }}</td>

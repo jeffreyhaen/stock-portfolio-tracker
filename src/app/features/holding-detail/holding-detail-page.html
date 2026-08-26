@@ -16,7 +16,9 @@
     localizedDate }} }
 </p>
 
-<div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+<div class="mt-6 flex justify-end"><app-return-metric-toggle /></div>
+
+<div class="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Current price</p>
         <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.currentPrice | money: reportingCurrency() }}</p>
@@ -81,6 +83,49 @@
             </span>
         </p>
         } }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Total return</p>
+        @if (returnMetric.metric() === 'simple') { @if (simpleTotalReturnPct(); as simple) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!simple.isNegative() && !simple.isZero()"
+            [class.text-error]="simple.isNegative()"
+        >
+            {{ simple | localizedNumber: 2 }}%
+        </p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Incl. realized, on total invested</p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums text-base-content/60">–</p>
+        } } @else { @if (totalReturn(); as total) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!total.pct.isNegative() && !total.pct.isZero()"
+            [class.text-error]="total.pct.isNegative()"
+        >
+            {{ total.pct | localizedNumber: 1 }}%
+        </p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            Money-weighted, over {{ total.years | localizedNumber: 1 }} years
+        </p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums text-base-content/60">–</p>
+        } }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Return per year</p>
+        @if (returnPerYear(); as perYear) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!perYear.isNegative() && !perYear.isZero()"
+            [class.text-error]="perYear.isNegative()"
+        >
+            {{ perYear | localizedNumber: 1 }}%/year
+        </p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">Annualized, incl. realized</p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums text-base-content/60">–</p>
+        }
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
         <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Realized P&amp;L</p>

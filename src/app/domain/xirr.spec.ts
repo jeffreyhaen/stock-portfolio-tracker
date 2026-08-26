@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 import { Transaction, TransactionTypes as T } from './types';
-import { cashflowWindowDays, holdingCashflows, portfolioCashflows, xirr } from './xirr';
+import { cashflowWindowDays, holdingCashflows, moneyWeightedTotalReturn, portfolioCashflows, xirr } from './xirr';
 
 let volgNr = 0;
 
@@ -74,6 +74,49 @@ describe('xirr', () => {
         expect(xirr([{ date: '2024-01-01', amount: new Decimal(-1000) }])).toBeNull();
         expect(xirr([{ date: '2024-01-01', amount: new Decimal(1000) }])).toBeNull();
         expect(xirr([])).toBeNull();
+    });
+});
+
+describe('moneyWeightedTotalReturn', () => {
+    it('returns 100% for a single investment that doubles in a year', () => {
+        const t = moneyWeightedTotalReturn([
+            { date: '2025-01-01', amount: new Decimal(-1000) },
+            { date: '2026-01-01', amount: new Decimal(2000) },
+        ]);
+        expect(Number(t?.toFixed(4))).toBeCloseTo(1, 3);
+    });
+
+    it('handles extreme short-window gains that overflow annualized xirr', () => {
+        const t = moneyWeightedTotalReturn([
+            { date: '2026-02-14', amount: new Decimal(-1500) },
+            { date: '2026-02-15', amount: new Decimal(1800) },
+        ]);
+        expect(Number(t?.toFixed(4))).toBeCloseTo(0.2, 3);
+    });
+
+    it('raises the return for extra profit instead of diluting it like gross invested', () => {
+        const base = moneyWeightedTotalReturn([
+            { date: '2024-01-01', amount: new Decimal(-1000) },
+            { date: '2025-01-01', amount: new Decimal(1500) },
+        ]);
+        const withFlip = moneyWeightedTotalReturn([
+            { date: '2024-01-01', amount: new Decimal(-1000) },
+            { date: '2024-06-25', amount: new Decimal(-15000) },
+            { date: '2024-07-01', amount: new Decimal(16000) },
+            { date: '2025-01-01', amount: new Decimal(1500) },
+        ]);
+        expect(base?.toNumber()).toBeCloseTo(0.5, 3);
+        expect(withFlip?.toNumber()).toBeGreaterThan(base?.toNumber() ?? 0);
+    });
+
+    it('returns null for a single-day window or one-sided flows', () => {
+        expect(
+            moneyWeightedTotalReturn([
+                { date: '2026-02-14', amount: new Decimal(-100) },
+                { date: '2026-02-14', amount: new Decimal(110) },
+            ]),
+        ).toBeNull();
+        expect(moneyWeightedTotalReturn([{ date: '2024-01-01', amount: new Decimal(-1000) }])).toBeNull();
     });
 });
 

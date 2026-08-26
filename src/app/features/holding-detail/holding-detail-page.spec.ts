@@ -52,6 +52,14 @@ describe('HoldingDetailPage', () => {
         expect(header?.realizedCount).toBe(1);
         expect(header?.priceLabel).toBe('Estimated price');
 
+        const total = page.totalReturn();
+        expect(total).not.toBeNull();
+        expect(total?.pct.toNumber()).toBeGreaterThan(40);
+        expect(total?.years.toNumber()).toBeGreaterThan(0);
+        expect(page.simpleTotalReturnPct()?.toFixed(2)).toBe('50.00');
+        fixture.detectChanges();
+        expect(fixture.nativeElement.textContent).toContain('Money-weighted');
+
         const lot = page.lots()[0];
         expect(lot.acquiredAt).toBe('2026-02-12');
         expect(lot.quantity.toFixed(0)).toBe('10');

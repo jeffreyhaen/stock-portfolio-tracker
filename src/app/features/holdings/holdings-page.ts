@@ -8,8 +8,10 @@ import { holdingPeriodDays, holdingStats } from '../../domain/holdings';
 import { buildPriceResolver, PriceProvenance, ResolvedPrice } from '../../domain/price-resolution';
 import { buildValuation } from '../../domain/valuation';
 import { exchangeCode, stripYahooSuffix } from '../../domain/ticker-match';
-import { cashflowsPerIsin, cashflowWindowDays, MIN_ANNUALIZED_RETURN_DAYS, xirr } from '../../domain/xirr';
+import { cashflowsPerIsin, moneyWeightedTotalReturn } from '../../domain/xirr';
 import { MoneyPipe } from '../../shared/money.pipe';
+import { ReturnMetricService } from '../../shared/return-metric.service';
+import { ReturnMetricToggleComponent } from '../../shared/ui/return-metric-toggle';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { TableSort } from '../../shared/sort';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
@@ -32,7 +34,8 @@ interface HoldingView {
     readonly realizedPnl: Decimal | null;
     readonly realizedBasisAssumedZero: boolean;
     readonly pnlPct: Decimal | null;
-    readonly pnlPctYear: Decimal | null;
+    readonly simpleTotalReturnPct: Decimal | null;
+    readonly totalReturnPct: Decimal | null;
     readonly allocationPct: Decimal | null;
     readonly priceProvenance: PriceProvenance | null;
     readonly priceLabel: string | null;
@@ -46,12 +49,20 @@ type HoldingFilter = 'open' | 'closed' | 'all';
 
 @Component({
     selector: 'app-holdings-page',
-    imports: [RouterLink, MoneyPipe, LocalizedNumberPipe, InfoTooltipComponent, SortThComponent],
+    imports: [
+        RouterLink,
+        MoneyPipe,
+        LocalizedNumberPipe,
+        InfoTooltipComponent,
+        SortThComponent,
+        ReturnMetricToggleComponent,
+    ],
     templateUrl: './holdings-page.html',
 })
 export class HoldingsPage {
     private readonly context = inject(PortfolioContext);
     private readonly marketData = inject(MarketDataService);
+    readonly returnMetric = inject(ReturnMetricService);
 
     private readonly today = new Date().toISOString().slice(0, 10);
 
@@ -69,7 +80,7 @@ export class HoldingsPage {
         | 'pnl'
         | 'pnlTotal'
         | 'pnlPct'
-        | 'pnlYear',
+        | 'pnlTotalPct',
         HoldingView
     >(
         {
@@ -84,7 +95,7 @@ export class HoldingsPage {
             pnl: (h) => (h.open ? h.pnl : h.realizedPnl),
             pnlTotal: (h) => (h.open ? h.pnlInclRealized : h.realizedPnl),
             pnlPct: (h) => h.pnlPct,
-            pnlYear: (h) => h.pnlPctYear,
+            pnlTotalPct: (h) => (this.returnMetric.metric() === 'simple' ? h.simpleTotalReturnPct : h.totalReturnPct),
         },
         'allocation',
         'desc',
@@ -198,17 +209,24 @@ export class HoldingsPage {
                 marketDataWarningText =
                     'No quote or usable trade price is available, so this holding is excluded from totals.';
             }
-            let pnlPctYear: Decimal | null = null;
-            const flows = cashflows.get(h.isin) ?? [];
-            if (flows !== null && h.accountingComplete) {
-                const endingValue = h.open && value !== null ? [{ date: today, amount: value }] : [];
-                const all = [...flows, ...endingValue];
-                const r = xirr(all);
-                pnlPctYear = r === null || cashflowWindowDays(all) < MIN_ANNUALIZED_RETURN_DAYS ? null : r.times(100);
-            }
             let closedPct: Decimal | null = null;
             if (!h.open && h.realizedPnl !== null && h.grossInvested !== null && !h.grossInvested.isZero()) {
                 closedPct = h.realizedPnl.div(h.grossInvested).times(100);
+            }
+            let simpleTotalReturnPct: Decimal | null = null;
+            if (h.accountingComplete) {
+                const totalReturn = h.open ? pnlInclRealized : h.realizedPnl;
+                simpleTotalReturnPct =
+                    totalReturn !== null && h.grossInvested !== null && !h.grossInvested.isZero()
+                        ? totalReturn.div(h.grossInvested).times(100)
+                        : null;
+            }
+            let totalReturnPct: Decimal | null = null;
+            const flows = cashflows.get(h.isin) ?? null;
+            if (flows !== null && h.accountingComplete) {
+                const endingValue = h.open && value !== null ? [{ date: today, amount: value }] : [];
+                const total = moneyWeightedTotalReturn([...flows, ...endingValue]);
+                totalReturnPct = total === null ? null : total.times(100);
             }
             return {
                 isin: h.isin,
@@ -233,7 +251,8 @@ export class HoldingsPage {
                 realizedPnl: h.realizedPnl,
                 realizedBasisAssumedZero: h.realizedBasisAssumedZero,
                 pnlPct: h.open ? pnlPct : closedPct,
-                pnlPctYear,
+                simpleTotalReturnPct,
+                totalReturnPct,
                 allocationPct: null,
                 priceProvenance: resolvedPrice?.provenance ?? null,
                 priceLabel: h.open ? priceLabel(resolvedPrice, value) : null,

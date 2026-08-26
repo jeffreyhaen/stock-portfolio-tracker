@@ -132,6 +132,45 @@ export function portfolioCashflows(
     return flows;
 }
 
+export function moneyWeightedTotalReturn(flows: readonly Cashflow[]): Decimal | null {
+    const hasInflow = flows.some((f) => f.amount.isPositive() && !f.amount.isZero());
+    const hasOutflow = flows.some((f) => f.amount.isNegative() && !f.amount.isZero());
+    if (!hasInflow || !hasOutflow) {
+        return null;
+    }
+    const window = cashflowWindowDays(flows);
+    if (window === 0) {
+        return null;
+    }
+    const t0 = flows.reduce((min, f) => (f.date < min ? f.date : min), flows[0].date);
+    const points = flows.map((f) => ({ fraction: daysBetween(t0, f.date) / window, amount: f.amount.toNumber() }));
+    const npv = (growth: number): number => {
+        let sum = 0;
+        for (const p of points) {
+            sum += p.amount / Math.pow(1 + growth, p.fraction);
+        }
+        return sum;
+    };
+    let lo = MIN_RETURN;
+    let hi = 1e6;
+    if (npv(lo) > 0 === npv(hi) > 0) {
+        return null;
+    }
+    for (let i = 0; i < BISECTIE_ITERATIES; i++) {
+        const mid = (lo + hi) / 2;
+        const fMid = npv(mid);
+        if (fMid === 0 || hi - lo < 1e-9) {
+            break;
+        }
+        if (fMid > 0 === npv(lo) > 0) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    return new Decimal((lo + hi) / 2);
+}
+
 export const MIN_ANNUALIZED_RETURN_DAYS = 365;
 
 export function cashflowWindowDays(flows: readonly Cashflow[]): number {

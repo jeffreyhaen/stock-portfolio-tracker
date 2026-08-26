@@ -12,7 +12,7 @@
         {{ valuationStatus() }}
     </p>
     }
-    <div class="mb-4 flex gap-2">
+    <div class="mb-4 flex flex-wrap items-center gap-2">
         <button
             type="button"
             class="btn btn-sm"
@@ -40,6 +40,7 @@
         >
             All ({{ openCount() + closedCount() }})
         </button>
+        <span class="ms-auto"><app-return-metric-toggle /></span>
     </div>
     <div class="overflow-x-auto">
         <table class="table table-sm w-full">
@@ -65,7 +66,9 @@
                     </th>
                     <th class="text-right">
                         <app-sort-th [sort]="sort" sortKey="pnlPct">P&amp;L %</app-sort-th><br />
-                        <app-sort-th [sort]="sort" sortKey="pnlYear">Per year</app-sort-th>
+                        <app-sort-th [sort]="sort" sortKey="pnlTotalPct">
+                            {{ returnMetric.metric() === 'simple' ? 'Incl. realized' : 'Total return' }}
+                        </app-sort-th>
                     </th>
                 </tr>
             </thead>
@@ -258,17 +261,17 @@
                         </p>
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
-                        } @if (holding.pnlPctYear !== null) {
+                        } @if (returnMetric.metric() === 'simple' ? holding.simpleTotalReturnPct :
+                        holding.totalReturnPct; as totalPct) { @if (holding.open || returnMetric.metric() !== 'simple')
+                        {
                         <p
                             class="text-[0.8125rem] tabular-nums"
-                            [class.text-success]="!holding.pnlPctYear.isNegative() && !holding.pnlPctYear.isZero()"
-                            [class.text-error]="holding.pnlPctYear.isNegative()"
+                            [class.text-success]="!totalPct.isNegative() && !totalPct.isZero()"
+                            [class.text-error]="totalPct.isNegative()"
                         >
-                            {{ holding.pnlPctYear | localizedNumber: 1 }}%/year
+                            {{ totalPct | localizedNumber: 2 }}%
                         </p>
-                        } @else {
-                        <p class="text-[0.8125rem] tabular-nums text-base-content/60">-/year</p>
-                        }
+                        } }
                     </td>
                 </tr>
                 }

@@ -82,15 +82,12 @@ describe('HoldingsPage', () => {
         expect(amd?.pnl?.toFixed(2)).toBe('246.67');
         expect(amd?.pnlPct?.toFixed(2)).toBe('29.60');
         expect(amd?.pnlInclRealized?.toFixed(2)).toBe('330.00');
+        expect(amd?.simpleTotalReturnPct?.toFixed(2)).toBe('33.00');
+        expect(amd?.totalReturnPct).not.toBeNull();
+        expect(amd?.totalReturnPct?.toNumber()).toBeGreaterThan(29);
         expect(amd?.allocationPct?.toFixed(2)).toBe('41.86');
         expect(amd?.priceProvenance).toBe('market');
         expect(amd?.priceLabel).toBeNull();
-        const windowDays = Math.round((Date.now() - Date.parse('2026-02-12T00:00:00Z')) / 86_400_000);
-        if (windowDays < 365) {
-            expect(amd?.pnlPctYear).toBeNull();
-        } else {
-            expect(amd?.pnlPctYear).not.toBeNull();
-        }
     });
 
     it('labels an open zero-cash spin-off basis and P&L as unavailable', async () => {
@@ -113,7 +110,7 @@ describe('HoldingsPage', () => {
         expect(spinOff?.realizedPnl?.toFixed(2)).toBe('0.00');
         expect(spinOff?.realizedBasisAssumedZero).toBe(false);
         expect(spinOff?.pnl).toBeNull();
-        expect(spinOff?.pnlPctYear).toBeNull();
+        expect(spinOff?.totalReturnPct).toBeNull();
         expect(spinOff?.basisUnavailableText).toContain('Cost basis is unavailable');
         expect(spinOff?.realizedUnavailableText).toBeNull();
         fixture.detectChanges();
@@ -207,7 +204,8 @@ describe('HoldingsPage', () => {
         fixture.detectChanges();
         expect(fixture.nativeElement.querySelectorAll('app-info-tooltip')).toHaveLength(0);
         expect(closed[0].pnlPct?.toFixed(2)).toBe('20.00');
-        expect(closed[0].pnlPctYear).toBeNull();
+        expect(closed[0].simpleTotalReturnPct?.toFixed(2)).toBe('20.00');
+        expect(closed[0].totalReturnPct).not.toBeNull();
         expect(closed[0].periodDays).toBe(1);
         fixture.detectChanges();
         expect(fixture.nativeElement.textContent).toContain('1 day');

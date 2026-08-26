@@ -12,11 +12,20 @@ import { buildPriceResolver } from '../../domain/price-resolution';
 import { mergeSplitExecutions } from '../../domain/split-execution-merge';
 import { exchangeCode, stripYahooSuffix } from '../../domain/ticker-match';
 import { Transaction } from '../../domain/types';
+import {
+    cashflowWindowDays,
+    holdingCashflows,
+    MIN_ANNUALIZED_RETURN_DAYS,
+    moneyWeightedTotalReturn,
+    xirr,
+} from '../../domain/xirr';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { TableSort } from '../../shared/sort';
 import { transactionTypeBadgeClass, transactionTypeLabel } from '../../shared/transaction-type';
+import { ReturnMetricService } from '../../shared/return-metric.service';
+import { ReturnMetricToggleComponent } from '../../shared/ui/return-metric-toggle';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
 import { SortThComponent } from '../../shared/ui/sort-th';
 
@@ -65,12 +74,21 @@ const TRANSACTION_PAGE_SIZE = 50;
 
 @Component({
     selector: 'app-holding-detail-page',
-    imports: [RouterLink, MoneyPipe, LocalizedDatePipe, LocalizedNumberPipe, InfoTooltipComponent, SortThComponent],
+    imports: [
+        RouterLink,
+        MoneyPipe,
+        LocalizedDatePipe,
+        LocalizedNumberPipe,
+        InfoTooltipComponent,
+        SortThComponent,
+        ReturnMetricToggleComponent,
+    ],
     templateUrl: './holding-detail-page.html',
 })
 export class HoldingDetailPage {
     private readonly context = inject(PortfolioContext);
     private readonly marketData = inject(MarketDataService);
+    readonly returnMetric = inject(ReturnMetricService);
 
     private readonly today = new Date().toISOString().slice(0, 10);
 
@@ -242,6 +260,70 @@ export class HoldingDetailPage {
             realizedBasisAssumedZero: position.realizedBasisAssumedZero,
         };
     });
+
+    readonly returnPerYear = computed<Decimal | null>(() => this.moneyWeightedReturn()?.perYear ?? null);
+
+    readonly simpleTotalReturnPct = computed<Decimal | null>(() => {
+        const position = this.position();
+        if (position === null || !position.accountingComplete || position.grossInvested.isZero()) {
+            return null;
+        }
+        const quantity = position.lots.reduce((sum, lot) => sum.plus(lot.quantity), new Decimal(0));
+        const open = !quantity.isZero();
+        const pricePerShare = this.valuePerShare();
+        if (open && pricePerShare === null) {
+            return null;
+        }
+        const unrealized = open
+            ? quantity
+                  .times(pricePerShare ?? 0)
+                  .minus(position.lots.reduce((sum, lot) => sum.plus(lot.basis), new Decimal(0)))
+            : new Decimal(0);
+        const totalReturn = position.realizedPnl === null ? null : unrealized.plus(position.realizedPnl);
+        return totalReturn === null ? null : totalReturn.div(position.grossInvested).times(100);
+    });
+
+    readonly totalReturn = computed<{ pct: Decimal; years: Decimal } | null>(() => {
+        const result = this.moneyWeightedReturn();
+        return result === null ? null : { pct: result.total, years: result.years };
+    });
+
+    private readonly moneyWeightedReturn = computed<{ perYear: Decimal | null; total: Decimal; years: Decimal } | null>(
+        () => {
+            const position = this.position();
+            if (position === null || !position.accountingComplete) {
+                return null;
+            }
+            const currency = this.reportingCurrency();
+            const fx = this.marketData.fxResolver();
+            const importedFx = buildImportedFxResolver(this.transactions(), currency);
+            const flows = holdingCashflows(this.transactions(), this.isin(), {
+                reportingCurrency: currency,
+                fxFallback: (flowCurrency, date) => importedFx(flowCurrency, date) ?? fx(flowCurrency, date),
+            });
+            if (flows === null) {
+                return null;
+            }
+            const quantity = position.lots.reduce((sum, lot) => sum.plus(lot.quantity), new Decimal(0));
+            const open = !quantity.isZero();
+            const pricePerShare = this.valuePerShare();
+            const endingValue =
+                open && pricePerShare !== null ? [{ date: this.today, amount: quantity.times(pricePerShare) }] : [];
+            const all = [...flows, ...endingValue];
+            const r = xirr(all);
+            const total = moneyWeightedTotalReturn(all);
+            const days = cashflowWindowDays(all);
+            if (total === null || days === 0) {
+                return null;
+            }
+            const years = new Decimal(days).div(365);
+            return {
+                perYear: r === null || days < MIN_ANNUALIZED_RETURN_DAYS ? null : r.times(100),
+                total: total.times(100),
+                years,
+            };
+        },
+    );
 
     readonly holdingTransactions = computed<TransactionView[]>(() => {
         const isin = this.isin();

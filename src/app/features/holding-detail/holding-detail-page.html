@@ -31,16 +31,25 @@
         <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.quantity | localizedNumber: 4 : 0 }}</p>
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
-        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Total value</p>
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Value</p>
         <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.value | money: reportingCurrency() }}</p>
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
-        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Average cost</p>
-        @if (header.costPerShare !== null) {
-        <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.costPerShare | money: reportingCurrency() }}</p>
-        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
-            {{ header.costBasis | money: reportingCurrency() }} total
-        </p>
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Net invested</p>
+        @if (header.costBasis !== null) {
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ header.costBasis | money: reportingCurrency() }}</p>
+        <div class="mt-1 space-y-0.5 text-[0.8125rem] tabular-nums text-base-content/60">
+            <div class="flex items-baseline justify-between gap-2">
+                <span>per share</span>
+                <span class="text-base-content">{{ header.costPerShare | money: reportingCurrency() }}</span>
+            </div>
+            @if (header.breakEvenPrice !== null) {
+            <div class="flex items-baseline justify-between gap-2">
+                <span>break-even incl. realized</span>
+                <span class="text-base-content">{{ header.breakEvenPrice | money: reportingCurrency() }}</span>
+            </div>
+            }
+        </div>
         } @else {
         <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
         @if (header.basisUnavailableText !== null) {
@@ -85,7 +94,42 @@
         } }
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
-        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Total return</p>
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Realized P&amp;L</p>
+        @if (header.realizedPnl !== null) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!header.realizedPnl.isNegative() && !header.realizedPnl.isZero()"
+            [class.text-error]="header.realizedPnl.isNegative()"
+        >
+            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                {{ header.realizedPnl | money: reportingCurrency() }} @if (header.realizedBasisAssumedZero) {
+                <app-info-tooltip
+                    text="Broker calculation assumes zero recorded spin-off basis; economic cost basis is unavailable."
+                    tone="warning"
+                    placement="bottom-end"
+                />
+                } @else if (header.realizedUnavailableText !== null) {
+                <app-info-tooltip [text]="header.realizedUnavailableText" tone="warning" placement="bottom-end" /> }
+            </span>
+        </p>
+        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
+            {{ header.realizedCount | localizedNumber: 0 }} closed {{ header.realizedCount === 1 ? 'sale' : 'sales' }}
+        </p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
+        @if (header.realizedUnavailableText !== null) {
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            <span class="inline-flex items-center gap-1 whitespace-nowrap">
+                Realized unavailable
+                <app-info-tooltip [text]="header.realizedUnavailableText" tone="warning" placement="bottom-end" />
+            </span>
+        </p>
+        } }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+            {{ returnMetric.metric() === 'simple' ? 'Incl. realized' : 'Total return' }}
+        </p>
         @if (returnMetric.metric() === 'simple') { @if (simpleTotalReturnPct(); as simple) {
         <p
             class="mt-1 text-xl font-semibold tabular-nums"
@@ -127,43 +171,10 @@
         <p class="mt-1 text-xl font-semibold tabular-nums text-base-content/60">–</p>
         }
     </div>
-    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
-        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Realized P&amp;L</p>
-        @if (header.realizedPnl !== null) {
-        <p
-            class="mt-1 text-xl font-semibold tabular-nums"
-            [class.text-success]="!header.realizedPnl.isNegative() && !header.realizedPnl.isZero()"
-            [class.text-error]="header.realizedPnl.isNegative()"
-        >
-            <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                {{ header.realizedPnl | money: reportingCurrency() }} @if (header.realizedBasisAssumedZero) {
-                <app-info-tooltip
-                    text="Broker calculation assumes zero recorded spin-off basis; economic cost basis is unavailable."
-                    tone="warning"
-                    placement="bottom-end"
-                />
-                } @else if (header.realizedUnavailableText !== null) {
-                <app-info-tooltip [text]="header.realizedUnavailableText" tone="warning" placement="bottom-end" /> }
-            </span>
-        </p>
-        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
-            {{ header.realizedCount | localizedNumber: 0 }} closed {{ header.realizedCount === 1 ? 'sale' : 'sales' }}
-        </p>
-        } @else {
-        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
-        @if (header.realizedUnavailableText !== null) {
-        <p class="mt-1 text-[0.8125rem] text-base-content/60">
-            <span class="inline-flex items-center gap-1 whitespace-nowrap">
-                Realized unavailable
-                <app-info-tooltip [text]="header.realizedUnavailableText" tone="warning" placement="bottom-end" />
-            </span>
-        </p>
-        } }
-    </div>
 </div>
 
 <section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
-    <h2 class="text-lg font-semibold">Open lots (purchase history)</h2>
+    <h2 class="text-lg font-semibold">Open lots</h2>
     @if (lots().length === 0) {
     <p class="mt-4 text-sm text-base-content/60">No open lots.</p>
     } @else {
@@ -177,10 +188,10 @@
                         <app-sort-th [sort]="lotSort" sortKey="costPerShare">Average cost</app-sort-th>
                     </th>
                     <th class="text-right">
-                        <app-sort-th [sort]="lotSort" sortKey="costBasis">Total cost</app-sort-th>
+                        <app-sort-th [sort]="lotSort" sortKey="costBasis">Cost basis</app-sort-th>
                     </th>
                     <th class="text-right">
-                        <app-sort-th [sort]="lotSort" sortKey="value">Current value</app-sort-th>
+                        <app-sort-th [sort]="lotSort" sortKey="value">Value</app-sort-th>
                     </th>
                     <th class="text-right">
                         <app-sort-th [sort]="lotSort" sortKey="pnl">Unrealized P&amp;L</app-sort-th>
@@ -253,7 +264,7 @@
 @if (closedLots().length > 0) {
 <section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
     <div class="flex items-center gap-1">
-        <h2 class="text-lg font-semibold">Realized per sale</h2>
+        <h2 class="text-lg font-semibold">Closed lots</h2>
         @if (header.realizedUnavailableText !== null) {
         <app-info-tooltip [text]="header.realizedUnavailableText" tone="warning" />
         }

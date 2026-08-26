@@ -79,8 +79,8 @@ describe('HoldingDetailPage', () => {
         expect(page.holdingTransactions()).toHaveLength(2);
         expect(page.holdingTransactions().map((txn) => txn.label)).toEqual(['Sell', 'Buy']);
         fixture.detectChanges();
-        expect(fixture.nativeElement.textContent).toContain('Open lots (purchase history)');
-        expect(fixture.nativeElement.textContent).toContain('Realized per sale');
+        expect(fixture.nativeElement.textContent).toContain('Open lots');
+        expect(fixture.nativeElement.textContent).toContain('Closed lots');
     });
 
     it('sorts open lots newest first by default and toggles per column', async () => {
@@ -116,7 +116,7 @@ describe('HoldingDetailPage', () => {
         expect(header?.realizedPnl?.toFixed(2)).toBe('0.00');
         expect(header?.realizedCount).toBe(0);
         fixture.detectChanges();
-        expect(fixture.nativeElement.textContent).not.toContain('Realized per sale');
+        expect(fixture.nativeElement.textContent).not.toContain('Closed lots');
     });
 
     it('shows a not-found state for an unknown isin', async () => {

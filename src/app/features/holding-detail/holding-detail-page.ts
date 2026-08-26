@@ -38,6 +38,7 @@ interface HeaderView {
     readonly currentPrice: Decimal | null;
     readonly costBasis: Decimal | null;
     readonly costPerShare: Decimal | null;
+    readonly breakEvenPrice: Decimal | null;
     readonly value: Decimal | null;
     readonly unrealizedPnl: Decimal | null;
     readonly unrealizedPnlPct: Decimal | null;
@@ -232,6 +233,14 @@ export class HoldingDetailPage {
             currentPrice: valuePerShare,
             costBasis,
             costPerShare: costBasis !== null && !quantity.isZero() ? costBasis.div(quantity) : null,
+            breakEvenPrice:
+                costBasis !== null &&
+                !quantity.isZero() &&
+                position.realizedComplete &&
+                position.realizedPnl !== null &&
+                !position.realizedPnl.isZero()
+                    ? Decimal.max(costBasis.minus(position.realizedPnl), 0).div(quantity)
+                    : null,
             value,
             unrealizedPnl,
             unrealizedPnlPct,

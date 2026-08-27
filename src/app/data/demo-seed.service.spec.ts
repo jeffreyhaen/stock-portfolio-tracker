@@ -51,7 +51,7 @@ describe('DemoSeedService', () => {
         const portfolios = await db.portfolios.toArray();
         expect(portfolios).toHaveLength(1);
         expect(portfolios[0].name).toBe('Demo');
-        expect(portfolios[0].lotStrategy).toBe('fifo');
+        expect(portfolios[0].lotStrategy).toBe('lifo');
         expect(await db.transactions.count()).toBe(4);
         expect(await db.importBatches.count()).toBe(1);
         expect(await db.settings.get('demoSeedVersion')).toEqual({ key: 'demoSeedVersion', value: '1' });

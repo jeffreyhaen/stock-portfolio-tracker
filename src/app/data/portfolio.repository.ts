@@ -17,7 +17,7 @@ export class PortfolioRepository {
             id: crypto.randomUUID(),
             name,
             reportingCurrency,
-            lotStrategy: 'fifo',
+            lotStrategy: 'lifo',
             createdAt: new Date().toISOString(),
         };
         await this.db.portfolios.add(portfolio);

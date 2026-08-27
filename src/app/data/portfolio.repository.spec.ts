@@ -33,11 +33,11 @@ describe('PortfolioRepository', () => {
         });
     });
 
-    it('creates portfolios with FIFO lot consumption', async () => {
+    it('creates portfolios with LIFO lot consumption', async () => {
         const portfolio = await repository.create('Created', 'USD');
 
-        expect(portfolio.lotStrategy).toBe('fifo');
-        expect((await db.portfolios.get(portfolio.id))?.lotStrategy).toBe('fifo');
+        expect(portfolio.lotStrategy).toBe('lifo');
+        expect((await db.portfolios.get(portfolio.id))?.lotStrategy).toBe('lifo');
     });
 
     it('renames only the selected portfolio', async () => {

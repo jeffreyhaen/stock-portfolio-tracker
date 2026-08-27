@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { DayBarDto, HistoryResult, MarketDataProvider, QuoteResult, TickerSuggestion } from './market-data-provider';
 
 const DEFAULT_BASE_URL = 'http://localhost:8787';
+const MAX_QUOTES_PER_REQUEST = 50;
 
 interface ProxyQuote {
     price?: number;
@@ -40,20 +41,23 @@ export class YahooMarketDataProvider extends MarketDataProvider {
         if (symbols.length === 0) {
             return {};
         }
-        const data = await this.getJson<Record<string, ProxyQuote>>(
-            `/api/quote?symbols=${symbols.map(encodeURIComponent).join(',')}`,
-        );
         const result: Record<string, QuoteResult | { error: string }> = {};
-        for (const symbol of symbols) {
-            const entry = data[symbol.toUpperCase()];
-            if (entry === undefined || entry.error !== undefined || entry.price === undefined) {
-                result[symbol] = { error: entry?.error ?? `No quote for ${symbol}` };
-            } else {
-                result[symbol] = {
-                    price: String(entry.price),
-                    currency: entry.currency ?? 'EUR',
-                    date: entry.time ?? '',
-                };
+        for (let offset = 0; offset < symbols.length; offset += MAX_QUOTES_PER_REQUEST) {
+            const batch = symbols.slice(offset, offset + MAX_QUOTES_PER_REQUEST);
+            const data = await this.getJson<Record<string, ProxyQuote>>(
+                `/api/quote?symbols=${batch.map(encodeURIComponent).join(',')}`,
+            );
+            for (const symbol of batch) {
+                const entry = data[symbol.toUpperCase()];
+                if (entry === undefined || entry.error !== undefined || entry.price === undefined) {
+                    result[symbol] = { error: entry?.error ?? `No quote for ${symbol}` };
+                } else {
+                    result[symbol] = {
+                        price: String(entry.price),
+                        currency: entry.currency ?? 'EUR',
+                        date: entry.time ?? '',
+                    };
+                }
             }
         }
         return result;

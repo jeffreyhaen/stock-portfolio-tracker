@@ -67,7 +67,7 @@ describe('PortfoliosPage', () => {
         await page.createPortfolio();
         await waitFor(() => page.portfolios().length === 1);
         expect(page.selectedPortfolioId()).toBe(page.portfolios()[0].id);
-        expect(page.portfolios()[0].lotStrategy).toBe('fifo');
+        expect(page.portfolios()[0].lotStrategy).toBe('lifo');
 
         await page.importCsvText('Account.csv', MINI_CSV);
         await waitFor(() => page.autoLinkResult() !== null);

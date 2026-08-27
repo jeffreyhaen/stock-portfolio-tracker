@@ -195,6 +195,9 @@
                     <th><app-sort-th [sort]="lotSort" sortKey="acquiredAt">Acquired</app-sort-th></th>
                     <th class="text-right"><app-sort-th [sort]="lotSort" sortKey="quantity">Quantity</app-sort-th></th>
                     <th class="text-right">
+                        <app-sort-th [sort]="lotSort" sortKey="holdingDays">Holding period</app-sort-th>
+                    </th>
+                    <th class="text-right">
                         <app-sort-th [sort]="lotSort" sortKey="costPerShare">Average cost</app-sort-th>
                     </th>
                     <th class="text-right">
@@ -209,9 +212,6 @@
                     <th class="text-right">
                         <app-sort-th [sort]="lotSort" sortKey="pnlPct">P&amp;L %</app-sort-th>
                     </th>
-                    <th class="text-right">
-                        <app-sort-th [sort]="lotSort" sortKey="holdingDays">Holding period</app-sort-th>
-                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -219,6 +219,9 @@
                 <tr class="hover">
                     <td class="text-sm tabular-nums">{{ lot.acquiredAt | localizedDate }}</td>
                     <td class="text-right text-sm tabular-nums">{{ lot.quantity | localizedNumber: 4 : 0 }}</td>
+                    <td class="text-right text-sm tabular-nums text-base-content/60">
+                        {{ lot.holdingDays | localizedNumber: 0 }} days
+                    </td>
                     <td class="text-right text-sm tabular-nums">{{ lot.costPerShare | money: reportingCurrency() }}</td>
                     <td class="text-right text-sm tabular-nums">{{ lot.costBasis | money: reportingCurrency() }}</td>
                     <td class="text-right text-sm tabular-nums">{{ lot.value | money: reportingCurrency() }}</td>
@@ -255,9 +258,6 @@
                         } @else {
                         <p class="text-sm text-base-content/60">–</p>
                         }
-                    </td>
-                    <td class="text-right text-sm tabular-nums text-base-content/60">
-                        {{ lot.holdingDays | localizedNumber: 0 }} days
                     </td>
                 </tr>
                 }

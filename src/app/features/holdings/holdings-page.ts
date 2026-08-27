@@ -216,9 +216,10 @@ export class HoldingsPage {
             let simpleTotalReturnPct: Decimal | null = null;
             if (h.accountingComplete) {
                 const totalReturn = h.open ? pnlInclRealized : h.realizedPnl;
+                const denominator = h.open ? h.netInvested : h.grossInvested;
                 simpleTotalReturnPct =
-                    totalReturn !== null && h.grossInvested !== null && !h.grossInvested.isZero()
-                        ? totalReturn.div(h.grossInvested).times(100)
+                    totalReturn !== null && denominator !== null && !denominator.isZero()
+                        ? totalReturn.div(denominator).times(100)
                         : null;
             }
             let totalReturnPct: Decimal | null = null;

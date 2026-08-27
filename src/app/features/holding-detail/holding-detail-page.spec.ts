@@ -56,8 +56,11 @@ describe('HoldingDetailPage', () => {
         expect(total).not.toBeNull();
         expect(total?.pct.toNumber()).toBeGreaterThan(40);
         expect(total?.years.toNumber()).toBeGreaterThan(0);
-        expect(page.simpleTotalReturnPct()?.toFixed(2)).toBe('50.00');
+        expect(page.netInvestedReturnPct()?.toFixed(2)).toBe('60.00');
+        expect(page.grossInvestedReturnPct()?.toFixed(2)).toBe('50.00');
+        expect(page.moneyWeightedTotalReturnPct()).not.toBeNull();
         fixture.detectChanges();
+        expect(fixture.nativeElement.textContent).toContain('Gross invested');
         expect(fixture.nativeElement.textContent).toContain('Money-weighted');
 
         const lot = page.lots()[0];

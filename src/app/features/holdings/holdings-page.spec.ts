@@ -82,7 +82,7 @@ describe('HoldingsPage', () => {
         expect(amd?.pnl?.toFixed(2)).toBe('246.67');
         expect(amd?.pnlPct?.toFixed(2)).toBe('29.60');
         expect(amd?.pnlInclRealized?.toFixed(2)).toBe('330.00');
-        expect(amd?.simpleTotalReturnPct?.toFixed(2)).toBe('33.00');
+        expect(amd?.simpleTotalReturnPct?.toFixed(2)).toBe('39.60');
         expect(amd?.totalReturnPct).not.toBeNull();
         expect(amd?.totalReturnPct?.toNumber()).toBeGreaterThan(29);
         expect(amd?.allocationPct?.toFixed(2)).toBe('41.86');

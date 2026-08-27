@@ -24,8 +24,6 @@ import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { LocalizedNumberPipe } from '../../shared/localized-number.pipe';
 import { TableSort } from '../../shared/sort';
 import { transactionTypeBadgeClass, transactionTypeLabel } from '../../shared/transaction-type';
-import { ReturnMetricService } from '../../shared/return-metric.service';
-import { ReturnMetricToggleComponent } from '../../shared/ui/return-metric-toggle';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
 import { SortThComponent } from '../../shared/ui/sort-th';
 
@@ -75,22 +73,12 @@ const TRANSACTION_PAGE_SIZE = 50;
 
 @Component({
     selector: 'app-holding-detail-page',
-    imports: [
-        RouterLink,
-        MoneyPipe,
-        LocalizedDatePipe,
-        LocalizedNumberPipe,
-        InfoTooltipComponent,
-        SortThComponent,
-        ReturnMetricToggleComponent,
-    ],
+    imports: [RouterLink, MoneyPipe, LocalizedDatePipe, LocalizedNumberPipe, InfoTooltipComponent, SortThComponent],
     templateUrl: './holding-detail-page.html',
 })
 export class HoldingDetailPage {
     private readonly context = inject(PortfolioContext);
     private readonly marketData = inject(MarketDataService);
-    readonly returnMetric = inject(ReturnMetricService);
-
     private readonly today = new Date().toISOString().slice(0, 10);
 
     readonly isin = toSignal(inject(ActivatedRoute).paramMap.pipe(map((params) => params.get('isin') ?? '')), {
@@ -272,9 +260,9 @@ export class HoldingDetailPage {
 
     readonly returnPerYear = computed<Decimal | null>(() => this.moneyWeightedReturn()?.perYear ?? null);
 
-    readonly simpleTotalReturnPct = computed<Decimal | null>(() => {
+    private readonly totalProfit = computed<Decimal | null>(() => {
         const position = this.position();
-        if (position === null || !position.accountingComplete || position.grossInvested.isZero()) {
+        if (position === null || !position.accountingComplete || position.realizedPnl === null) {
             return null;
         }
         const quantity = position.lots.reduce((sum, lot) => sum.plus(lot.quantity), new Decimal(0));
@@ -288,14 +276,38 @@ export class HoldingDetailPage {
                   .times(pricePerShare ?? 0)
                   .minus(position.lots.reduce((sum, lot) => sum.plus(lot.basis), new Decimal(0)))
             : new Decimal(0);
-        const totalReturn = position.realizedPnl === null ? null : unrealized.plus(position.realizedPnl);
-        return totalReturn === null ? null : totalReturn.div(position.grossInvested).times(100);
+        return unrealized.plus(position.realizedPnl);
+    });
+
+    readonly netInvestedReturnPct = computed<Decimal | null>(() => {
+        const position = this.position();
+        const totalProfit = this.totalProfit();
+        if (position === null || totalProfit === null) {
+            return null;
+        }
+        const quantity = position.lots.reduce((sum, lot) => sum.plus(lot.quantity), new Decimal(0));
+        const netInvested = position.lots.reduce((sum, lot) => sum.plus(lot.basis), new Decimal(0));
+        if (quantity.isZero() || netInvested.isZero()) {
+            return null;
+        }
+        return totalProfit.div(netInvested).times(100);
+    });
+
+    readonly grossInvestedReturnPct = computed<Decimal | null>(() => {
+        const position = this.position();
+        const totalProfit = this.totalProfit();
+        if (position === null || totalProfit === null || position.grossInvested.isZero()) {
+            return null;
+        }
+        return totalProfit.div(position.grossInvested).times(100);
     });
 
     readonly totalReturn = computed<{ pct: Decimal; years: Decimal } | null>(() => {
         const result = this.moneyWeightedReturn();
         return result === null ? null : { pct: result.total, years: result.years };
     });
+
+    readonly moneyWeightedTotalReturnPct = computed<Decimal | null>(() => this.moneyWeightedReturn()?.total ?? null);
 
     private readonly moneyWeightedReturn = computed<{ perYear: Decimal | null; total: Decimal; years: Decimal } | null>(
         () => {

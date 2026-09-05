@@ -1,6 +1,6 @@
 # StockPortfolioApp
 
-A client-side Angular application for tracking an investment portfolio from DEGIRO CSV exports.
+A privacy-first, local client-side Angular application for tracking an investment portfolio from DEGIRO CSV exports.
 
 <p align="center">
   <img src="public/github-header.jpg" alt="StockPortfolioApp header">

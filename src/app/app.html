@@ -13,6 +13,12 @@
             >Dashboard</a
         >
         <a
+            [routerLink]="['/portfolio', portfolioId(), 'forecast']"
+            routerLinkActive="bg-primary-soft text-primary"
+            class="rounded-field px-3 py-1.5 text-sm text-text-secondary hover:bg-base-200"
+            >Forecast</a
+        >
+        <a
             [routerLink]="['/portfolio', portfolioId(), 'holdings']"
             routerLinkActive="bg-primary-soft text-primary"
             class="rounded-field px-3 py-1.5 text-sm text-text-secondary hover:bg-base-200"

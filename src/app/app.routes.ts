@@ -6,6 +6,10 @@ const portfolioRoutes: Routes = [
         loadComponent: () => import('./features/dashboard/dashboard-page').then((m) => m.DashboardPage),
     },
     {
+        path: 'forecast',
+        loadComponent: () => import('./features/forecast/forecast-page').then((m) => m.ForecastPage),
+    },
+    {
         path: 'holdings',
         loadComponent: () => import('./features/holdings/holdings-page').then((m) => m.HoldingsPage),
     },
@@ -30,6 +34,7 @@ const portfolioRoutes: Routes = [
 
 const portfolioRedirectRoutes: Routes = [
     { path: 'dashboard', data: { target: 'dashboard' } },
+    { path: 'forecast', data: { target: 'forecast' } },
     { path: 'holdings', data: { target: 'holdings' } },
     { path: 'cash', data: { target: 'cash' } },
     { path: 'transactions', data: { target: 'transactions' } },

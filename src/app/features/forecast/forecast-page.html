@@ -1,0 +1,177 @@
+<h1 class="text-3xl font-bold">Forecast</h1>
+<p class="mt-1 text-sm text-base-content/60">
+    Project your portfolio's future value with monthly compounding and compare it with a benchmark scenario.
+</p>
+
+@if (isEmpty()) {
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="py-10 text-center">
+        <p class="text-sm text-base-content/60">No data yet.</p>
+        <a routerLink="/portfolios" class="btn btn-primary btn-sm mt-4">Import your first CSV</a>
+    </div>
+</section>
+} @else {
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+            <div class="flex items-center gap-1">
+                <label for="forecast-years" class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Horizon (years)</label
+                >
+                <app-info-tooltip [text]="horizonTooltip()" />
+            </div>
+            <input
+                id="forecast-years"
+                type="number"
+                class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                min="1"
+                [max]="maxYears"
+                step="1"
+                [value]="yearsDraft()"
+                (input)="yearsDraft.set($any($event.target).value)"
+            />
+        </div>
+        <div>
+            <div class="flex items-center gap-1">
+                <label for="forecast-return" class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Annual return (%)</label
+                >
+                <app-info-tooltip [text]="returnTooltip()" />
+            </div>
+            <input
+                id="forecast-return"
+                type="number"
+                class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                min="-99"
+                max="99"
+                step="0.1"
+                placeholder="e.g. 7"
+                [value]="returnDraft()"
+                (input)="returnDraft.set($any($event.target).value)"
+            />
+        </div>
+        <div>
+            <div class="flex items-center gap-1">
+                <label for="forecast-monthly" class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Monthly contribution</label
+                >
+                <app-info-tooltip [text]="contributionTooltip()" />
+            </div>
+            <input
+                id="forecast-monthly"
+                type="number"
+                class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                min="0"
+                step="50"
+                [value]="monthlyDraft()"
+                (input)="monthlyDraft.set($any($event.target).value)"
+            />
+        </div>
+        <div>
+            <div class="flex items-center gap-1">
+                <label
+                    for="forecast-benchmark-return"
+                    class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >{{ benchmark.symbol() === null ? 'Benchmark return (%)' : 'Benchmark return (%) · ' +
+                    benchmark.symbol() }}</label
+                >
+                <app-info-tooltip [text]="benchmarkReturnTooltip()" />
+            </div>
+            <input
+                id="forecast-benchmark-return"
+                type="number"
+                class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                min="-99"
+                max="99"
+                step="0.1"
+                placeholder="e.g. 6"
+                [value]="benchReturnDraft()"
+                (input)="benchReturnDraft.set($any($event.target).value)"
+            />
+        </div>
+    </div>
+
+    @if (valuationIncomplete()) {
+    <p class="mt-3 inline-flex rounded-full bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning-darken">
+        Partial value: some prices or FX rates are missing — the projection starts from the latest available value.
+    </p>
+    } @if (forecastInputs().error !== null) {
+    <p class="mt-3 text-[0.8125rem] text-error">{{ forecastInputs().error }}</p>
+    } @if (chartSeries().length > 0) {
+    <div class="mt-4">
+        <app-value-chart [series]="chartSeries()" />
+        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/70">
+            @for (series of chartSeries(); track series.name) {
+            <span class="inline-flex items-center gap-1.5">
+                @if (series.dashed) {
+                <span class="inline-block w-4" [style.border-top]='"2px dashed " + series.color'></span>
+                } @else {
+                <span class="inline-block h-0.5 w-4 rounded-full" [style.background-color]="series.color"></span>
+                } {{ series.name }}
+            </span>
+            } @if (startPoint() !== null) {
+            <span class="text-base-content/50">
+                Actual until {{ startPoint()?.date | localizedDate }}, forecast after that
+            </span>
+            }
+        </div>
+    </div>
+    } @else if (forecastInputs().error === null) {
+    <p class="mt-4 text-sm text-base-content/60">Enter a horizon and an expected return to project your value.</p>
+    }
+</section>
+
+<div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Current value</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ cards().currentValue | money: reportingCurrency() }}</p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Projected value</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ cards().projectedValue | money: reportingCurrency() }}</p>
+        @if (cards().totalContributions !== null) {
+        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
+            of which {{ cards().totalContributions | money: reportingCurrency() }} contributed
+        </p>
+        }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+            {{ benchmark.symbol() === null ? 'Benchmark scenario' : benchmark.symbol() + ' scenario' }}
+        </p>
+        @if (benchmark.symbol() !== null) {
+        <p class="mt-1 text-xl font-semibold tabular-nums">{{ cards().benchmarkValue | money: reportingCurrency() }}</p>
+        } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
+        <a
+            [routerLink]="['/portfolio', portfolioId(), 'dashboard']"
+            class="text-[0.8125rem] text-primary hover:underline"
+            >Set a benchmark on the Dashboard</a
+        >
+        }
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Portfolio vs benchmark</p>
+        @if (cards().benchmarkDelta !== null) {
+        <p
+            class="mt-1 text-xl font-semibold tabular-nums"
+            [class.text-success]="!cards()?.benchmarkDelta?.isNegative() && !cards()?.benchmarkDelta?.isZero()"
+            [class.text-error]="cards()?.benchmarkDelta?.isNegative()"
+        >
+            {{ cards()?.benchmarkDelta?.isNegative() ? '−' : '+' }}{{ cards()?.benchmarkDelta?.abs() | money:
+            reportingCurrency() }}
+        </p>
+        @if (portfolioForecast() !== null) {
+        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
+            investment gain {{ portfolioForecast()?.investmentGain | money: reportingCurrency() }}
+        </p>
+        } } @else {
+        <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
+        }
+    </div>
+</div>
+
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <p class="text-[0.8125rem] text-base-content/60">{{ disclaimer() }}</p>
+</section>
+}

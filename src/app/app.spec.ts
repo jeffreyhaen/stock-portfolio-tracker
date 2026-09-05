@@ -87,6 +87,7 @@ describe('App', () => {
         expect(nav.textContent).toContain('Dashboard');
         expect(nav.textContent).toContain('Holdings');
         expect(nav.textContent).toContain('Transactions');
+        expect(nav.textContent).toContain('Projection');
         expect(nav.textContent).toContain('Prices');
         expect(nav.textContent).toContain('Portfolios');
         expect(nav.textContent).toContain('DEGIRO');

@@ -19,12 +19,6 @@
             >Forecast</a
         >
         <a
-            [routerLink]="['/portfolio', portfolioId(), 'projection']"
-            routerLinkActive="bg-primary-soft text-primary"
-            class="rounded-field px-3 py-1.5 text-sm text-text-secondary hover:bg-base-200"
-            >Projection</a
-        >
-        <a
             [routerLink]="['/portfolio', portfolioId(), 'holdings']"
             routerLinkActive="bg-primary-soft text-primary"
             class="rounded-field px-3 py-1.5 text-sm text-text-secondary hover:bg-base-200"
@@ -42,13 +36,19 @@
             class="rounded-field px-3 py-1.5 text-sm text-text-secondary hover:bg-base-200"
             >Transactions</a
         >
+        }
         <a
-            [routerLink]="['/portfolio', portfolioId(), 'prices']"
+            routerLink="/projection"
+            routerLinkActive="bg-primary-soft text-primary"
+            class="rounded-field px-3 py-1.5 text-sm text-text-secondary hover:bg-base-200"
+            >Projection</a
+        >
+        <a
+            routerLink="/prices"
             routerLinkActive="bg-primary-soft text-primary"
             class="rounded-field px-3 py-1.5 text-sm text-text-secondary hover:bg-base-200"
             >Prices</a
         >
-        }
         <a
             routerLink="/portfolios"
             routerLinkActive="bg-primary-soft text-primary"

@@ -10,10 +10,6 @@ const portfolioRoutes: Routes = [
         loadComponent: () => import('./features/forecast/forecast-page').then((m) => m.ForecastPage),
     },
     {
-        path: 'projection',
-        loadComponent: () => import('./features/projection/projection-page').then((m) => m.ProjectionPage),
-    },
-    {
         path: 'holdings',
         loadComponent: () => import('./features/holdings/holdings-page').then((m) => m.HoldingsPage),
     },
@@ -29,21 +25,17 @@ const portfolioRoutes: Routes = [
         path: 'transactions',
         loadComponent: () => import('./features/transactions/transactions-page').then((m) => m.TransactionsPage),
     },
-    {
-        path: 'prices',
-        loadComponent: () => import('./features/prices/prices-page').then((m) => m.PricesPage),
-    },
+    { path: 'projection', redirectTo: '/projection' },
+    { path: 'prices', redirectTo: '/prices' },
     { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 ];
 
 const portfolioRedirectRoutes: Routes = [
     { path: 'dashboard', data: { target: 'dashboard' } },
     { path: 'forecast', data: { target: 'forecast' } },
-    { path: 'projection', data: { target: 'projection' } },
     { path: 'holdings', data: { target: 'holdings' } },
     { path: 'cash', data: { target: 'cash' } },
     { path: 'transactions', data: { target: 'transactions' } },
-    { path: 'prices', data: { target: 'prices' } },
 ].map((route) => ({
     ...route,
     loadComponent: () => import('./features/portfolio/portfolio-redirect').then((m) => m.PortfolioRedirectComponent),
@@ -53,6 +45,14 @@ export const routes: Routes = [
     {
         path: 'portfolios',
         loadComponent: () => import('./features/portfolios/portfolios-page').then((m) => m.PortfoliosPage),
+    },
+    {
+        path: 'projection',
+        loadComponent: () => import('./features/projection/projection-page').then((m) => m.ProjectionPage),
+    },
+    {
+        path: 'prices',
+        loadComponent: () => import('./features/prices/prices-page').then((m) => m.PricesPage),
     },
     { path: 'import', pathMatch: 'full', redirectTo: 'portfolios' },
     {

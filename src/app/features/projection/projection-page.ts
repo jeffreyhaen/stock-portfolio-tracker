@@ -1,8 +1,8 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import Decimal from 'decimal.js';
 import { FundamentalsResult, QuoteResult, TickerSuggestion } from '../../data/market-data-provider';
-import { ProjectionService } from '../../data/projection.service';
-import { StoredProjectionSnapshot } from '../../data/stored-types';
+import { ProjectionOverviewRow, ProjectionService } from '../../data/projection.service';
+import { StoredProjectionModel, StoredProjectionSnapshot } from '../../data/stored-types';
 import {
     buildProjection,
     ProjectionModel,
@@ -67,11 +67,13 @@ export class ProjectionPage {
     readonly newScenarioName = signal('');
     readonly snapshots = signal<StoredProjectionSnapshot[]>([]);
     readonly viewingSnapshot = signal<StoredProjectionSnapshot | null>(null);
+    readonly overview = signal<ProjectionOverviewRow[]>([]);
     readonly saved = signal(false);
 
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
+        void this.refreshOverview();
         effect(() => {
             const drafts = this.drafts();
             if (drafts === null || this.symbol() === null) {
@@ -328,6 +330,10 @@ export class ProjectionPage {
 
     readonly snapshotsEmpty = computed(() => this.snapshots().length === 0);
 
+    private async refreshOverview(): Promise<void> {
+        this.overview.set(await this.projectionService.listOverview());
+    }
+
     async pickSymbol(suggestion: TickerSuggestion): Promise<void> {
         const symbol = suggestion.symbol.trim().toUpperCase();
         this.symbol.set(symbol);
@@ -355,7 +361,7 @@ export class ProjectionPage {
         }
     }
 
-    clearSymbol(): void {
+    async clearSymbol(): Promise<void> {
         this.symbol.set(null);
         this.fundamentals.set(null);
         this.quote.set(null);
@@ -363,6 +369,7 @@ export class ProjectionPage {
         this.snapshots.set([]);
         this.viewingSnapshot.set(null);
         this.activeScenario.set(0);
+        await this.refreshOverview();
     }
 
     setActiveScenario(index: number): void {
@@ -512,6 +519,7 @@ export class ProjectionPage {
         }
         await this.projectionService.saveSnapshot(symbol, this.currency(), this.longName(), model);
         this.snapshots.set(await this.projectionService.listSnapshots(symbol));
+        await this.refreshOverview();
     }
 
     viewSnapshot(snapshot: StoredProjectionSnapshot): void {
@@ -531,20 +539,31 @@ export class ProjectionPage {
         if (this.viewingSnapshot()?.id === snapshot.id) {
             this.viewingSnapshot.set(null);
         }
+        await this.refreshOverview();
+    }
+
+    openOverviewSymbol(row: ProjectionOverviewRow): void {
+        void this.pickSymbol({ symbol: row.symbol, name: row.longName ?? '', exchange: '' });
     }
 
     snapshotAssumptionsLabel(snapshot: StoredProjectionSnapshot): string {
-        const scenario = snapshot.model.scenarios[0];
-        if (scenario === undefined) {
-            return '–';
+        return storedModelAssumptionsLabel(snapshot.model);
+    }
+
+    overviewEndPrice(row: ProjectionOverviewRow, which: 'low' | 'high'): Decimal | null {
+        const snapshot = row.latestSnapshot;
+        if (snapshot === null) {
+            return null;
         }
-        const growth = scenario.rows[1]?.revenueGrowthPct ?? null;
-        const margin = scenario.rows[1]?.netMarginPct ?? null;
-        const peLow = scenario.rows.at(-1)?.peLow ?? '–';
-        const peHigh = scenario.rows.at(-1)?.peHigh ?? '–';
-        const formatPct = (value: string | null): string =>
-            value === null ? '–' : `${new Decimal(value).toSignificantDigits(4)}%`;
-        return `${formatPct(growth)} · ${formatPct(margin)} · PE ${new Decimal(peLow).toSignificantDigits(4)}–${new Decimal(peHigh).toSignificantDigits(4)}`;
+        try {
+            const last = buildProjectionForModel(snapshot.model)?.at(-1);
+            if (last === undefined) {
+                return null;
+            }
+            return which === 'low' ? last.priceLow : last.priceHigh;
+        } catch {
+            return null;
+        }
     }
 
     snapshotEndPrice(snapshot: StoredProjectionSnapshot, which: 'low' | 'high'): Decimal | null {
@@ -707,6 +726,20 @@ function draftsFromModel(model: ProjectionModel): ModelDrafts {
             peHigh: scenario.rows.map((row) => row.peHigh.toFixed()),
         })),
     };
+}
+
+function storedModelAssumptionsLabel(stored: StoredProjectionModel): string {
+    const scenario = stored.scenarios[0];
+    if (scenario === undefined) {
+        return '–';
+    }
+    const growth = scenario.rows[1]?.revenueGrowthPct ?? null;
+    const margin = scenario.rows[1]?.netMarginPct ?? null;
+    const peLow = scenario.rows.at(-1)?.peLow ?? '–';
+    const peHigh = scenario.rows.at(-1)?.peHigh ?? '–';
+    const formatPct = (value: string | null): string =>
+        value === null ? '–' : `${new Decimal(value).toSignificantDigits(4)}%`;
+    return `${formatPct(growth)} · ${formatPct(margin)} · PE ${new Decimal(peLow).toSignificantDigits(4)}–${new Decimal(peHigh).toSignificantDigits(4)}`;
 }
 
 function buildProjectionForModel(stored: StoredProjectionSnapshot['model']) {

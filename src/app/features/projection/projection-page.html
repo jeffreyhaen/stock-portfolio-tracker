@@ -16,7 +16,73 @@
         </div>
     </div>
 </section>
-} @else {
+@if (overview().length > 0) {
+<section class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4">
+    <h2 class="text-base font-semibold">Recent projections</h2>
+    <p class="mt-0.5 text-sm text-base-content/60">
+        {{ overview().length }} {{ overview().length === 1 ? 'symbol' : 'symbols' }} · sorted by last activity — pick
+        one to continue where you left off.
+    </p>
+    <div class="mt-3 overflow-x-auto">
+        <table class="w-full text-sm tabular-nums">
+            <thead>
+                <tr class="text-left text-xs uppercase tracking-wide text-base-content/60">
+                    <th class="pb-2 font-medium">Symbol</th>
+                    <th class="pb-2 text-right font-medium">Snapshots</th>
+                    <th class="pb-2 text-right font-medium">End price band (latest)</th>
+                    <th class="pb-2 text-right font-medium">Assumptions (first scenario)</th>
+                    <th class="pb-2 text-right font-medium">Last activity</th>
+                    <th class="pb-2 font-medium"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (row of overview(); track row.symbol) {
+                <tr class="cursor-pointer border-t border-base-300 hover:bg-base-200" (click)="openOverviewSymbol(row)">
+                    <td class="py-2">
+                        <span
+                            class="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-bold text-primary-dark font-mono"
+                            >{{ row.symbol }}</span
+                        >
+                        @if (row.longName !== null) {
+                        <span class="ml-2 text-base-content/70">{{ row.longName }}</span>
+                        }
+                    </td>
+                    <td class="py-2 text-right">
+                        @if (row.snapshotCount > 0) {
+                        <span class="rounded-full bg-neutral-soft px-2 py-0.5 text-xs font-medium text-base-content/70"
+                            >{{ row.snapshotCount }} {{ row.snapshotCount === 1 ? 'snapshot' : 'snapshots' }}</span
+                        >
+                        } @else {
+                        <span class="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning-darken"
+                            >draft only</span
+                        >
+                        }
+                    </td>
+                    <td class="py-2 text-right">
+                        @if (row.latestSnapshot !== null && overviewEndPrice(row, 'low') !== null) { {{
+                        overviewEndPrice(row, 'low') | money: row.currency }} – {{ overviewEndPrice(row, 'high') |
+                        money: row.currency }} } @else {
+                        <span class="text-base-content/40">–</span>
+                        }
+                    </td>
+                    <td class="py-2 text-right text-base-content/70">
+                        @if (row.latestSnapshot !== null) { {{ snapshotAssumptionsLabel(row.latestSnapshot) }} } @else {
+                        <span class="text-base-content/40">–</span>
+                        }
+                    </td>
+                    <td class="py-2 text-right text-base-content/70">{{ row.lastTouched | localizedDate }}</td>
+                    <td class="py-2 text-right">
+                        <button type="button" class="btn btn-ghost btn-xs" (click)="openOverviewSymbol(row)">
+                            Open
+                        </button>
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+} } @else {
 <div class="mt-4 flex flex-wrap items-center gap-2">
     <span class="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-bold text-primary-dark font-mono">
         {{ symbol() }}

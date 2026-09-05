@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { PortfolioDatabase } from '../../data/db';
 import { FundamentalsResult, MarketDataProvider, QuoteResult, TickerSuggestion } from '../../data/market-data-provider';
 import { ProjectionService } from '../../data/projection.service';
+import { StoredProjectionModel, StoredProjectionSnapshot } from '../../data/stored-types';
 import { ProjectionPage } from './projection-page';
 
 const AMD_FUNDAMENTALS: FundamentalsResult = {
@@ -326,4 +327,95 @@ describe('ProjectionPage', () => {
         expect(scenario.growth).toEqual(['', '7', '7', '7', '7', '7']);
         expect(scenario.margin).toEqual(['', '40', '40', '40', '40', '40']);
     });
+
+    it('lists one overview row per symbol, newest activity first', async () => {
+        const service = TestBed.inject(ProjectionService);
+        await db.projectionModels.bulkPut([
+            storedModel('NVDA', '2026-02-10T10:00:00.000Z', 'USD'),
+            storedModel('AMD', '2026-01-05T10:00:00.000Z', 'USD'),
+        ]);
+        await db.projectionSnapshots.bulkAdd([
+            storedSnapshot('AMD', '2026-01-05T10:00:00.000Z', 'USD', 'Older AMD'),
+            storedSnapshot('AMD', '2026-02-12T10:00:00.000Z', 'USD', 'Advanced Micro Devices, Inc.'),
+            storedSnapshot('MSFT', '2026-02-11T10:00:00.000Z', 'EUR', 'Microsoft Corporation'),
+        ]);
+
+        const rows = await service.listOverview();
+        expect(rows.map((row) => row.symbol)).toEqual(['AMD', 'MSFT', 'NVDA']);
+        expect(rows[0]!.snapshotCount).toBe(2);
+        expect(rows[0]!.latestSnapshot!.longName).toBe('Advanced Micro Devices, Inc.');
+        expect(rows[1]!.snapshotCount).toBe(1);
+        expect(rows[1]!.currency).toBe('EUR');
+        expect(rows[2]!.snapshotCount).toBe(0);
+        expect(rows[2]!.currency).toBe('USD');
+        expect(rows[2]!.latestSnapshot).toBeNull();
+    });
+
+    it('shows recent projections on the empty state after saving a snapshot', async () => {
+        const page = await createPage();
+        expect(page.overview()).toHaveLength(0);
+
+        await page.pickSymbol({ symbol: 'AMD', name: 'AMD', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        page.drafts.set({
+            ...page.drafts()!,
+            currentPrice: '477.57',
+            sharesOutstanding: '1632475000',
+            scenarios: [
+                {
+                    name: 'Base',
+                    growth: ['', '35', '35', '35', '35'],
+                    margin: ['', '35', '35', '35', '35'],
+                    peLow: ['30', '30', '30', '30', '30'],
+                    peHigh: ['50', '50', '50', '50', '50'],
+                },
+            ],
+        });
+        await page.saveSnapshot();
+        await page.clearSymbol();
+
+        expect(page.symbol()).toBeNull();
+        const rows = page.overview();
+        expect(rows.map((row) => row.symbol)).toEqual(['AMD']);
+        expect(rows[0]!.snapshotCount).toBe(1);
+        expect(rows[0]!.longName).toBe('Advanced Micro Devices, Inc.');
+        expect(page.overviewEndPrice(rows[0]!, 'low')!.toFixed(3)).toBe('1003.648');
+
+        await page.openOverviewSymbol(rows[0]!);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(page.symbol()).toBe('AMD');
+        expect(page.snapshots()).toHaveLength(1);
+    });
 });
+
+function storedModel(symbol: string, updatedAt: string, currency: string): StoredProjectionModel {
+    return {
+        symbol,
+        updatedAt,
+        baseYear: 2025,
+        baseRevenue: '1000',
+        baseNetIncome: '100',
+        currentPrice: null,
+        sharesOutstanding: null,
+        currency,
+        projectedYears: 1,
+        scenarios: [
+            {
+                name: 'Base',
+                rows: [
+                    { revenueGrowthPct: null, netMarginPct: null, peLow: '20', peHigh: '30' },
+                    { revenueGrowthPct: '10', netMarginPct: '10', peLow: '20', peHigh: '30' },
+                ],
+            },
+        ],
+    };
+}
+
+function storedSnapshot(
+    symbol: string,
+    createdAt: string,
+    currency: string,
+    longName: string,
+): StoredProjectionSnapshot {
+    return { symbol, createdAt, currency, longName, model: storedModel(symbol, createdAt, currency) };
+}

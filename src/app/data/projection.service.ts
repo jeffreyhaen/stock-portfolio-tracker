@@ -5,6 +5,17 @@ import { PortfolioDatabase } from './db';
 import { StoredProjectionSnapshot } from './stored-types';
 import { ProjectionModel } from '../domain/projection';
 
+/** Read model for the projection start screen: one row per symbol touched before. */
+export interface ProjectionOverviewRow {
+    symbol: string;
+    longName: string | null;
+    currency: string;
+    snapshotCount: number;
+    latestSnapshot: StoredProjectionSnapshot | null;
+    /** ISO timestamp; the newest of the model's updatedAt and the latest snapshot's createdAt. */
+    lastTouched: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ProjectionService {
     private readonly db = inject(PortfolioDatabase);
@@ -100,5 +111,44 @@ export class ProjectionService {
 
     async deleteSnapshot(id: number): Promise<void> {
         await this.db.projectionSnapshots.delete(id);
+    }
+
+    /** Every symbol with a saved projection model and/or snapshots, newest activity first. */
+    async listOverview(): Promise<ProjectionOverviewRow[]> {
+        const [models, snapshots] = await Promise.all([
+            this.db.projectionModels.toArray(),
+            this.db.projectionSnapshots.toArray(),
+        ]);
+        const snapshotsBySymbol = new Map<string, StoredProjectionSnapshot[]>();
+        for (const snapshot of snapshots) {
+            const list = snapshotsBySymbol.get(snapshot.symbol);
+            if (list === undefined) {
+                snapshotsBySymbol.set(snapshot.symbol, [snapshot]);
+            } else {
+                list.push(snapshot);
+            }
+        }
+        const symbols = new Set<string>([...models.map((model) => model.symbol), ...snapshotsBySymbol.keys()]);
+        const rows: ProjectionOverviewRow[] = [];
+        for (const symbol of symbols) {
+            const perSymbol = (snapshotsBySymbol.get(symbol) ?? []).sort((a, b) =>
+                b.createdAt.localeCompare(a.createdAt),
+            );
+            const latestSnapshot = perSymbol[0] ?? null;
+            const model = models.find((item) => item.symbol === symbol) ?? null;
+            const lastTouched = [latestSnapshot?.createdAt ?? null, model?.updatedAt ?? null]
+                .filter((value): value is string => value !== null)
+                .sort()
+                .at(-1);
+            rows.push({
+                symbol,
+                longName: latestSnapshot?.longName ?? null,
+                currency: latestSnapshot?.currency || model?.currency || '',
+                snapshotCount: perSymbol.length,
+                latestSnapshot,
+                lastTouched: lastTouched ?? '',
+            });
+        }
+        return rows.sort((a, b) => b.lastTouched.localeCompare(a.lastTouched));
     }
 }

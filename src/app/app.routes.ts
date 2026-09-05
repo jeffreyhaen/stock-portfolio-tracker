@@ -25,8 +25,6 @@ const portfolioRoutes: Routes = [
         path: 'transactions',
         loadComponent: () => import('./features/transactions/transactions-page').then((m) => m.TransactionsPage),
     },
-    { path: 'projection', redirectTo: '/projection' },
-    { path: 'prices', redirectTo: '/prices' },
     { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
 ];
 

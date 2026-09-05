@@ -27,11 +27,9 @@ describe('app routes', () => {
         expect(router.url).toBe('/prices');
     });
 
-    it('redirects the legacy portfolio-scoped URLs', async () => {
+    it('does not serve the legacy portfolio-scoped URLs anymore', async () => {
         const router = TestBed.inject(Router);
-        await router.navigateByUrl('/portfolio/p1/projection');
-        expect(router.url).toBe('/projection');
-        await router.navigateByUrl('/portfolio/p1/prices');
-        expect(router.url).toBe('/prices');
+        await expect(router.navigateByUrl('/portfolio/p1/prices')).rejects.toThrow();
+        await expect(router.navigateByUrl('/portfolio/p1/projection')).rejects.toThrow();
     });
 });

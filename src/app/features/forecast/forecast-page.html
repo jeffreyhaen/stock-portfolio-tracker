@@ -110,9 +110,7 @@
                 } {{ series.name }}
             </span>
             } @if (startPoint() !== null) {
-            <span class="text-base-content/50">
-                Actual until {{ startPoint()?.date | localizedDate }}, forecast after that
-            </span>
+            <span class="text-base-content/50">Starts at your current value, compounded monthly</span>
             }
         </div>
     </div>

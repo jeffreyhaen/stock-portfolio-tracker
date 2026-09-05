@@ -17,12 +17,11 @@ import { buildImportedFxResolver } from '../../domain/fx';
 import { PriceBar, buildMarketValueSeries } from '../../domain/market-value';
 import { buildValuation } from '../../domain/valuation';
 import { Cashflow, cashflowWindowDays, MIN_ANNUALIZED_RETURN_DAYS, portfolioCashflows, xirr } from '../../domain/xirr';
-import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { themeColor } from '../../shared/theme-colors';
 import { ThemeService } from '../../shared/theme.service';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
-import { ChartPoint, ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
+import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
 
 const MAX_FORECAST_YEARS = 50;
 
@@ -50,7 +49,7 @@ interface ForecastCards {
 
 @Component({
     selector: 'app-forecast-page',
-    imports: [RouterLink, MoneyPipe, LocalizedDatePipe, InfoTooltipComponent, ValueChartComponent],
+    imports: [RouterLink, MoneyPipe, InfoTooltipComponent, ValueChartComponent],
     templateUrl: './forecast-page.html',
 })
 export class ForecastPage {
@@ -211,12 +210,6 @@ export class ForecastPage {
         this.hasHistory() ? this.marketSeries().points : this.valuation().points,
     );
 
-    readonly actualPoints = computed<ChartPoint[]>(() =>
-        this.rawPoints()
-            .filter((p) => p.value !== null && p.complete)
-            .map((p) => ({ time: p.date, value: p.value?.toNumber() ?? 0 })),
-    );
-
     readonly startPoint = computed<StartPoint | null>(() => {
         const points = this.rawPoints().filter((p) => p.value !== null && p.complete);
         if (points.length > 0) {
@@ -278,7 +271,7 @@ export class ForecastPage {
         if (inputs.error !== null || inputs.assumptions === null || start === null) {
             return null;
         }
-        return buildForecastSeries(inputs.assumptions, start.date);
+        return buildForecastSeries(inputs.assumptions, this.today);
     });
 
     readonly benchmarkForecast = computed<ForecastSeries | null>(() => {
@@ -295,7 +288,7 @@ export class ForecastPage {
         }
         return buildForecastSeries(
             { ...inputs.assumptions, annualReturnPct: inputs.benchmarkAnnualReturnPct },
-            start.date,
+            this.today,
         );
     });
 
@@ -312,24 +305,15 @@ export class ForecastPage {
         if (portfolio === null) {
             return [];
         }
-        const series: ChartSeries[] = [];
-        const actual = this.actualPoints();
-        if (actual.length >= 2) {
-            series.push({
-                name: 'Actual',
+        const series: ChartSeries[] = [
+            {
+                name: 'Portfolio forecast',
                 color: themeColor('--color-chart-line', '#0068f0'),
                 dashed: false,
                 fill: true,
-                points: actual,
-            });
-        }
-        series.push({
-            name: 'Portfolio forecast',
-            color: themeColor('--color-chart-line', '#0068f0'),
-            dashed: false,
-            fill: false,
-            points: portfolio.points.map((p) => ({ time: p.date, value: p.value.toNumber() })),
-        });
+                points: portfolio.points.map((p) => ({ time: p.date, value: p.value.toNumber() })),
+            },
+        ];
         const symbol = this.benchmark.symbol();
         if (benchmark !== null && symbol !== null) {
             series.push({

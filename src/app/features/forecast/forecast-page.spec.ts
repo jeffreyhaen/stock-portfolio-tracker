@@ -69,7 +69,8 @@ describe('ForecastPage', () => {
         expect(forecast.points[0].value.toFixed(2)).toBe(page.startPoint()!.value.toFixed(2));
         expect(forecast.endValue.toFixed(2)).toBe(forecast.points[forecast.points.length - 1].value.toFixed(2));
         expect(forecast.endValue.greaterThan(forecast.points[0].value)).toBe(true);
-        expect(page.chartSeries().map((s) => s.name)).toEqual(['Actual', 'Portfolio forecast']);
+        expect(page.chartSeries().map((s) => s.name)).toEqual(['Portfolio forecast']);
+        expect(page.chartSeries()[0].points[0].value).toBeCloseTo(page.startPoint()!.value.toNumber(), 6);
         expect(page.cards().benchmarkDelta).toBeNull();
 
         const stored = await storedForecastSetting(TestBed.inject(PortfolioDatabase));
@@ -93,7 +94,7 @@ describe('ForecastPage', () => {
         const portfolio = page.portfolioForecast()!;
         const benchmark = page.benchmarkForecast()!;
         expect(page.forecastDelta()!.toFixed(2)).toBe(portfolio.endValue.minus(benchmark.endValue).toFixed(2));
-        expect(page.chartSeries().map((s) => s.name)).toEqual(['Actual', 'Portfolio forecast', 'VUSA.AS forecast']);
+        expect(page.chartSeries().map((s) => s.name)).toEqual(['Portfolio forecast', 'VUSA.AS forecast']);
         expect(benchmark.endValue.greaterThan(benchmark.totalContributions)).toBe(true);
     });
 
@@ -127,7 +128,7 @@ describe('ForecastPage', () => {
 
         expect(page.valuation().totals.complete).toBe(false);
         expect(page.valuationIncomplete()).toBe(false);
-        expect(page.actualPoints().map((p) => p.time)).not.toContain('2026-02-15');
+        expect(page.startPoint()!.date).toBe('2026-02-14');
         page.returnDraft.set('7');
         expect(page.portfolioForecast()).not.toBeNull();
     });

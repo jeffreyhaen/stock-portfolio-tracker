@@ -1,0 +1,111 @@
+<h1 class="text-3xl font-bold">Compare</h1>
+<p class="mt-1 text-sm text-base-content/60">Compare up to six stocks side by side on valuation, growth and margins.</p>
+
+@if (entries().length === 0) {
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="mx-auto max-w-md py-10 text-center">
+        <p class="text-sm font-medium">Search stocks to compare</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            Fundamentals come from the local market-data proxy; without it, search a symbol and choose “Use directly”.
+        </p>
+        <div class="mt-4 flex justify-center">
+            <app-ticker-search placeholder="e.g. AMD or ASML.AS" [allowManual]="true" (pick)="addSymbol($event)" />
+        </div>
+    </div>
+</section>
+} @else {
+<section class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4">
+    <div class="flex flex-wrap items-center gap-2">
+        @for (entry of entries(); track entry.id) {
+        <span
+            class="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 font-mono text-xs font-bold text-primary-dark"
+        >
+            @if (entry.loading) {
+            <span class="loading loading-spinner loading-xs"></span>
+            } {{ entry.symbol }}
+            <button
+                type="button"
+                class="btn btn-ghost btn-xs px-1 font-sans text-base-content/60"
+                (click)="removeSymbol(entry.id)"
+                [attr.aria-label]="'Remove ' + entry.symbol"
+            >
+                ×
+            </button>
+        </span>
+        } @if (canAdd()) {
+        <app-ticker-search placeholder="Add symbol…" [allowManual]="true" (pick)="addSymbol($event)" />
+        } @else {
+        <span class="text-xs text-base-content/50">Maximum of {{ maxSymbols }} symbols</span>
+        }
+    </div>
+    @if (notice() !== null) {
+    <p class="mt-2 text-xs text-warning-darken">{{ notice() }}</p>
+    } @for (entry of entries(); track entry.id) { @if (entry.error !== null) {
+    <p class="mt-1 text-xs text-error">{{ entry.symbol }}: {{ entry.error }}</p>
+    } @else if (entry.historyError !== null) {
+    <p class="mt-1 text-xs text-warning-darken">{{ entry.symbol }}: no 12-month price history.</p>
+    } }
+</section>
+
+<section class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm tabular-nums">
+            <thead>
+                <tr class="text-left text-xs uppercase tracking-wide text-base-content/60">
+                    <th class="w-56 pb-2 font-medium">Metric</th>
+                    @for (entry of entries(); track entry.id) {
+                    <th class="pb-2 text-right font-medium">
+                        <span class="normal-case text-base-content">{{ entry.symbol }}</span>
+                        @if (entry.name !== null) {
+                        <span class="ml-1 normal-case text-base-content/50">{{ entry.name }}</span>
+                        }
+                    </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (group of groups(); track group.key) {
+                <tr class="border-t border-base-300">
+                    <td
+                        [attr.colspan]="1 + entries().length"
+                        class="pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-base-content/60"
+                    >
+                        {{ group.label }}
+                    </td>
+                </tr>
+                @for (row of group.rows; track row.key) {
+                <tr class="border-t border-base-300/60 hover:bg-base-200/60">
+                    <td class="py-1.5 text-left text-base-content/70" [title]="row.hint ?? undefined">
+                        {{ row.label }}
+                    </td>
+                    @for (value of row.values; track $index) {
+                    <td class="py-1.5 text-right" [class.text-base-content/40]="value === null">{{ value ?? '–' }}</td>
+                    }
+                </tr>
+                } }
+            </tbody>
+        </table>
+    </div>
+    <p class="mt-3 text-xs text-base-content/50">
+        Ratios are currency-independent; market cap and revenue are shown in each stock's own currency. Growth and
+        forward metrics use analyst estimates and are “–” when unavailable.
+    </p>
+</section>
+
+@if (chartSeries().length > 0) {
+<section class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4">
+    <h2 class="text-base font-semibold">Performance (12 months)</h2>
+    <div class="mt-3">
+        <app-value-chart [series]="chartSeries()" [pct]="true" />
+        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/70">
+            @for (series of chartSeries(); track series.name) {
+            <span class="inline-flex items-center gap-1.5">
+                <span class="inline-block h-0.5 w-4 rounded-full" [style.background-color]="series.color"></span>
+                {{ series.name }}
+            </span>
+            }
+        </div>
+        <p class="mt-1 text-xs text-base-content/50">Indexed: 100 = 12 months ago.</p>
+    </div>
+</section>
+} }

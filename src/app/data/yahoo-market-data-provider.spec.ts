@@ -14,9 +14,24 @@ describe('YahooMarketDataProvider', () => {
                     marketCap: 779621105664,
                     revenueTtm: 41305001984,
                     marginTtm: 0.15577,
+                    grossMargins: 0.49,
+                    forwardPe: 40.2,
+                    priceToSalesTtm: 8.9,
+                    earningsGrowthTtm: 0.35,
                     fiscalYearEnd: '2025-12-31',
                     revenueFy: 34639000000,
                     netIncomeFy: 4335000000,
+                    netIncomeFyPrev: 3100000000,
+                    estimates: {
+                        epsGrowthCurrentQtr: 0.4,
+                        epsGrowthCurrentFy: 0.45,
+                        epsGrowthNextFy: 0.25,
+                        revGrowthCurrentFy: 0.18,
+                        revGrowthNextFy: 0.12,
+                        epsEstimateCurrentFy: 5.96,
+                        epsEstimateNextFy: 7.45,
+                        revenueEstimateNextFy: 52600000000,
+                    },
                 }),
                 { status: 200, headers: { 'Content-Type': 'application/json' } },
             );
@@ -35,6 +50,14 @@ describe('YahooMarketDataProvider', () => {
             expect(result.revenueFy).toBe('34639000000');
             expect(result.netIncomeFy).toBe('4335000000');
             expect(result.fiscalYearEnd).toBe('2025-12-31');
+            expect(result.earningsGrowthTtm).toBe('0.35');
+            expect(result.grossMargins).toBe('0.49');
+            expect(result.forwardPe).toBe('40.2');
+            expect(result.priceToSalesTtm).toBe('8.9');
+            expect(result.netIncomeFyPrev).toBe('3100000000');
+            expect(result.estimates.epsGrowthCurrentQtr).toBe('0.4');
+            expect(result.estimates.epsEstimateNextFy).toBe('7.45');
+            expect(result.estimates.revenueEstimateNextFy).toBe('52600000000');
         } finally {
             fetch.mockRestore();
         }

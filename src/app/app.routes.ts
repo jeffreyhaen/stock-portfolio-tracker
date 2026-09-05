@@ -53,6 +53,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/projection/projection-page').then((m) => m.ProjectionPage),
     },
     {
+        path: 'compare',
+        loadComponent: () => import('./features/compare/compare-page').then((m) => m.ComparePage),
+    },
+    {
         path: 'prices',
         loadComponent: () => import('./features/prices/prices-page').then((m) => m.PricesPage),
     },

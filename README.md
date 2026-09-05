@@ -20,6 +20,7 @@ A privacy-first, local client-side Angular application for tracking an investmen
 - Optional benchmark comparison against indices with deposit-timing shadow line and indexed % view
 - Forecast page: simulate portfolio growth using historical returns or custom rates with optional monthly contributions and benchmark comparison
 - Stock projections: model multi-year revenue, EPS, and target share prices across scenarios using fundamentals or manual inputs
+- Stock comparison: compare up to six stocks side by side on valuation, growth, and margin metrics
 - Shared price management: link tickers, view price history, and manage quotes across portfolios
 
 Portfolio data is stored in the browser's IndexedDB. The application has no backend and does not upload imported portfolio data to this repository or to an application server.

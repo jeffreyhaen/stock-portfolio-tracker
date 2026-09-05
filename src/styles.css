@@ -53,6 +53,9 @@
     --color-chart-fill: #c0d8f8;
     --color-chart-benchmark: #94a3b8;
     --color-chart-compare: #d97706;
+    --color-chart-series-4: #7c3aed;
+    --color-chart-series-5: #0d9488;
+    --color-chart-series-6: #db2777;
     --color-chart-grid: #eef1f5;
     --color-chart-text: #5b6472;
 
@@ -110,6 +113,9 @@
     --color-chart-fill: #1e3a5f;
     --color-chart-benchmark: #64748b;
     --color-chart-compare: #fbbf24;
+    --color-chart-series-4: #a78bfa;
+    --color-chart-series-5: #2dd4bf;
+    --color-chart-series-6: #f472b6;
     --color-chart-grid: #24304a;
     --color-chart-text: #94a3b8;
 
@@ -144,6 +150,9 @@
     --color-chart-fill: var(--color-chart-fill);
     --color-chart-benchmark: var(--color-chart-benchmark);
     --color-chart-compare: var(--color-chart-compare);
+    --color-chart-series-4: var(--color-chart-series-4);
+    --color-chart-series-5: var(--color-chart-series-5);
+    --color-chart-series-6: var(--color-chart-series-6);
     --color-chart-grid: var(--color-chart-grid);
     --color-chart-text: var(--color-chart-text);
 }

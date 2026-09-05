@@ -21,10 +21,25 @@ const AMD_FUNDAMENTALS: FundamentalsResult = {
     marketCap: '779621105664',
     revenueTtm: '41305001984',
     revenueGrowthTtm: '0.21',
+    earningsGrowthTtm: '0.35',
     marginTtm: '0.15577',
+    grossMargins: '0.5',
+    forwardPe: '40.1',
+    priceToSalesTtm: '8.9',
     fiscalYearEnd: '2025-12-31',
     revenueFy: '46979000000',
     netIncomeFy: '11005499037',
+    netIncomeFyPrev: '8540000000',
+    estimates: {
+        epsGrowthCurrentQtr: '0.4',
+        epsGrowthCurrentFy: '0.45',
+        epsGrowthNextFy: '0.25',
+        revGrowthCurrentFy: '0.18',
+        revGrowthNextFy: '0.12',
+        epsEstimateCurrentFy: '5.96',
+        epsEstimateNextFy: '7.45',
+        revenueEstimateNextFy: '52600000000',
+    },
 };
 
 const AMD_QUOTE: QuoteResult = { price: '477.57', currency: 'USD', date: '2026-09-04' };

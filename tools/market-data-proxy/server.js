@@ -172,7 +172,7 @@ async function fetchFundamentals(symbol) {
     if (hit !== undefined) {
         return hit;
     }
-    const modules = 'price,summaryDetail,defaultKeyStatistics,financialData,incomeStatementHistory';
+    const modules = 'price,summaryDetail,defaultKeyStatistics,financialData,incomeStatementHistory,earningsTrend';
     const summary = await yahooAuthenticated(
         `/v10/finance/quoteSummary/${encodeURIComponent(key)}?modules=${encodeURIComponent(modules)}`,
     );
@@ -194,16 +194,32 @@ async function fetchFundamentals(symbol) {
     }
     const reports = result.incomeStatementHistory?.incomeStatementHistory ?? [];
     let fiscal = null;
-    for (const report of reports) {
-        const revenue = rawNumber(report.totalRevenue);
-        const netIncome = rawNumber(report.netIncome);
-        const endDate = rawNumber(report.endDate);
+    let prevNetIncome = null;
+    for (let i = 0; i < reports.length; i++) {
+        const revenue = rawNumber(reports[i].totalRevenue);
+        const netIncome = rawNumber(reports[i].netIncome);
+        const endDate = rawNumber(reports[i].endDate);
         if (revenue !== null && netIncome !== null && endDate !== null) {
             fiscal = { periodEnd: dateFromTimestamp(endDate), revenue, netIncome };
+            for (let j = i + 1; j < reports.length; j++) {
+                const prevNetIncomeCandidate = rawNumber(reports[j].netIncome);
+                if (prevNetIncomeCandidate !== null) {
+                    prevNetIncome = prevNetIncomeCandidate;
+                    break;
+                }
+            }
             break;
         }
     }
     const currency = normalizeCurrency(0, result.price?.currency ?? null).currency;
+    const trend = result.earningsTrend?.trend ?? [];
+    const trendRow = (period) => trend.find((row) => row?.period === period) ?? null;
+    const rawOf = (row, kind, field) => (row !== null && row[kind] ? rawNumber(row[kind][field]) : null);
+    const growthOf = (row) =>
+        row === null ? null : (rawNumber(row.growth) ?? rawOf(row, 'earningsEstimate', 'growth'));
+    const y0 = trendRow('0y');
+    const y1 = trendRow('+1y');
+    const q0 = trendRow('0q');
     return store(fundamentalsCache, key, {
         symbol: key,
         currency,
@@ -214,10 +230,27 @@ async function fetchFundamentals(symbol) {
         marketCap: rawNumber(result.summaryDetail?.marketCap),
         revenueTtm: rawNumber(result.financialData?.totalRevenue),
         revenueGrowthTtm: rawNumber(result.financialData?.revenueGrowth),
+        earningsGrowthTtm: rawNumber(result.financialData?.earningsGrowth),
         marginTtm: rawNumber(result.financialData?.profitMargins),
+        grossMargins: rawNumber(result.financialData?.grossMargins),
+        forwardPe: rawNumber(result.summaryDetail?.forwardPe) ?? rawNumber(result.defaultKeyStatistics?.forwardPE),
+        priceToSalesTtm:
+            rawNumber(result.summaryDetail?.priceToSalesTrailing12Months) ??
+            rawNumber(result.defaultKeyStatistics?.priceToSalesTrailing12Months),
         fiscalYearEnd: fiscal?.periodEnd ?? null,
         revenueFy: fiscal?.revenue ?? null,
         netIncomeFy: fiscal?.netIncome ?? null,
+        netIncomeFyPrev: prevNetIncome,
+        estimates: {
+            epsGrowthCurrentQtr: growthOf(q0),
+            epsGrowthCurrentFy: growthOf(y0),
+            epsGrowthNextFy: growthOf(y1),
+            revGrowthCurrentFy: rawOf(y0, 'revenueEstimate', 'growth'),
+            revGrowthNextFy: rawOf(y1, 'revenueEstimate', 'growth'),
+            epsEstimateCurrentFy: rawOf(y0, 'earningsEstimate', 'avg'),
+            epsEstimateNextFy: rawOf(y1, 'earningsEstimate', 'avg'),
+            revenueEstimateNextFy: rawOf(y1, 'revenueEstimate', 'avg'),
+        },
     });
 }
 

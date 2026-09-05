@@ -97,10 +97,25 @@ export class YahooMarketDataProvider extends MarketDataProvider {
             marketCap: numberToString(data.marketCap),
             revenueTtm: numberToString(data.revenueTtm),
             revenueGrowthTtm: numberToString(data.revenueGrowthTtm),
+            earningsGrowthTtm: numberToString(data.earningsGrowthTtm),
             marginTtm: numberToString(data.marginTtm),
+            grossMargins: numberToString(data.grossMargins),
+            forwardPe: numberToString(data.forwardPe),
+            priceToSalesTtm: numberToString(data.priceToSalesTtm),
             fiscalYearEnd: data.fiscalYearEnd ?? null,
             revenueFy: numberToString(data.revenueFy),
             netIncomeFy: numberToString(data.netIncomeFy),
+            netIncomeFyPrev: numberToString(data.netIncomeFyPrev),
+            estimates: {
+                epsGrowthCurrentQtr: numberToString(data.estimates?.epsGrowthCurrentQtr),
+                epsGrowthCurrentFy: numberToString(data.estimates?.epsGrowthCurrentFy),
+                epsGrowthNextFy: numberToString(data.estimates?.epsGrowthNextFy),
+                revGrowthCurrentFy: numberToString(data.estimates?.revGrowthCurrentFy),
+                revGrowthNextFy: numberToString(data.estimates?.revGrowthNextFy),
+                epsEstimateCurrentFy: numberToString(data.estimates?.epsEstimateCurrentFy),
+                epsEstimateNextFy: numberToString(data.estimates?.epsEstimateNextFy),
+                revenueEstimateNextFy: numberToString(data.estimates?.revenueEstimateNextFy),
+            },
         };
     }
 }
@@ -115,10 +130,25 @@ interface ProxyFundamentals {
     marketCap?: number | null;
     revenueTtm?: number | null;
     revenueGrowthTtm?: number | null;
+    earningsGrowthTtm?: number | null;
     marginTtm?: number | null;
+    grossMargins?: number | null;
+    forwardPe?: number | null;
+    priceToSalesTtm?: number | null;
     fiscalYearEnd?: string | null;
     revenueFy?: number | null;
     netIncomeFy?: number | null;
+    netIncomeFyPrev?: number | null;
+    estimates?: {
+        epsGrowthCurrentQtr?: number | null;
+        epsGrowthCurrentFy?: number | null;
+        epsGrowthNextFy?: number | null;
+        revGrowthCurrentFy?: number | null;
+        revGrowthNextFy?: number | null;
+        epsEstimateCurrentFy?: number | null;
+        epsEstimateNextFy?: number | null;
+        revenueEstimateNextFy?: number | null;
+    } | null;
     error?: string;
 }
 

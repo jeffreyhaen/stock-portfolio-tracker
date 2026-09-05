@@ -1,5 +1,5 @@
-import { Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { PortfolioContext } from './data/portfolio-context';
 import { MarketDataService } from './data/market-data.service';
 import { MarketDataSyncService } from './data/market-data-sync.service';
@@ -17,9 +17,13 @@ export class App {
     private readonly marketData = inject(MarketDataService);
     private readonly marketDataSync = inject(MarketDataSyncService);
     private readonly themeService = inject(ThemeService);
+    private readonly router = inject(Router);
+
+    private readonly currentUrl = signal(this.router.url);
 
     readonly portfolioId = this.context.selectedPortfolioId;
     readonly portfolioName = computed(() => this.context.selectedPortfolio()?.name ?? '');
+    readonly onPortfolioPage = computed(() => this.currentUrl().startsWith('/portfolio/'));
     readonly themePreference = this.themeService.preference;
 
     readonly themeLabels: Record<ThemePreference, string> = {
@@ -33,6 +37,11 @@ export class App {
     }
 
     constructor() {
+        this.router.events.subscribe((event) => {
+            if (event instanceof NavigationEnd) {
+                this.currentUrl.set(event.urlAfterRedirects);
+            }
+        });
         void this.refreshQuotesOnStartup();
     }
 

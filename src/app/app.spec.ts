@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { App } from './app';
+import { routes } from './app.routes';
 import { PortfolioDatabase } from './data/db';
 import { PortfolioContext } from './data/portfolio-context';
 import { MarketDataService } from './data/market-data.service';
@@ -78,21 +79,57 @@ describe('App', () => {
         expect(order).toEqual(['cache', 'remote']);
     });
 
-    it('shows the navigation', async () => {
+    it('shows the main navigation and hides the portfolio tab row off-portfolio', async () => {
         const fixture = TestBed.createComponent(App);
         fixture.detectChanges();
         await waitFor(() => TestBed.inject(PortfolioContext).selectedPortfolioId() !== '');
         fixture.detectChanges();
         const navs = fixture.nativeElement.querySelectorAll('nav');
-        expect(navs.length).toBe(2);
+        expect(navs.length).toBe(1);
         const mainNav = navs[0] as HTMLElement;
         expect(mainNav.textContent).toContain('Portfolio: DEGIRO');
         expect(mainNav.textContent).toContain('Tools');
         expect(mainNav.textContent).toContain('Settings');
-        const tabs = navs[1] as HTMLElement;
-        expect(tabs.textContent).toContain('Dashboard');
-        expect(tabs.textContent).toContain('Holdings');
-        expect(tabs.textContent).toContain('Transactions');
+    });
+});
+
+describe('App portfolio tab row', () => {
+    beforeEach(async () => {
+        const db = new PortfolioDatabase({ indexedDB: new IDBFactory(), IDBKeyRange });
+        await db.portfolios.add({
+            id: 'p1',
+            name: 'DEGIRO',
+            reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
+            createdAt: new Date().toISOString(),
+        });
+        await TestBed.configureTestingModule({
+            imports: [App],
+            providers: [
+                { provide: PortfolioDatabase, useValue: db },
+                {
+                    provide: MarketDataSyncService,
+                    useValue: { refreshAllIfNeeded: async () => null },
+                },
+                provideRouter(routes),
+            ],
+        }).compileComponents();
+    });
+
+    it('shows the portfolio tab row only on portfolio pages', async () => {
+        const fixture = TestBed.createComponent(App);
+        fixture.detectChanges();
+        const router = TestBed.inject(Router);
+        await router.navigateByUrl('/portfolio/p1/dashboard');
+        await waitFor(() => TestBed.inject(PortfolioContext).selectedPortfolioId() !== '');
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelectorAll('nav').length).toBe(2);
+        await router.navigateByUrl('/prices');
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelectorAll('nav').length).toBe(1);
+        await router.navigateByUrl('/portfolio/p1/holdings');
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelectorAll('nav').length).toBe(2);
     });
 });
 

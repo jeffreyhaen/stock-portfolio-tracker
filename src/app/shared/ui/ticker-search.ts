@@ -46,6 +46,11 @@ const SEARCH_DEBOUNCE_MS = 400;
                     }
                 </ul>
             }
+            @if (error() !== null && allowManual() && query().trim() !== '') {
+                <button type="button" class="btn btn-ghost btn-xs mt-1 text-primary" (click)="pickManual()">
+                    Use '{{ query().trim().toUpperCase() }}' directly
+                </button>
+            }
         </div>
     `,
 })
@@ -57,6 +62,8 @@ export class TickerSearchComponent implements OnInit, OnDestroy {
     readonly fallbackQuery = input('');
     readonly busy = input(false);
     readonly cancelLabel = input<string | null>(null);
+    /** Offer the typed text as a raw symbol when the search itself fails (e.g. proxy offline). */
+    readonly allowManual = input(false);
     readonly pick = output<TickerSuggestion>();
     readonly cancelled = output<void>();
 
@@ -90,6 +97,14 @@ export class TickerSearchComponent implements OnInit, OnDestroy {
     onEnter(): void {
         this.cancelTimer();
         void this.find();
+    }
+
+    pickManual(): void {
+        const symbol = this.query().trim().toUpperCase();
+        if (symbol === '') {
+            return;
+        }
+        this.pick.emit({ symbol, name: symbol, exchange: '' });
     }
 
     async find(): Promise<void> {

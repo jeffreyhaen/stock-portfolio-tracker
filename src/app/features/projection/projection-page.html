@@ -8,10 +8,11 @@
     <div class="mx-auto max-w-md py-10 text-center">
         <p class="text-sm font-medium">Search a stock to project</p>
         <p class="mt-1 text-[0.8125rem] text-base-content/60">
-            Fundamentals come from the local market-data proxy; without it you can enter everything manually.
+            Fundamentals come from the local market-data proxy; without it, search a symbol and choose “Use directly”,
+            then enter everything manually.
         </p>
         <div class="mt-4 flex justify-center">
-            <app-ticker-search placeholder="e.g. AMD or ASML.AS" (pick)="pickSymbol($event)" />
+            <app-ticker-search placeholder="e.g. AMD or ASML.AS" [allowManual]="true" (pick)="pickSymbol($event)" />
         </div>
     </div>
 </section>

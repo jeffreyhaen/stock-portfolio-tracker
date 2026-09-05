@@ -5,7 +5,7 @@ import { BenchmarkService, benchmarkIsin, isBenchmarkIsin } from '../../data/ben
 import { TickerSuggestion } from '../../data/market-data-provider';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
-import { buildBenchmarkSeries } from '../../domain/benchmark';
+import { convertedBenchmarkCloses } from '../../domain/benchmark';
 import {
     annualizedReturnPct,
     buildForecastSeries,
@@ -77,6 +77,7 @@ export class ForecastPage {
 
     private returnPrefilled = false;
     private benchmarkPrefilled = false;
+    private lastBenchmarkSymbol: string | null = null;
 
     constructor() {
         void this.marketData.reload();
@@ -92,6 +93,12 @@ export class ForecastPage {
         });
 
         effect(() => {
+            const symbol = this.benchmark.symbol();
+            if (symbol !== this.lastBenchmarkSymbol) {
+                this.lastBenchmarkSymbol = symbol;
+                this.benchmarkPrefilled = false;
+                this.benchReturnDraft.set('');
+            }
             if (!this.returnPrefilled && this.returnDraft() === '') {
                 const xirrPct = this.portfolioXirrPct();
                 if (xirrPct !== null) {
@@ -99,7 +106,7 @@ export class ForecastPage {
                     this.returnPrefilled = true;
                 }
             }
-            if (!this.benchmarkPrefilled && this.benchReturnDraft() === '' && this.benchmark.symbol() !== null) {
+            if (!this.benchmarkPrefilled && symbol !== null && this.benchReturnDraft() === '') {
                 const cagr = this.benchmarkCagrPct();
                 if (cagr !== null) {
                     this.benchReturnDraft.set(cagr.toFixed(2));
@@ -362,16 +369,15 @@ export class ForecastPage {
 
     readonly benchmarkCagrPct = computed<Decimal | null>(() => {
         const bars = this.benchmarkBars();
-        if (bars.length < 2 || this.rawPoints().length < 2) {
+        if (bars.length < 2) {
             return null;
         }
-        const dates = this.rawPoints().map((p) => p.date);
-        const series = buildBenchmarkSeries(bars, dates, this.marketData.fxResolver(), this.reportingCurrency());
-        if (series.points.length < 2) {
+        const { closes } = convertedBenchmarkCloses(bars, this.marketData.fxResolver(), this.reportingCurrency());
+        if (closes.length < 2) {
             return null;
         }
-        const first = series.points[0];
-        const last = series.points[series.points.length - 1];
+        const first = closes[0];
+        const last = closes[closes.length - 1];
         return annualizedReturnPct(first.close, last.close, daysBetween(first.date, last.date));
     });
 

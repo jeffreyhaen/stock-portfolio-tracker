@@ -19,12 +19,22 @@ export interface BenchmarkSeries {
  * dates). No points are emitted before the first available close. Price return
  * only: benchmark dividends and transaction costs are not included.
  */
-function convertedCloses(
+export interface BenchmarkClose {
+    readonly date: string;
+    readonly close: Decimal;
+}
+
+/**
+ * Benchmark closes converted to the reporting currency, oldest first. Bars
+ * without a known FX rate are skipped. Price return only: benchmark dividends
+ * and transaction costs are not included.
+ */
+export function convertedBenchmarkCloses(
     bars: readonly PriceBar[],
     fx: FxResolver,
     reportingCurrency: string,
-): { closes: { date: string; close: Decimal }[]; missingFx: boolean } {
-    const closes: { date: string; close: Decimal }[] = [];
+): { closes: BenchmarkClose[]; missingFx: boolean } {
+    const closes: BenchmarkClose[] = [];
     let missingFx = false;
     const sortedBars = [...bars].sort((a, b) => a.date.localeCompare(b.date));
     for (const bar of sortedBars) {
@@ -36,6 +46,14 @@ function convertedCloses(
         closes.push({ date: bar.date, close: result.amount });
     }
     return { closes, missingFx };
+}
+
+function convertedCloses(
+    bars: readonly PriceBar[],
+    fx: FxResolver,
+    reportingCurrency: string,
+): { closes: { date: string; close: Decimal }[]; missingFx: boolean } {
+    return convertedBenchmarkCloses(bars, fx, reportingCurrency);
 }
 
 export function buildBenchmarkSeries(

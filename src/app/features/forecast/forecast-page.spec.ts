@@ -141,10 +141,15 @@ describe('ForecastPage', () => {
         await db.priceHistory.bulkPut([
             { isin: 'BENCH:VUSA.AS', date: '2024-01-02', close: '90', currency: 'EUR' },
             { isin: 'BENCH:VUSA.AS', date: '2026-02-14', close: '110', currency: 'EUR' },
+            { isin: 'BENCH:SPY', date: '2020-01-02', close: '100', currency: 'EUR' },
+            { isin: 'BENCH:SPY', date: '2026-01-02', close: '150', currency: 'EUR' },
         ]);
         await db.settings.put({ key: 'benchmark:p1', value: 'VUSA.AS' });
         const page = await createPage();
         await waitFor(() => page.benchmark.symbol() === 'VUSA.AS');
+        await waitFor(() => page.benchReturnDraft() !== '');
+        page.benchReturnDraft.set('15');
+        expect(page.benchmarkForecast()).not.toBeNull();
 
         page.openBenchmarkEditor();
         expect(page.benchmarkEditing()).toBe(true);
@@ -155,10 +160,18 @@ describe('ForecastPage', () => {
         expect(page.benchmarkEditing()).toBe(false);
         expect(await db.securities.get('BENCH:SPY')).toBeDefined();
 
+        await waitFor(() => {
+            const value = Number(page.benchReturnDraft());
+            return value > 5 && value < 10;
+        });
+        expect(page.benchmarkForecast()).not.toBeNull();
+        expect(page.chartSeries().map((s) => s.name)).toEqual(['Portfolio forecast', 'SPY forecast']);
+
         await page.clearBenchmark();
         expect(page.benchmark.symbol()).toBeNull();
-        expect(await db.settings.get('benchmark:p1')).toBeUndefined();
+        expect((await db.settings.get('benchmark:p1')) === undefined).toBe(true);
         expect(page.benchmarkEditing()).toBe(false);
+        expect(page.benchmarkForecast()).toBeNull();
     });
 
     it('validates the horizon', async () => {

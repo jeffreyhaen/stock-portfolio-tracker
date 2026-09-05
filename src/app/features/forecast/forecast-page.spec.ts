@@ -10,26 +10,6 @@ import { YahooMarketDataProvider } from '../../data/yahoo-market-data-provider';
 import { seedMiniCsv, waitFor } from '../../../testing/seed';
 import { ForecastPage } from './forecast-page';
 
-interface StoredForecastRow {
-    readonly years?: unknown;
-    readonly annualReturnPct?: unknown;
-    readonly monthlyContribution?: unknown;
-}
-
-async function storedForecastSetting(db: PortfolioDatabase, expectedYears?: unknown): Promise<StoredForecastRow> {
-    for (let i = 0; i < 100; i++) {
-        const row = await db.settings.get('forecast:p1');
-        if (row !== undefined) {
-            const parsed = JSON.parse(row.value) as StoredForecastRow;
-            if (expectedYears === undefined || parsed.years === expectedYears) {
-                return parsed;
-            }
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    throw new Error('forecast settings were not saved');
-}
-
 describe('ForecastPage', () => {
     beforeEach(async () => {
         const db = new PortfolioDatabase({ indexedDB: new IDBFactory(), IDBKeyRange });
@@ -59,7 +39,7 @@ describe('ForecastPage', () => {
         return page;
     }
 
-    it('projects the portfolio value with monthly compounding and persists the inputs', async () => {
+    it('projects the portfolio value with monthly compounding from the current value', async () => {
         const page = await createPage();
         await waitFor(() => page.returnDraft() !== '' && page.portfolioForecast() !== null);
 
@@ -73,9 +53,7 @@ describe('ForecastPage', () => {
         expect(page.chartSeries()[0].points[0].value).toBeCloseTo(page.startPoint()!.value.toNumber(), 6);
         expect(page.cards().benchmarkDelta).toBeNull();
 
-        const stored = await storedForecastSetting(TestBed.inject(PortfolioDatabase));
-        expect(stored.years).toBe(10);
-        expect(stored.annualReturnPct).toBe(page.returnDraft());
+        expect(await TestBed.inject(PortfolioDatabase).settings.get('forecast:p1')).toBeUndefined();
     });
 
     it('compares with a benchmark scenario when a benchmark return is set', async () => {
@@ -157,38 +135,18 @@ describe('ForecastPage', () => {
         expect(page.portfolioForecast()).not.toBeNull();
     });
 
-    it('validates the horizon and keeps the stored settings untouched', async () => {
-        const db = TestBed.inject(PortfolioDatabase);
+    it('validates the horizon', async () => {
         const page = await createPage();
         await waitFor(() => page.returnDraft() !== '' && page.portfolioForecast() !== null);
-
-        page.yearsDraft.set('25');
-        page.monthlyDraft.set('250');
-        page.returnDraft.set('7');
-        await storedForecastSetting(db, 25);
 
         page.yearsDraft.set('0');
         expect(page.forecastInputs().error).toContain('Horizon');
         expect(page.portfolioForecast()).toBeNull();
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        const stored = await db.settings.get('forecast:p1');
-        expect(JSON.parse(stored!.value).years).toBe(25);
-    });
 
-    it('shows a second instance with the persisted assumptions of the same portfolio', async () => {
-        const first = await createPage();
-        await waitFor(() => first.returnDraft() !== '');
-        first.yearsDraft.set('15');
-        first.returnDraft.set('5.5');
-        first.monthlyDraft.set('500');
-        const stored = await storedForecastSetting(TestBed.inject(PortfolioDatabase), 15);
-        expect(stored.annualReturnPct).toBe('5.5');
-
-        const fixture = TestBed.createComponent(ForecastPage);
-        fixture.detectChanges();
-        const second = fixture.componentInstance;
-        await waitFor(() => second.yearsDraft() === '15');
-        expect(second.returnDraft()).toBe('5.5');
-        expect(second.monthlyDraft()).toBe('500');
+        page.yearsDraft.set('25');
+        page.monthlyDraft.set('250');
+        page.returnDraft.set('7');
+        expect(page.forecastInputs().error).toBeNull();
+        expect(page.portfolioForecast()!.points).toHaveLength(25 * 12 + 1);
     });
 });

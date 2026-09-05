@@ -2,7 +2,6 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import Decimal from 'decimal.js';
 import { BenchmarkService, benchmarkIsin, isBenchmarkIsin } from '../../data/benchmark.service';
-import { DEFAULT_FORECAST_YEARS, ForecastService } from '../../data/forecast.service';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { buildBenchmarkSeries } from '../../domain/benchmark';
@@ -24,6 +23,7 @@ import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
 import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
 
 const MAX_FORECAST_YEARS = 50;
+const DEFAULT_FORECAST_YEARS = 10;
 
 interface StartPoint {
     readonly value: Decimal;
@@ -56,7 +56,6 @@ export class ForecastPage {
     private readonly context = inject(PortfolioContext);
     readonly marketData = inject(MarketDataService);
     readonly benchmark = inject(BenchmarkService);
-    private readonly forecast = inject(ForecastService);
     private readonly theme = inject(ThemeService);
 
     readonly portfolioId = this.context.selectedPortfolioId;
@@ -71,7 +70,6 @@ export class ForecastPage {
     readonly monthlyDraft = signal('0');
     readonly benchReturnDraft = signal('');
 
-    private readonly hydratedPortfolio = signal('');
     private returnPrefilled = false;
     private benchmarkPrefilled = false;
 
@@ -79,29 +77,16 @@ export class ForecastPage {
         void this.marketData.reload();
 
         effect(() => {
-            const portfolioId = this.context.selectedPortfolioId();
-            const ready = this.forecast.settingsReady();
-            if (portfolioId === '' || !ready || portfolioId === this.hydratedPortfolio()) {
-                return;
-            }
-            this.hydratedPortfolio.set(portfolioId);
+            void this.context.selectedPortfolioId();
             this.returnPrefilled = false;
             this.benchmarkPrefilled = false;
-            const stored = this.forecast.settings();
-            this.yearsDraft.set(
-                stored?.years !== null && stored?.years !== undefined
-                    ? String(stored.years)
-                    : String(DEFAULT_FORECAST_YEARS),
-            );
-            this.returnDraft.set(stored?.annualReturnPct ?? '');
-            this.monthlyDraft.set(stored?.monthlyContribution ?? '0');
-            this.benchReturnDraft.set(stored?.benchmarkAnnualReturnPct ?? '');
+            this.yearsDraft.set(String(DEFAULT_FORECAST_YEARS));
+            this.returnDraft.set('');
+            this.monthlyDraft.set('0');
+            this.benchReturnDraft.set('');
         });
 
         effect(() => {
-            if (this.hydratedPortfolio() === '') {
-                return;
-            }
             if (!this.returnPrefilled && this.returnDraft() === '') {
                 const xirrPct = this.portfolioXirrPct();
                 if (xirrPct !== null) {
@@ -116,22 +101,6 @@ export class ForecastPage {
                     this.benchmarkPrefilled = true;
                 }
             }
-        });
-
-        effect(() => {
-            if (this.hydratedPortfolio() === '') {
-                return;
-            }
-            const inputs = this.forecastInputs();
-            if (inputs.assumptions === null || inputs.error !== null) {
-                return;
-            }
-            void this.forecast.save({
-                years: inputs.assumptions.years,
-                annualReturnPct: this.returnDraft(),
-                monthlyContribution: this.monthlyDraft(),
-                benchmarkAnnualReturnPct: this.benchReturnDraft(),
-            });
         });
     }
 

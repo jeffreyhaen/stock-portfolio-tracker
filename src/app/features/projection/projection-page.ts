@@ -131,7 +131,13 @@ export class ProjectionPage {
         return margin === null ? null : new Decimal(margin).times(100);
     });
 
-    readonly activeScenarioName = computed(() => this.scenarioNames()[this.activeScenario()] ?? '');
+    /** Green/red by sign for financial percentages; empty when not available. */
+    signClass(pct: Decimal | null | undefined): string {
+        if (pct === null || pct === undefined) {
+            return '';
+        }
+        return pct.isNegative() ? 'text-error' : 'text-success';
+    }
 
     /** Every editable field as text; mirrors the persisted model so inputs round-trip. */
     readonly parsedModel = computed<ProjectionModel | null>(() => {

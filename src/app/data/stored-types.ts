@@ -129,6 +129,8 @@ export interface StoredProjectionModel {
     currentPrice: string | null;
     /** Manual shares override; null resolves shares live from the market-data proxy. */
     sharesOutstanding: string | null;
+    /** ISO currency for display; '' is unknown and set manually when the proxy is unavailable. */
+    currency: string;
     projectedYears: number;
     scenarios: StoredProjectionScenario[];
 }

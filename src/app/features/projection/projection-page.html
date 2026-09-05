@@ -340,6 +340,28 @@
                     (input)="setDraft('baseNetIncome', $any($event.target).value)"
                 />
             </div>
+            @if (fundamentals() === null) {
+            <div>
+                <label
+                    for="projection-currency"
+                    class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Currency (manual)</label
+                >
+                <input
+                    id="projection-currency"
+                    type="text"
+                    class="input input-bordered input-sm mt-1 w-full uppercase"
+                    placeholder="e.g. USD"
+                    maxlength="3"
+                    [value]="drafts()?.currency ?? ''"
+                    [disabled]="viewingSnapshot() !== null"
+                    (input)="setDraft('currency', $any($event.target).value)"
+                />
+                @if (currency() === '') {
+                <p class="mt-1 text-[0.7rem] text-base-content/50">Required for money display.</p>
+                }
+            </div>
+            }
             <div class="col-span-2">
                 <label for="projection-shares" class="text-xs font-medium uppercase tracking-wide text-base-content/60"
                     >Shares outstanding (manual)</label

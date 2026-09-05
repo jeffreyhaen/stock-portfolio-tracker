@@ -114,4 +114,43 @@ describe('PortfolioDatabase migrations', () => {
         expect((await migrated.portfolios.get('pf-1'))?.lotStrategy).toBe('fifo');
         migrated.close();
     });
+
+    it('defaults the currency on projection models upgraded from version 9', async () => {
+        const indexedDB = new IDBFactory();
+        const options = { indexedDB, IDBKeyRange };
+        const version9 = new Dexie('stock-portfolio', options);
+        version9.version(9).stores({
+            portfolios: 'id',
+            importBatches: 'id, portfolioId',
+            transactions: '++id, [portfolioId+date], fingerprint',
+            securities: 'isin',
+            securityAliases: 'oldIsin, newIsin',
+            quoteCache: 'key',
+            fxCache: '[pair+date]',
+            priceHistory: '[isin+date], isin',
+            splitEvents: '[isin+date]',
+            settings: 'key',
+            projectionModels: 'symbol',
+            projectionSnapshots: '++id, symbol',
+        });
+        await version9.open();
+        await version9.table('projectionModels').put({
+            symbol: 'AMD',
+            updatedAt: '2026-02-12T10:00:00Z',
+            baseYear: 2026,
+            baseRevenue: '46979000000',
+            baseNetIncome: '11005499037',
+            currentPrice: null,
+            sharesOutstanding: null,
+            projectedYears: 4,
+            scenarios: [],
+        });
+        version9.close();
+
+        const migrated = new PortfolioDatabase(options);
+        await migrated.open();
+        const model = await migrated.projectionModels.get('AMD');
+        expect(model?.currency).toBe('');
+        migrated.close();
+    });
 });

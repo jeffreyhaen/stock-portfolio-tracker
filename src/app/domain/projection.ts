@@ -169,6 +169,8 @@ export interface ProjectionModel {
     readonly currentPrice: Decimal | null;
     /** Manual override; null resolves shares live. */
     readonly sharesOutstanding: Decimal | null;
+    /** ISO currency for display; '' is unknown and resolved from the proxy when available. */
+    readonly currency: string;
     readonly projectedYears: number;
     readonly scenarios: readonly ProjectionScenario[];
 }

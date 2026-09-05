@@ -480,6 +480,7 @@ function normalizeProjectionModel(row: UnknownRecord): StoredProjectionModel {
         baseNetIncome: String(row['baseNetIncome'] ?? ''),
         currentPrice: nullableString(row, 'currentPrice', 'currentPrice'),
         sharesOutstanding: nullableString(row, 'sharesOutstanding', 'sharesOutstanding'),
+        currency: String(row['currency'] ?? ''),
         projectedYears: Number(row['projectedYears'] ?? 5),
         scenarios: array(row['scenarios']).map(normalizeProjectionScenario),
     };

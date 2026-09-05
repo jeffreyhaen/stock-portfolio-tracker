@@ -221,6 +221,7 @@ describe('ProjectionPage', () => {
             baseNetIncome: '11005499037',
             currentPrice: '477.57',
             sharesOutstanding: '1632475000',
+            currency: ' usd ',
             projectedYears: '1',
             scenarios: [
                 {
@@ -233,9 +234,27 @@ describe('ProjectionPage', () => {
             ],
         });
         expect(page.modelError()).toBeNull();
+        expect(page.currency()).toBe('USD');
+        expect(page.parsedModel()?.currency).toBe('USD');
         const results = page.activeResults();
         expect(results![1].revenue.toFixed(2)).toBe('51676900000.00');
         expect(results![1].priceHigh.toFixed(2)).toBe('316.56');
+    });
+
+    it('keeps the manual currency when persisting and reloading the model', async () => {
+        configure(null);
+        const page = await createPage();
+        await page.pickSymbol({ symbol: 'AMD', name: 'AMD', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        page.setDraft('currency', 'USD');
+        page.setDraft('baseRevenue', '46979000000');
+        page.setDraft('baseNetIncome', '11005499037');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const stored = await db.projectionModels.get('AMD');
+        expect(stored?.currency).toBe('USD');
+
+        const reloaded = await TestBed.inject(ProjectionService).loadModel('AMD');
+        expect(reloaded?.currency).toBe('USD');
     });
 
     it('warns about negative base earnings', async () => {

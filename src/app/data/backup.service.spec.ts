@@ -97,6 +97,7 @@ describe('BackupService', () => {
             baseNetIncome: '11005499037',
             currentPrice: null,
             sharesOutstanding: null,
+            currency: 'USD',
             projectedYears: 4,
             scenarios: [
                 {
@@ -135,6 +136,30 @@ describe('BackupService', () => {
         } finally {
             freshDb.close();
         }
+    });
+
+    it('defaults the currency for projection models from before schema 10', async () => {
+        const bundle = await service.export();
+        const legacy = JSON.parse(JSON.stringify(bundle)) as {
+            data: { projectionModels: Record<string, unknown>[] };
+        };
+        legacy.data.projectionModels = [
+            {
+                symbol: 'AMD',
+                updatedAt: '2026-02-12T10:00:00Z',
+                baseYear: 2026,
+                baseRevenue: '46979000000',
+                baseNetIncome: '11005499037',
+                currentPrice: null,
+                sharesOutstanding: null,
+                projectedYears: 4,
+                scenarios: [],
+            },
+        ];
+
+        const parsed = parseBundle(JSON.stringify(legacy));
+        expect(parsed.data.projectionModels).toHaveLength(1);
+        expect(parsed.data.projectionModels[0].currency).toBe('');
     });
 
     it('imports backups from before projection stores existed', async () => {

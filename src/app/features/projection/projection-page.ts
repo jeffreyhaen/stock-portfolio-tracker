@@ -42,6 +42,7 @@ interface ModelDrafts {
     baseNetIncome: string;
     currentPrice: string;
     sharesOutstanding: string;
+    currency: string;
     projectedYears: string;
     scenarios: ScenarioDraft[];
 }
@@ -95,7 +96,11 @@ export class ProjectionPage {
         if (fundamentals !== null) {
             return fundamentals.currency;
         }
-        return this.quote()?.currency ?? '';
+        const quoteCurrency = this.quote()?.currency ?? null;
+        if (quoteCurrency !== null && quoteCurrency !== '') {
+            return quoteCurrency;
+        }
+        return (this.drafts()?.currency ?? '').trim().toUpperCase();
     });
 
     readonly longName = computed(() => this.fundamentals()?.longName ?? null);
@@ -197,6 +202,7 @@ export class ProjectionPage {
             baseNetIncome,
             currentPrice: this.parseDecimal(drafts.currentPrice),
             sharesOutstanding: this.parseDecimal(drafts.sharesOutstanding),
+            currency: drafts.currency.trim().toUpperCase(),
             projectedYears,
             scenarios,
         };
@@ -426,7 +432,7 @@ export class ProjectionPage {
     }
 
     setDraft(
-        field: 'baseYear' | 'baseRevenue' | 'baseNetIncome' | 'currentPrice' | 'sharesOutstanding',
+        field: 'baseYear' | 'baseRevenue' | 'baseNetIncome' | 'currentPrice' | 'sharesOutstanding' | 'currency',
         value: string,
     ): void {
         const drafts = this.drafts();
@@ -621,6 +627,7 @@ export class ProjectionPage {
             baseNetIncome: baseNetIncome === '' ? '' : String(baseNetIncome),
             currentPrice: '',
             sharesOutstanding: '',
+            currency: fundamentals?.currency ?? '',
             projectedYears: String(DEFAULT_PROJECTED_YEARS),
             scenarios: [
                 {
@@ -690,6 +697,7 @@ function draftsFromModel(model: ProjectionModel): ModelDrafts {
         baseNetIncome: model.baseNetIncome.toFixed(),
         currentPrice: model.currentPrice?.toFixed() ?? '',
         sharesOutstanding: model.sharesOutstanding?.toFixed() ?? '',
+        currency: model.currency ?? '',
         projectedYears: String(model.projectedYears),
         scenarios: model.scenarios.map((scenario) => ({
             name: scenario.name,
@@ -709,6 +717,7 @@ function buildProjectionForModel(stored: StoredProjectionSnapshot['model']) {
         baseNetIncome: new Decimal(stored.baseNetIncome),
         currentPrice: stored.currentPrice === null ? null : new Decimal(stored.currentPrice),
         sharesOutstanding: stored.sharesOutstanding === null ? null : new Decimal(stored.sharesOutstanding),
+        currency: stored.currency ?? '',
         projectedYears: stored.projectedYears,
         scenarios: stored.scenarios.map((scenario) => ({
             name: scenario.name,

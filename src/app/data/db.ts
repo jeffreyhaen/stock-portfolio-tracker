@@ -259,6 +259,14 @@ export class PortfolioDatabase extends Dexie {
             projectionModels: 'symbol',
             projectionSnapshots: '++id, symbol',
         });
+        this.version(10).upgrade((transaction) =>
+            transaction
+                .table('projectionModels')
+                .toCollection()
+                .modify((row) => {
+                    row['currency'] = row['currency'] ?? '';
+                }),
+        );
     }
 }
 

@@ -68,6 +68,7 @@ export function toStoredProjectionModel(model: ProjectionModel): StoredProjectio
         baseNetIncome: model.baseNetIncome.toFixed(),
         currentPrice: model.currentPrice?.toFixed() ?? null,
         sharesOutstanding: model.sharesOutstanding?.toFixed() ?? null,
+        currency: model.currency,
         projectedYears: model.projectedYears,
         scenarios: model.scenarios.map(toStoredProjectionScenario),
     };
@@ -81,6 +82,7 @@ export function fromStoredProjectionModel(stored: StoredProjectionModel): Projec
         baseNetIncome: new Decimal(stored.baseNetIncome),
         currentPrice: stored.currentPrice === null ? null : new Decimal(stored.currentPrice),
         sharesOutstanding: stored.sharesOutstanding === null ? null : new Decimal(stored.sharesOutstanding),
+        currency: stored.currency ?? '',
         projectedYears: stored.projectedYears,
         scenarios: stored.scenarios.map(fromStoredProjectionScenario),
     };

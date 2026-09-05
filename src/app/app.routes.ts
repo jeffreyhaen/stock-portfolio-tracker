@@ -49,6 +49,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/projection/projection-page').then((m) => m.ProjectionPage),
     },
     {
+        path: 'projection/:symbol',
+        loadComponent: () => import('./features/projection/projection-page').then((m) => m.ProjectionPage),
+    },
+    {
         path: 'prices',
         loadComponent: () => import('./features/prices/prices-page').then((m) => m.PricesPage),
     },

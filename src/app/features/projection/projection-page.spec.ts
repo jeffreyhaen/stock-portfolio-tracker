@@ -1,11 +1,14 @@
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, ParamMap, provideRouter, Router } from '@angular/router';
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
+import { BehaviorSubject } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PortfolioDatabase } from '../../data/db';
 import { FundamentalsResult, MarketDataProvider, QuoteResult, TickerSuggestion } from '../../data/market-data-provider';
 import { ProjectionService } from '../../data/projection.service';
 import { StoredProjectionModel, StoredProjectionSnapshot } from '../../data/stored-types';
+import { waitFor } from '../../../testing/seed';
 import { ProjectionPage } from './projection-page';
 
 const AMD_FUNDAMENTALS: FundamentalsResult = {
@@ -57,10 +60,13 @@ class StubProvider extends MarketDataProvider {
     }
 }
 
+@Component({ selector: 'app-test-dummy-route', imports: [], template: '' })
+class DummyRoute {}
+
 describe('ProjectionPage', () => {
     let db: PortfolioDatabase;
 
-    function configure(provider: MarketDataProvider | null): void {
+    function configure(provider: MarketDataProvider | null, routeParamMap?: BehaviorSubject<ParamMap>): void {
         TestBed.resetTestingModule();
         db = new PortfolioDatabase({ indexedDB: new IDBFactory(), IDBKeyRange });
         TestBed.configureTestingModule({
@@ -68,7 +74,13 @@ describe('ProjectionPage', () => {
             providers: [
                 { provide: PortfolioDatabase, useValue: db },
                 ...(provider === null ? [] : [{ provide: MarketDataProvider, useValue: provider }]),
-                provideRouter([]),
+                provideRouter([
+                    { path: 'projection', component: DummyRoute },
+                    { path: 'projection/:symbol', component: DummyRoute },
+                ]),
+                ...(routeParamMap === undefined
+                    ? []
+                    : [{ provide: ActivatedRoute, useValue: { paramMap: routeParamMap } }]),
             ],
         }).compileComponents();
     }
@@ -385,6 +397,56 @@ describe('ProjectionPage', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(page.symbol()).toBe('AMD');
         expect(page.snapshots()).toHaveLength(1);
+        expect(TestBed.inject(Router).url).toBe('/projection/AMD');
+    });
+
+    it('loads the symbol from /projection/:symbol and resets when the route clears', async () => {
+        const paramMap = new BehaviorSubject<ParamMap>(convertToParamMap({ symbol: 'AMD' }));
+        configure(new StubProvider(AMD_FUNDAMENTALS, AMD_QUOTE), paramMap);
+        const fixture = TestBed.createComponent(ProjectionPage);
+        fixture.detectChanges();
+        const page = fixture.componentInstance;
+        await waitFor(() => page.fundamentals() !== null);
+
+        expect(page.symbol()).toBe('AMD');
+        expect(page.fundamentals()?.currency).toBe('USD');
+        expect(page.drafts()?.baseRevenue).toBe('46979000000');
+        expect(TestBed.inject(Router).url).toBe('/projection/AMD');
+
+        paramMap.next(convertToParamMap({}));
+        fixture.detectChanges();
+        expect(page.symbol()).toBeNull();
+        expect(page.drafts()).toBeNull();
+        expect(page.snapshots()).toHaveLength(0);
+    });
+
+    it('freezes resolved price and shares into saved snapshots', async () => {
+        const page = await createPage();
+        await page.pickSymbol({ symbol: 'AMD', name: 'AMD', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        page.drafts.set({
+            ...page.drafts()!,
+            scenarios: [
+                {
+                    name: 'Base',
+                    growth: ['', '35', '35', '35', '35'],
+                    margin: ['', '35', '35', '35', '35'],
+                    peLow: ['30', '30', '30', '30', '30'],
+                    peHigh: ['50', '50', '50', '50', '50'],
+                },
+            ],
+        });
+        await page.saveSnapshot();
+
+        const snapshot = page.snapshots()[0];
+        expect(snapshot.model.currentPrice).toBe('477.57');
+        expect(snapshot.model.sharesOutstanding).toBe('1632475000');
+        expect(page.snapshotEndPrice(snapshot, 'low')!.toFixed(3)).toBe('1003.648');
+
+        await page.clearSymbol();
+        const row = page.overview()[0]!;
+        expect(row.snapshotCount).toBe(1);
+        expect(page.overviewEndPrice(row, 'high')!.toFixed(3)).toBe('1672.747');
     });
 });
 

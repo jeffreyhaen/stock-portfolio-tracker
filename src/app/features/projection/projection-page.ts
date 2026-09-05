@@ -1,5 +1,8 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import Decimal from 'decimal.js';
+import { map } from 'rxjs';
 import { FundamentalsResult, QuoteResult, TickerSuggestion } from '../../data/market-data-provider';
 import { ProjectionOverviewRow, ProjectionService } from '../../data/projection.service';
 import { StoredProjectionModel, StoredProjectionSnapshot } from '../../data/stored-types';
@@ -54,9 +57,17 @@ interface ModelDrafts {
 })
 export class ProjectionPage {
     private readonly theme = inject(ThemeService);
+    private readonly router = inject(Router);
+    private readonly route = inject(ActivatedRoute);
     readonly projectionService = inject(ProjectionService);
 
     readonly maxProjectedYears = PROJECTION_MAX_PROJECTED_YEARS;
+
+    /** Symbol carried by /projection/:symbol; null on /projection. */
+    private readonly routeSymbol = toSignal(
+        this.route.paramMap.pipe(map((params) => params.get('symbol')?.trim().toUpperCase() || null)),
+        { initialValue: null },
+    );
 
     readonly symbol = signal<string | null>(null);
     readonly fundamentals = signal<FundamentalsResult | null>(null);
@@ -73,6 +84,15 @@ export class ProjectionPage {
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
+        effect(() => {
+            const routeSymbol = this.routeSymbol();
+            const current = untracked(this.symbol);
+            if (routeSymbol !== null && routeSymbol !== current) {
+                void this.pickSymbol({ symbol: routeSymbol, name: '', exchange: '' });
+            } else if (routeSymbol === null && current !== null) {
+                this.resetState();
+            }
+        });
         void this.refreshOverview();
         effect(() => {
             const drafts = this.drafts();
@@ -337,6 +357,7 @@ export class ProjectionPage {
     async pickSymbol(suggestion: TickerSuggestion): Promise<void> {
         const symbol = suggestion.symbol.trim().toUpperCase();
         this.symbol.set(symbol);
+        void this.router.navigate(['/projection', symbol]);
         this.viewingSnapshot.set(null);
         this.activeScenario.set(0);
         this.fundamentals.set(this.projectionService.cachedFundamentals(symbol));
@@ -361,7 +382,7 @@ export class ProjectionPage {
         }
     }
 
-    async clearSymbol(): Promise<void> {
+    private resetState(): void {
         this.symbol.set(null);
         this.fundamentals.set(null);
         this.quote.set(null);
@@ -369,6 +390,11 @@ export class ProjectionPage {
         this.snapshots.set([]);
         this.viewingSnapshot.set(null);
         this.activeScenario.set(0);
+    }
+
+    async clearSymbol(): Promise<void> {
+        this.resetState();
+        void this.router.navigate(['/projection']);
         await this.refreshOverview();
     }
 
@@ -513,10 +539,15 @@ export class ProjectionPage {
 
     async saveSnapshot(): Promise<void> {
         const symbol = this.symbol();
-        const model = this.parsedModel();
-        if (symbol === null || model === null) {
+        const parsed = this.parsedModel();
+        if (symbol === null || parsed === null) {
             return;
         }
+        const model: ProjectionModel = {
+            ...parsed,
+            currentPrice: this.livePrice(),
+            sharesOutstanding: this.liveShares(),
+        };
         await this.projectionService.saveSnapshot(symbol, this.currency(), this.longName(), model);
         this.snapshots.set(await this.projectionService.listSnapshots(symbol));
         await this.refreshOverview();

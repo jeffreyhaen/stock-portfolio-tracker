@@ -7,6 +7,7 @@ import { ImportService } from '../../data/import.service';
 import { MarketDataProvider } from '../../data/market-data-provider';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { YahooMarketDataProvider } from '../../data/yahoo-market-data-provider';
+import { TickerSuggestion } from '../../data/market-data-provider';
 import { seedMiniCsv, waitFor } from '../../../testing/seed';
 import { ForecastPage } from './forecast-page';
 
@@ -133,6 +134,31 @@ describe('ForecastPage', () => {
         expect(page.forecastInputs().error).toBeNull();
         page.returnDraft.set('7');
         expect(page.portfolioForecast()).not.toBeNull();
+    });
+
+    it('changes and clears the benchmark from the forecast page', async () => {
+        const db = TestBed.inject(PortfolioDatabase);
+        await db.priceHistory.bulkPut([
+            { isin: 'BENCH:VUSA.AS', date: '2024-01-02', close: '90', currency: 'EUR' },
+            { isin: 'BENCH:VUSA.AS', date: '2026-02-14', close: '110', currency: 'EUR' },
+        ]);
+        await db.settings.put({ key: 'benchmark:p1', value: 'VUSA.AS' });
+        const page = await createPage();
+        await waitFor(() => page.benchmark.symbol() === 'VUSA.AS');
+
+        page.openBenchmarkEditor();
+        expect(page.benchmarkEditing()).toBe(true);
+        const suggestion: TickerSuggestion = { symbol: 'SPY', name: 'SPDR S&P 500', exchange: 'NYSEARCA' };
+        await page.pickBenchmark(suggestion);
+        await waitFor(() => page.benchmark.symbol() === 'SPY');
+        expect((await db.settings.get('benchmark:p1'))!.value).toBe('SPY');
+        expect(page.benchmarkEditing()).toBe(false);
+        expect(await db.securities.get('BENCH:SPY')).toBeDefined();
+
+        await page.clearBenchmark();
+        expect(page.benchmark.symbol()).toBeNull();
+        expect(await db.settings.get('benchmark:p1')).toBeUndefined();
+        expect(page.benchmarkEditing()).toBe(false);
     });
 
     it('validates the horizon', async () => {

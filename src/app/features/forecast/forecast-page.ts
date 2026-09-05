@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import Decimal from 'decimal.js';
 import { BenchmarkService, benchmarkIsin, isBenchmarkIsin } from '../../data/benchmark.service';
+import { TickerSuggestion } from '../../data/market-data-provider';
 import { MarketDataService } from '../../data/market-data.service';
 import { PortfolioContext } from '../../data/portfolio-context';
 import { buildBenchmarkSeries } from '../../domain/benchmark';
@@ -20,6 +21,7 @@ import { MoneyPipe } from '../../shared/money.pipe';
 import { themeColor } from '../../shared/theme-colors';
 import { ThemeService } from '../../shared/theme.service';
 import { InfoTooltipComponent } from '../../shared/ui/info-tooltip';
+import { TickerSearchComponent } from '../../shared/ui/ticker-search';
 import { ChartSeries, ValueChartComponent } from '../../shared/ui/value-chart';
 
 const MAX_FORECAST_YEARS = 50;
@@ -49,7 +51,7 @@ interface ForecastCards {
 
 @Component({
     selector: 'app-forecast-page',
-    imports: [RouterLink, MoneyPipe, InfoTooltipComponent, ValueChartComponent],
+    imports: [RouterLink, MoneyPipe, InfoTooltipComponent, ValueChartComponent, TickerSearchComponent],
     templateUrl: './forecast-page.html',
 })
 export class ForecastPage {
@@ -58,7 +60,6 @@ export class ForecastPage {
     readonly benchmark = inject(BenchmarkService);
     private readonly theme = inject(ThemeService);
 
-    readonly portfolioId = this.context.selectedPortfolioId;
     readonly reportingCurrency = this.marketData.reportingCurrency;
 
     readonly maxYears = MAX_FORECAST_YEARS;
@@ -69,6 +70,10 @@ export class ForecastPage {
     readonly returnDraft = signal('');
     readonly monthlyDraft = signal('0');
     readonly benchReturnDraft = signal('');
+
+    readonly benchmarkEditing = signal(false);
+    readonly benchmarkError = signal<string | null>(null);
+    readonly benchmarkSaving = signal(false);
 
     private returnPrefilled = false;
     private benchmarkPrefilled = false;
@@ -369,6 +374,34 @@ export class ForecastPage {
         const last = series.points[series.points.length - 1];
         return annualizedReturnPct(first.close, last.close, daysBetween(first.date, last.date));
     });
+
+    openBenchmarkEditor(): void {
+        this.benchmarkError.set(null);
+        this.benchmarkEditing.set(true);
+    }
+
+    closeBenchmarkEditor(): void {
+        this.benchmarkEditing.set(false);
+        this.benchmarkError.set(null);
+    }
+
+    async pickBenchmark(suggestion: TickerSuggestion): Promise<void> {
+        this.benchmarkSaving.set(true);
+        this.benchmarkError.set(null);
+        try {
+            await this.benchmark.setBenchmark(suggestion.symbol, suggestion.exchange);
+            this.closeBenchmarkEditor();
+        } catch (error) {
+            this.benchmarkError.set(String((error as Error).message ?? error));
+        } finally {
+            this.benchmarkSaving.set(false);
+        }
+    }
+
+    async clearBenchmark(): Promise<void> {
+        await this.benchmark.clearBenchmark();
+        this.closeBenchmarkEditor();
+    }
 
     readonly returnTooltip = computed(() => {
         const xirrPct = this.portfolioXirrPct();

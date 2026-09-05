@@ -72,8 +72,7 @@
                 <label
                     for="forecast-benchmark-return"
                     class="text-xs font-medium uppercase tracking-wide text-base-content/60"
-                    >{{ benchmark.symbol() === null ? 'Benchmark return (%)' : 'Benchmark return (%) · ' +
-                    benchmark.symbol() }}</label
+                    >Benchmark return (%)</label
                 >
                 <app-info-tooltip [text]="benchmarkReturnTooltip()" />
             </div>
@@ -134,18 +133,48 @@
         }
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">
-        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">
-            {{ benchmark.symbol() === null ? 'Benchmark scenario' : benchmark.symbol() + ' scenario' }}
-        </p>
-        @if (benchmark.symbol() !== null) {
+        <div class="flex items-center gap-1">
+            <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                {{ benchmark.symbol() === null ? 'Benchmark scenario' : benchmark.symbol() + ' scenario' }}
+            </p>
+            @if (!benchmarkEditing() && benchmark.symbol() !== null) {
+            <button
+                type="button"
+                class="btn btn-ghost btn-xs px-1"
+                title="Edit benchmark"
+                (click)="openBenchmarkEditor()"
+            >
+                ✎
+            </button>
+            }
+        </div>
+        @if (benchmarkEditing()) {
+        <div class="mt-2">
+            <app-ticker-search
+                [initialQuery]="benchmark.symbol() ?? ''"
+                [busy]="benchmarkSaving()"
+                cancelLabel="Cancel"
+                (pick)="pickBenchmark($event)"
+                (cancelled)="closeBenchmarkEditor()"
+            />
+            @if (benchmarkError() !== null) {
+            <p class="mt-1 text-[0.8125rem] text-error">{{ benchmarkError() }}</p>
+            } @if (benchmark.symbol() !== null) {
+            <button
+                type="button"
+                class="btn btn-ghost btn-xs mt-1 text-error"
+                [disabled]="benchmarkSaving()"
+                (click)="clearBenchmark()"
+            >
+                Remove benchmark
+            </button>
+            }
+        </div>
+        } @else if (benchmark.symbol() !== null) {
         <p class="mt-1 text-xl font-semibold tabular-nums">{{ cards().benchmarkValue | money: reportingCurrency() }}</p>
         } @else {
         <p class="mt-1 text-xl font-semibold tabular-nums">–</p>
-        <a
-            [routerLink]="['/portfolio', portfolioId(), 'dashboard']"
-            class="text-[0.8125rem] text-primary hover:underline"
-            >Set a benchmark on the Dashboard</a
-        >
+        <button type="button" class="btn btn-outline btn-xs mt-1" (click)="openBenchmarkEditor()">Set benchmark</button>
         }
     </div>
     <div class="rounded-xl border border-base-300 bg-base-100 p-4">

@@ -3,11 +3,12 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { PortfolioContext } from './data/portfolio-context';
 import { MarketDataService } from './data/market-data.service';
 import { MarketDataSyncService } from './data/market-data-sync.service';
+import { NavDropdownComponent } from './shared/ui/nav-dropdown';
 import { ThemePreference, ThemeService } from './shared/theme.service';
 
 @Component({
     selector: 'app-root',
-    imports: [RouterOutlet, RouterLink, RouterLinkActive],
+    imports: [RouterOutlet, RouterLink, RouterLinkActive, NavDropdownComponent],
     templateUrl: './app.html',
     styleUrl: './app.css',
 })

@@ -83,14 +83,16 @@ describe('App', () => {
         fixture.detectChanges();
         await waitFor(() => TestBed.inject(PortfolioContext).selectedPortfolioId() !== '');
         fixture.detectChanges();
-        const nav = fixture.nativeElement.querySelector('nav') as HTMLElement;
-        expect(nav.textContent).toContain('Dashboard');
-        expect(nav.textContent).toContain('Holdings');
-        expect(nav.textContent).toContain('Transactions');
-        expect(nav.textContent).toContain('Projection');
-        expect(nav.textContent).toContain('Prices');
-        expect(nav.textContent).toContain('Portfolios');
-        expect(nav.textContent).toContain('DEGIRO');
+        const navs = fixture.nativeElement.querySelectorAll('nav');
+        expect(navs.length).toBe(2);
+        const mainNav = navs[0] as HTMLElement;
+        expect(mainNav.textContent).toContain('Portfolio: DEGIRO');
+        expect(mainNav.textContent).toContain('Tools');
+        expect(mainNav.textContent).toContain('Settings');
+        const tabs = navs[1] as HTMLElement;
+        expect(tabs.textContent).toContain('Dashboard');
+        expect(tabs.textContent).toContain('Holdings');
+        expect(tabs.textContent).toContain('Transactions');
     });
 });
 

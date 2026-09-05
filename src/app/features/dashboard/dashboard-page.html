@@ -1,5 +1,12 @@
-<h1 class="text-3xl font-bold">Dashboard</h1>
-<p class="mt-1 text-sm text-base-content/60">Performance and totals at a glance.</p>
+<div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+        <h1 class="text-3xl font-bold">Dashboard</h1>
+        <p class="mt-1 text-sm text-base-content/60">Performance and totals at a glance.</p>
+    </div>
+    @if (!isEmpty()) {
+    <a [routerLink]="['/portfolio', portfolioId(), 'forecast']" class="btn btn-outline btn-sm">Forecast</a>
+    }
+</div>
 
 @if (isEmpty()) {
 <section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">

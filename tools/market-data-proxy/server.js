@@ -2,6 +2,7 @@ import http from 'node:http';
 
 const PORT = Number(process.env.MARKET_DATA_PROXY_PORT ?? 8787);
 const QUOTE_TTL_MS = 15 * 60 * 1000;
+const CRUMB_TTL_MS = 50 * 60 * 1000;
 const YAHOO_HOST = 'query1.finance.yahoo.com';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) App/1.0';
 
@@ -16,6 +17,8 @@ function normalizeCurrency(price, currency) {
 const quoteCache = new Map();
 const historyCache = new Map();
 const searchCache = new Map();
+const fundamentalsCache = new Map();
+let crumbState = null;
 
 function cached(map, key, ttlMs) {
     const hit = map.get(key);
@@ -39,6 +42,58 @@ async function yahoo(path) {
         throw new Error(`Yahoo ${response.status} for ${path}`);
     }
     return response.json();
+}
+
+// quoteSummary and v7/quote are gated behind a cookie + crumb handshake:
+// fc.yahoo.com sets the session cookie, /v1/test/getcrumb exchanges it for a crumb.
+async function yahooCredentials() {
+    if (crumbState !== null && Date.now() - crumbState.at < CRUMB_TTL_MS) {
+        return crumbState;
+    }
+    const cookieResponse = await fetch('https://fc.yahoo.com', {
+        headers: { 'User-Agent': USER_AGENT },
+        signal: AbortSignal.timeout(15000),
+    });
+    const cookie = (cookieResponse.headers?.getSetCookie?.() ?? []).map((value) => value.split(';')[0]).join('; ');
+    const crumbResponse = await fetch(`https://${YAHOO_HOST}/v1/test/getcrumb`, {
+        headers: { 'User-Agent': USER_AGENT, Accept: 'text/plain', Cookie: cookie },
+        signal: AbortSignal.timeout(15000),
+    });
+    if (!crumbResponse.ok) {
+        throw new Error(`Yahoo ${crumbResponse.status} for getcrumb`);
+    }
+    const crumb = (await crumbResponse.text()).trim();
+    if (crumb === '') {
+        throw new Error('Empty Yahoo crumb');
+    }
+    crumbState = { cookie, crumb, at: Date.now() };
+    return crumbState;
+}
+
+async function yahooAuthenticated(path) {
+    const call = (credentials) => {
+        const separator = path.includes('?') ? '&' : '?';
+        const fullPath = `${path}${separator}crumb=${encodeURIComponent(credentials.crumb)}`;
+        return fetch(`https://${YAHOO_HOST}${fullPath}`, {
+            headers: { 'User-Agent': USER_AGENT, Accept: 'application/json', Cookie: credentials.cookie },
+            signal: AbortSignal.timeout(15000),
+        });
+    };
+    let credentials = await yahooCredentials();
+    let response = await call(credentials);
+    if (response.status === 401 || response.status === 403) {
+        crumbState = null;
+        credentials = await yahooCredentials();
+        response = await call(credentials);
+    }
+    if (!response.ok) {
+        throw new Error(`Yahoo ${response.status} for ${path}`);
+    }
+    return response.json();
+}
+
+function rawNumber(value) {
+    return typeof value?.raw === 'number' ? value.raw : null;
 }
 
 function dateFromTimestamp(seconds) {
@@ -108,6 +163,61 @@ async function fetchHistory(symbol, from, to) {
         currency: isPence ? 'GBP' : metaCurrency,
         bars,
         splits,
+    });
+}
+
+async function fetchFundamentals(symbol) {
+    const key = symbol.toUpperCase();
+    const hit = cached(fundamentalsCache, key, QUOTE_TTL_MS);
+    if (hit !== undefined) {
+        return hit;
+    }
+    const modules = 'price,summaryDetail,defaultKeyStatistics,financialData,incomeStatementHistory';
+    const summary = await yahooAuthenticated(
+        `/v10/finance/quoteSummary/${encodeURIComponent(key)}?modules=${encodeURIComponent(modules)}`,
+    );
+    const result = summary.quoteSummary?.result?.[0];
+    if (!result) {
+        throw new Error(summary.quoteSummary?.error?.description ?? `No fundamentals for ${key}`);
+    }
+    const eps = rawNumber(result.defaultKeyStatistics?.trailingEps);
+    let pe = rawNumber(result.summaryDetail?.trailingPe);
+    if (pe === null) {
+        // summaryDetail no longer always carries trailingPe; v7/quote still does (as a plain number).
+        try {
+            const quote = await yahooAuthenticated(`/v7/finance/quote?symbols=${encodeURIComponent(key)}`);
+            const quotePe = quote.quoteResponse?.result?.[0]?.trailingPE;
+            pe = typeof quotePe === 'number' ? quotePe : null;
+        } catch {
+            pe = null;
+        }
+    }
+    const reports = result.incomeStatementHistory?.incomeStatementHistory ?? [];
+    let fiscal = null;
+    for (const report of reports) {
+        const revenue = rawNumber(report.totalRevenue);
+        const netIncome = rawNumber(report.netIncome);
+        const endDate = rawNumber(report.endDate);
+        if (revenue !== null && netIncome !== null && endDate !== null) {
+            fiscal = { periodEnd: dateFromTimestamp(endDate), revenue, netIncome };
+            break;
+        }
+    }
+    const currency = normalizeCurrency(0, result.price?.currency ?? null).currency;
+    return store(fundamentalsCache, key, {
+        symbol: key,
+        currency,
+        longName: result.price?.longName ?? null,
+        sharesOutstanding: rawNumber(result.defaultKeyStatistics?.sharesOutstanding),
+        epsTtm: eps,
+        peTtm: pe,
+        marketCap: rawNumber(result.summaryDetail?.marketCap),
+        revenueTtm: rawNumber(result.financialData?.totalRevenue),
+        revenueGrowthTtm: rawNumber(result.financialData?.revenueGrowth),
+        marginTtm: rawNumber(result.financialData?.profitMargins),
+        fiscalYearEnd: fiscal?.periodEnd ?? null,
+        revenueFy: fiscal?.revenue ?? null,
+        netIncomeFy: fiscal?.netIncome ?? null,
     });
 }
 
@@ -181,6 +291,15 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
             json(res, 200, await fetchHistory(symbol, from, to));
+            return;
+        }
+        if (url.pathname === '/api/fundamentals') {
+            const symbol = (url.searchParams.get('symbol') ?? '').trim();
+            if (symbol === '' || symbol.length > 20) {
+                json(res, 400, { error: 'symbol is required' });
+                return;
+            }
+            json(res, 200, await fetchFundamentals(symbol));
             return;
         }
         if (url.pathname === '/api/search') {

@@ -88,6 +88,74 @@ describe('BackupService', () => {
         expect(bundle.data.settings[0].key).toBe('selectedPortfolio');
     });
 
+    it('keeps projection models and snapshots through a roundtrip', async () => {
+        const model = {
+            symbol: 'AMD',
+            updatedAt: '2026-02-12T10:00:00Z',
+            baseYear: 2026,
+            baseRevenue: '46979000000',
+            baseNetIncome: '11005499037',
+            currentPrice: null,
+            sharesOutstanding: null,
+            projectedYears: 4,
+            scenarios: [
+                {
+                    name: 'Base',
+                    rows: [
+                        { revenueGrowthPct: null, netMarginPct: null, peLow: '30', peHigh: '50' },
+                        { revenueGrowthPct: '35', netMarginPct: '35', peLow: '30', peHigh: '50' },
+                    ],
+                },
+            ],
+        };
+        await db.projectionModels.put(model);
+        await db.projectionSnapshots.put({
+            symbol: 'AMD',
+            createdAt: '2026-02-12T10:00:00Z',
+            currency: 'USD',
+            longName: 'Advanced Micro Devices, Inc.',
+            model,
+        });
+
+        const bundle = await service.export();
+        expect(bundle.totals.projectionModels).toBe(1);
+        expect(bundle.totals.projectionSnapshots).toBe(1);
+
+        const freshDb = createDb();
+        try {
+            TestBed.resetTestingModule();
+            TestBed.configureTestingModule({ providers: [{ provide: PortfolioDatabase, useValue: freshDb }] });
+            const freshService = TestBed.inject(BackupService);
+            await freshService.import(bundle);
+            expect(await freshDb.projectionModels.get('AMD')).toEqual(model);
+            const snapshots = await freshDb.projectionSnapshots.toArray();
+            expect(snapshots).toHaveLength(1);
+            expect(snapshots[0].symbol).toBe('AMD');
+            expect(snapshots[0].model.scenarios[0].rows[1].revenueGrowthPct).toBe('35');
+        } finally {
+            freshDb.close();
+        }
+    });
+
+    it('imports backups from before projection stores existed', async () => {
+        const bundle = await service.export();
+        const legacy = JSON.parse(JSON.stringify(bundle)) as {
+            data: Record<string, unknown>;
+            totals: Record<string, unknown>;
+        };
+        delete legacy.data['projectionModels'];
+        delete legacy.data['projectionSnapshots'];
+
+        const parsed = parseBundle(JSON.stringify(legacy));
+        expect(parsed.data.projectionModels).toEqual([]);
+        expect(parsed.data.projectionSnapshots).toEqual([]);
+        expect(parsed.totals.projectionModels).toBe(0);
+
+        const report = await service.import(parsed);
+        expect(report.added.portfolios).toBe(bundle.totals.portfolios);
+        expect(await db.projectionModels.count()).toBe(0);
+    });
+
     it('import replaces (does not merge) existing data', async () => {
         const importService = TestBed.inject(ImportService);
         await importService.importCsv(

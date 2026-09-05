@@ -19,6 +19,7 @@ A client-side Angular application for tracking an investment portfolio from DEGI
 - Optional live quotes and historical prices through the local market-data proxy
 - Optional benchmark comparison on the dashboard chart (per portfolio): a shadow line in your portfolio currency invests your money in the benchmark with the same timing as your real deposits, and a % view compares indexed performance from the range start
 - Forecast page (per portfolio): project the portfolio value over a chosen horizon with monthly compounding and an optional monthly contribution, prefilled from your own all-time money-weighted return and compared against a benchmark scenario; results are nominal scenarios, not advice, and inputs are never stored
+- Projection page (per portfolio): project a stock's revenue, net income, EPS, and share price with editable revenue-growth, net-margin, and PE-low/high assumptions; supports multiple named scenario sets, persists assumptions and point-in-time snapshots per symbol, and falls back to manual entry when the market-data proxy is unavailable; scenario maths, not advice
 
 Portfolio data is stored in the browser's IndexedDB. The application has no backend and does not upload imported portfolio data to this repository or to an application server.
 

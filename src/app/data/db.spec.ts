@@ -79,4 +79,39 @@ describe('PortfolioDatabase migrations', () => {
         expect((await migrated.portfolios.get('pf-1'))?.lotStrategy).toBe('fifo');
         migrated.close();
     });
+
+    it('adds projection tables in version 9 without touching existing rows', async () => {
+        const indexedDB = new IDBFactory();
+        const options = { indexedDB, IDBKeyRange };
+        const version8 = new Dexie('stock-portfolio', options);
+        version8.version(8).stores({
+            portfolios: 'id',
+            importBatches: 'id, portfolioId',
+            transactions: '++id, [portfolioId+date], fingerprint',
+            securities: 'isin',
+            securityAliases: 'oldIsin, newIsin',
+            quoteCache: 'key',
+            fxCache: '[pair+date]',
+            priceHistory: '[isin+date], isin',
+            splitEvents: '[isin+date]',
+            settings: 'key',
+        });
+        await version8.open();
+        await version8.table('portfolios').put({
+            id: 'pf-1',
+            name: 'Existing',
+            reportingCurrency: 'EUR',
+            lotStrategy: 'fifo',
+            createdAt: '2026-01-01',
+        });
+        version8.close();
+
+        const migrated = new PortfolioDatabase(options);
+        await migrated.open();
+
+        expect(await migrated.projectionModels.toArray()).toEqual([]);
+        expect(await migrated.projectionSnapshots.toArray()).toEqual([]);
+        expect((await migrated.portfolios.get('pf-1'))?.lotStrategy).toBe('fifo');
+        migrated.close();
+    });
 });

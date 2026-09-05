@@ -1,0 +1,575 @@
+<h1 class="text-3xl font-bold">Projection</h1>
+<p class="mt-1 text-sm text-base-content/60">
+    Project a stock's revenue, earnings and share price from editable growth, margin and PE assumptions.
+</p>
+
+@if (symbol() === null) {
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-6">
+    <div class="mx-auto max-w-md py-10 text-center">
+        <p class="text-sm font-medium">Search a stock to project</p>
+        <p class="mt-1 text-[0.8125rem] text-base-content/60">
+            Fundamentals come from the local market-data proxy; without it you can enter everything manually.
+        </p>
+        <div class="mt-4 flex justify-center">
+            <app-ticker-search placeholder="e.g. AMD or ASML.AS" (pick)="pickSymbol($event)" />
+        </div>
+    </div>
+</section>
+} @else {
+<div class="mt-4 flex flex-wrap items-center gap-2">
+    <span class="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-bold text-primary-dark font-mono">
+        {{ symbol() }}
+    </span>
+    @if (longName() !== null) {
+    <span class="text-sm text-base-content/70">{{ longName() }}</span>
+    } @if (currency() !== '') {
+    <span class="rounded-full bg-neutral-soft px-2 py-0.5 text-xs text-base-content/60">{{ currency() }}</span>
+    } @if (projectionService.fundamentalsLoading()) {
+    <span class="loading loading-dots loading-xs text-primary"></span>
+    } @if (offline()) {
+    <span class="rounded-full bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning-darken">
+        Fundamentals unavailable — enter values manually
+    </span>
+    }
+    <button type="button" class="btn btn-ghost btn-xs" (click)="clearSymbol()">Switch symbol</button>
+</div>
+@if (projectionService.fundamentalsError() !== null && !offline()) {
+<p class="mt-2 text-[0.8125rem] text-warning-darken">Fundamentals: {{ projectionService.fundamentalsError() }}</p>
+}
+
+<div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div class="rounded-xl border border-base-300 bg-base-100 p-3">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Price</p>
+        <p class="mt-1 text-lg font-semibold tabular-nums">{{ displayPrice() | money: currency() }}</p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-3">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Shares outstanding</p>
+        <p class="mt-1 text-lg font-semibold tabular-nums">
+            {{ liveShares() === null ? '–' : (liveShares() | localizedNumber: 2) }}
+        </p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-3">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">EPS (TTM)</p>
+        <p class="mt-1 text-lg font-semibold tabular-nums">
+            {{ fundamentals()?.epsTtm === null || fundamentals()?.epsTtm === undefined ? '–' : (fundamentals()?.epsTtm |
+            localizedNumber: 2) }}
+        </p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-3">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">PE now</p>
+        <p class="mt-1 text-lg font-semibold tabular-nums">
+            {{ fundamentals()?.peTtm === null || fundamentals()?.peTtm === undefined ? '–' : (fundamentals()?.peTtm |
+            localizedNumber: 1) }}
+        </p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-3">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Net margin (TTM)</p>
+        <p class="mt-1 text-lg font-semibold tabular-nums">
+            @if (marginTtmPct() !== null) { {{ marginTtmPct() | localizedNumber: 1 }}% } @else { – }
+        </p>
+    </div>
+</div>
+
+@if (viewingSnapshot() !== null) {
+<div class="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-base-300 bg-base-100 p-3">
+    <span class="text-sm font-medium"> Viewing snapshot from {{ viewingSnapshot()!.createdAt | localizedDate }} </span>
+    <button type="button" class="btn btn-outline btn-xs" (click)="backToCurrent()">Back to current</button>
+</div>
+} @if (drafts() !== null) {
+<div class="mt-4 flex flex-wrap items-center gap-2">
+    @for (name of scenarioNames(); track name; let i = $index) {
+    <button
+        type="button"
+        class="rounded-full px-3 py-1.5 text-sm font-medium"
+        [class]="i === activeScenario() && viewingSnapshot() === null ? 'bg-primary text-white' : 'border border-base-300 bg-base-100 text-base-content/70 hover:bg-base-200'"
+        (click)="setActiveScenario(i)"
+    >
+        {{ name }} @if (scenarioNames().length > 1 && i === activeScenario() && viewingSnapshot() === null) {
+        <span
+            class="ml-1 text-xs opacity-70"
+            role="button"
+            tabindex="0"
+            aria-label="Remove scenario"
+            (click)="removeScenario(i); $event.stopPropagation()"
+            (keydown.enter)="removeScenario(i); $event.stopPropagation()"
+            >✕</span
+        >
+        }
+    </button>
+    } @if (addingScenario()) {
+    <input
+        type="text"
+        class="input input-bordered input-xs w-28"
+        [value]="newScenarioName()"
+        (input)="newScenarioName.set($any($event.target).value)"
+        (keydown.enter)="confirmAddScenario()"
+        (keydown.escape)="cancelAddScenario()"
+    />
+    <button type="button" class="btn btn-primary btn-xs" (click)="confirmAddScenario()">Add</button>
+    <button type="button" class="btn btn-ghost btn-xs" (click)="cancelAddScenario()">Cancel</button>
+    } @else {
+    <button type="button" class="btn btn-outline btn-xs border-dashed" (click)="openScenarioEditor()">
+        + Scenario
+    </button>
+    }
+    <span class="ml-auto flex items-center gap-1">
+        <label for="projection-years" class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+            >Projected years</label
+        >
+        <input
+            id="projection-years"
+            type="number"
+            class="input input-bordered input-xs w-16 tabular-nums"
+            min="1"
+            [max]="maxProjectedYears"
+            step="1"
+            [value]="drafts()?.projectedYears ?? ''"
+            [disabled]="viewingSnapshot() !== null"
+            (input)="setProjectedYears($any($event.target).value)"
+        />
+    </span>
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-5">
+    <section class="rounded-xl border border-base-300 bg-base-100 p-4 lg:col-span-3">
+        <div class="flex items-center justify-between gap-2">
+            <h2 class="text-base font-semibold">Assumptions — {{ scenarioNames()[activeScenario()] }}</h2>
+            <span class="rounded-full bg-warning-soft px-2 py-0.5 text-xs text-warning-darken"> editable inputs </span>
+        </div>
+        <div class="mt-3 overflow-x-auto">
+            <table class="w-full text-sm tabular-nums">
+                <thead>
+                    <tr class="text-left text-xs uppercase tracking-wide text-base-content/60">
+                        <th class="w-32 pb-2 font-medium"></th>
+                        @for (result of activeResults(); track result.year; let i = $index) {
+                        <th class="pb-2 text-right font-medium">{{ i === 0 ? 'Base ' + result.year : result.year }}</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="py-1 text-base-content/70">Rev. growth %</td>
+                        @for (cell of activeDrafts()?.growth ?? []; track $index; let i = $index) {
+                        <td class="py-0.5 text-right">
+                            @if (i === 0) {
+                            <span class="text-base-content/40">actual</span>
+                            } @else {
+                            <input
+                                type="text"
+                                class="input input-xs w-16 text-right"
+                                [value]="cell"
+                                [disabled]="viewingSnapshot() !== null"
+                                (input)="setCell(activeScenario(), 'growth', i, $any($event.target).value)"
+                            />
+                            }
+                        </td>
+                        }
+                        <td class="w-8">
+                            <button
+                                type="button"
+                                class="btn btn-ghost btn-xs px-1"
+                                title="Copy first projected year to all years"
+                                [disabled]="viewingSnapshot() !== null"
+                                (click)="applyGrowthToAll(activeScenario())"
+                            >
+                                ⇥
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-base-content/70">Net margin %</td>
+                        @for (cell of activeDrafts()?.margin ?? []; track $index; let i = $index) {
+                        <td class="py-0.5 text-right">
+                            @if (i === 0) {
+                            <span class="text-base-content/40">
+                                {{ activeResults()?.[0]?.netMarginPct | localizedNumber: 1 }}%
+                            </span>
+                            } @else {
+                            <input
+                                type="text"
+                                class="input input-xs w-16 text-right"
+                                [value]="cell"
+                                [disabled]="viewingSnapshot() !== null"
+                                (input)="setCell(activeScenario(), 'margin', i, $any($event.target).value)"
+                            />
+                            }
+                        </td>
+                        }
+                        <td>
+                            <button
+                                type="button"
+                                class="btn btn-ghost btn-xs px-1"
+                                title="Copy first projected year to all years"
+                                [disabled]="viewingSnapshot() !== null"
+                                (click)="applyMarginToAll(activeScenario())"
+                            >
+                                ⇥
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-base-content/70">PE low case</td>
+                        @for (cell of activeDrafts()?.peLow ?? []; track $index; let i = $index) {
+                        <td class="py-0.5 text-right">
+                            <input
+                                type="text"
+                                class="input input-xs w-16 text-right"
+                                [value]="cell"
+                                [disabled]="viewingSnapshot() !== null"
+                                (input)="setCell(activeScenario(), 'peLow', i, $any($event.target).value)"
+                            />
+                        </td>
+                        }
+                        <td>
+                            <button
+                                type="button"
+                                class="btn btn-ghost btn-xs px-1"
+                                title="Copy first column to all columns"
+                                [disabled]="viewingSnapshot() !== null"
+                                (click)="applyPeLowToAll(activeScenario())"
+                            >
+                                ⇥
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-1 text-base-content/70">PE high case</td>
+                        @for (cell of activeDrafts()?.peHigh ?? []; track $index; let i = $index) {
+                        <td class="py-0.5 text-right">
+                            <input
+                                type="text"
+                                class="input input-xs w-16 text-right"
+                                [value]="cell"
+                                [disabled]="viewingSnapshot() !== null"
+                                (input)="setCell(activeScenario(), 'peHigh', i, $any($event.target).value)"
+                            />
+                        </td>
+                        }
+                        <td>
+                            <button
+                                type="button"
+                                class="btn btn-ghost btn-xs px-1"
+                                title="Copy first column to all columns"
+                                [disabled]="viewingSnapshot() !== null"
+                                (click)="applyPeHighToAll(activeScenario())"
+                            >
+                                ⇥
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="mt-2 text-[0.75rem] text-base-content/50">
+            The base column holds the last actuals; growth and margin apply from the next year. CAGR appears from two
+            projected years onward.
+        </p>
+    </section>
+
+    <section class="rounded-xl border border-base-300 bg-base-100 p-4 lg:col-span-2">
+        <div class="flex items-center justify-between gap-2">
+            <h2 class="text-base font-semibold">Base inputs</h2>
+            <button
+                type="button"
+                class="btn btn-ghost btn-xs"
+                [disabled]="fundamentals() === null || viewingSnapshot() !== null"
+                (click)="resetBaseFromFundamentals()"
+            >
+                Reset from proxy
+            </button>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-3">
+            <div>
+                <label
+                    for="projection-base-year"
+                    class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Base year</label
+                >
+                <input
+                    id="projection-base-year"
+                    type="number"
+                    class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                    [value]="drafts()?.baseYear ?? ''"
+                    [disabled]="viewingSnapshot() !== null"
+                    (input)="setDraft('baseYear', $any($event.target).value)"
+                />
+                @if (fundamentals()?.fiscalYearEnd !== null && fundamentals()?.fiscalYearEnd !== undefined) {
+                <p class="mt-1 text-[0.7rem] text-base-content/50">FY end {{ fundamentals()?.fiscalYearEnd }}</p>
+                }
+            </div>
+            <div>
+                <label for="projection-price" class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Price (manual)</label
+                >
+                <input
+                    id="projection-price"
+                    type="text"
+                    class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                    placeholder="{{ displayPrice() === null ? 'required' : 'auto' }}"
+                    [value]="drafts()?.currentPrice ?? ''"
+                    [disabled]="viewingSnapshot() !== null"
+                    (input)="setDraft('currentPrice', $any($event.target).value)"
+                />
+            </div>
+            <div>
+                <label for="projection-revenue" class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Revenue</label
+                >
+                <input
+                    id="projection-revenue"
+                    type="text"
+                    class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                    [value]="drafts()?.baseRevenue ?? ''"
+                    [disabled]="viewingSnapshot() !== null"
+                    (input)="setDraft('baseRevenue', $any($event.target).value)"
+                />
+            </div>
+            <div>
+                <label
+                    for="projection-net-income"
+                    class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Net income</label
+                >
+                <input
+                    id="projection-net-income"
+                    type="text"
+                    class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                    [value]="drafts()?.baseNetIncome ?? ''"
+                    [disabled]="viewingSnapshot() !== null"
+                    (input)="setDraft('baseNetIncome', $any($event.target).value)"
+                />
+            </div>
+            <div class="col-span-2">
+                <label for="projection-shares" class="text-xs font-medium uppercase tracking-wide text-base-content/60"
+                    >Shares outstanding (manual)</label
+                >
+                <input
+                    id="projection-shares"
+                    type="text"
+                    class="input input-bordered input-sm mt-1 w-full tabular-nums"
+                    placeholder="{{ liveShares() === null ? 'required' : 'auto' }}"
+                    [value]="drafts()?.sharesOutstanding ?? ''"
+                    [disabled]="viewingSnapshot() !== null"
+                    (input)="setDraft('sharesOutstanding', $any($event.target).value)"
+                />
+            </div>
+        </div>
+        @if (negativeEarnings()) {
+        <p class="mt-3 rounded-lg bg-warning-soft p-2 text-xs text-warning-darken">
+            Negative base earnings: PE-based prices are not meaningful for loss-making years.
+        </p>
+        }
+    </section>
+</div>
+
+@if (modelError() !== null) {
+<p class="mt-4 text-sm text-error">{{ modelError() }}</p>
+} @if (activeResults() !== null && modelError() === null) {
+<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+            Price low ({{ activeScenarioName() }})
+        </p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">
+            {{ activeResults()?.at(-1)?.priceLow | money: currency() }}
+        </p>
+        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
+            @if (activeResults()?.at(-1)?.upsideLowPct !== null) { {{
+            activeResults()?.at(-1)?.upsideLowPct?.isNegative() ? '' : '+' }}{{ activeResults()?.at(-1)?.upsideLowPct |
+            localizedNumber: 1 }}% vs now } @else { no price comparison }
+        </p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">Price high</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">
+            {{ activeResults()?.at(-1)?.priceHigh | money: currency() }}
+        </p>
+        <p class="mt-1 text-[0.8125rem] tabular-nums text-base-content/60">
+            @if (activeResults()?.at(-1)?.upsideHighPct !== null) { {{
+            activeResults()?.at(-1)?.upsideHighPct?.isNegative() ? '' : '+' }}{{ activeResults()?.at(-1)?.upsideHighPct
+            | localizedNumber: 1 }}% vs now } @else { no price comparison }
+        </p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">CAGR low (to end)</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">
+            @if (activeResults()?.at(-1)?.cagrLowPct !== null && activeResults()?.at(-1)?.cagrLowPct !== undefined) { {{
+            activeResults()?.at(-1)?.cagrLowPct | localizedNumber: 1 }}% } @else { – }
+        </p>
+    </div>
+    <div class="rounded-xl border border-base-300 bg-base-100 p-4">
+        <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">CAGR high (to end)</p>
+        <p class="mt-1 text-xl font-semibold tabular-nums">
+            @if (activeResults()?.at(-1)?.cagrHighPct !== null && activeResults()?.at(-1)?.cagrHighPct !== undefined) {
+            {{ activeResults()?.at(-1)?.cagrHighPct | localizedNumber: 1 }}% } @else { – }
+        </p>
+    </div>
+</div>
+
+<div class="mt-4 overflow-x-auto rounded-xl border border-base-300 bg-base-100">
+    <table class="w-full text-sm tabular-nums">
+        <thead>
+            <tr class="text-left text-xs uppercase tracking-wide text-base-content/60">
+                <th class="px-4 py-2 font-medium"></th>
+                @for (result of activeResults(); track result.year) {
+                <th class="px-3 py-2 text-right font-medium">{{ result.year }}</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">Revenue</td>
+                @for (result of activeResults(); track result.year) {
+                <td class="px-3 py-1.5 text-right">{{ result.revenue | money: currency() }}</td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">Net income</td>
+                @for (result of activeResults(); track result.year) {
+                <td class="px-3 py-1.5 text-right" [class.text-error]="result.netIncome.isNegative()">
+                    {{ result.netIncome | money: currency() }}
+                </td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">Net margin</td>
+                @for (result of activeResults(); track result.year) {
+                <td class="px-3 py-1.5 text-right">{{ result.netMarginPct | localizedNumber: 1 }}%</td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">EPS</td>
+                @for (result of activeResults(); track result.year) {
+                <td class="px-3 py-1.5 text-right">{{ result.eps | money: currency() }}</td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">Price low</td>
+                @for (result of activeResults(); track result.year) {
+                <td class="px-3 py-1.5 text-right">{{ result.priceLow | money: currency() }}</td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">Price high</td>
+                @for (result of activeResults(); track result.year) {
+                <td class="px-3 py-1.5 text-right">{{ result.priceHigh | money: currency() }}</td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">Upside low</td>
+                @for (result of activeResults(); track result.year) {
+                <td
+                    class="px-3 py-1.5 text-right"
+                    [class.text-success]="result.upsideLowPct !== null && !result.upsideLowPct.isNegative()"
+                    [class.text-error]="result.upsideLowPct !== null && result.upsideLowPct.isNegative()"
+                >
+                    @if (result.upsideLowPct !== null) { {{ result.upsideLowPct.isNegative() ? '' : '+' }}{{
+                    result.upsideLowPct | localizedNumber: 1 }}% } @else { – }
+                </td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">Upside high</td>
+                @for (result of activeResults(); track result.year) {
+                <td
+                    class="px-3 py-1.5 text-right"
+                    [class.text-success]="result.upsideHighPct !== null && !result.upsideHighPct.isNegative()"
+                    [class.text-error]="result.upsideHighPct !== null && result.upsideHighPct.isNegative()"
+                >
+                    @if (result.upsideHighPct !== null) { {{ result.upsideHighPct.isNegative() ? '' : '+' }}{{
+                    result.upsideHighPct | localizedNumber: 1 }}% } @else { – }
+                </td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">CAGR low</td>
+                @for (result of activeResults(); track result.year) {
+                <td class="px-3 py-1.5 text-right">
+                    @if (result.cagrLowPct !== null) { {{ result.cagrLowPct | localizedNumber: 1 }}% } @else { – }
+                </td>
+                }
+            </tr>
+            <tr class="border-t border-base-300">
+                <td class="px-4 py-1.5 text-base-content/70">CAGR high</td>
+                @for (result of activeResults(); track result.year) {
+                <td class="px-3 py-1.5 text-right">
+                    @if (result.cagrHighPct !== null) { {{ result.cagrHighPct | localizedNumber: 1 }}% } @else { – }
+                </td>
+                }
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+@if (chartSeries().length > 0) {
+<div class="mt-4">
+    <app-value-chart [series]="chartSeries()" />
+    <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/70">
+        @for (series of chartSeries(); track series.name) {
+        <span class="inline-flex items-center gap-1.5">
+            <span class="inline-block h-0.5 w-4 rounded-full" [style.background-color]="series.color"></span>
+            {{ series.name }}
+        </span>
+        }
+        <span class="text-base-content/50">Year-end price projection per PE case</span>
+    </div>
+</div>
+}
+
+<div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+    <p class="text-[0.8125rem] text-base-content/60">
+        Scenario, not investment advice. Assumptions are saved for this symbol; fundamentals reload live each visit.
+    </p>
+    <button type="button" class="btn btn-primary btn-sm" [disabled]="modelError() !== null" (click)="saveSnapshot()">
+        Save snapshot
+    </button>
+</div>
+} }
+
+<section class="mt-6 rounded-xl border border-base-300 bg-base-100 p-4">
+    <h2 class="text-base font-semibold">Saved snapshots for {{ symbol() }}</h2>
+    @if (snapshotsEmpty()) {
+    <p class="mt-2 text-sm text-base-content/60">
+        No snapshots yet. Save one to freeze assumptions and fundamentals for later comparison.
+    </p>
+    } @else {
+    <div class="mt-3 overflow-x-auto">
+        <table class="w-full text-sm tabular-nums">
+            <thead>
+                <tr class="text-left text-xs uppercase tracking-wide text-base-content/60">
+                    <th class="pb-2 font-medium">Saved</th>
+                    <th class="pb-2 text-right font-medium">Price then</th>
+                    <th class="pb-2 text-right font-medium">Assumptions (first scenario)</th>
+                    <th class="pb-2 text-right font-medium">End price low</th>
+                    <th class="pb-2 text-right font-medium">End price high</th>
+                    <th class="pb-2 text-right font-medium"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (snapshot of snapshots(); track snapshot.id) {
+                <tr class="border-t border-base-300">
+                    <td class="py-2">{{ snapshot.createdAt | localizedDate }}</td>
+                    <td class="py-2 text-right">{{ snapshot.model.currentPrice | money: snapshot.currency }}</td>
+                    <td class="py-2 text-right text-base-content/70">{{ snapshotAssumptionsLabel(snapshot) }}</td>
+                    <td class="py-2 text-right">{{ snapshotEndPrice(snapshot, 'low') | money: snapshot.currency }}</td>
+                    <td class="py-2 text-right">{{ snapshotEndPrice(snapshot, 'high') | money: snapshot.currency }}</td>
+                    <td class="py-2 text-right">
+                        <button type="button" class="btn btn-ghost btn-xs" (click)="viewSnapshot(snapshot)">
+                            View
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-ghost btn-xs text-error"
+                            (click)="deleteSnapshot(snapshot)"
+                        >
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    }
+</section>
+}

@@ -5,6 +5,8 @@ import {
     StoredImportBatch,
     StoredPortfolio,
     StoredPriceBar,
+    StoredProjectionModel,
+    StoredProjectionSnapshot,
     StoredQuote,
     StoredSecurity,
     StoredSecurityAlias,
@@ -24,6 +26,8 @@ export class PortfolioDatabase extends Dexie {
     priceHistory!: Table<StoredPriceBar, [string, string]>;
     splitEvents!: Table<StoredSplitEvent, [string, string]>;
     settings!: Table<StoredSetting, string>;
+    projectionModels!: Table<StoredProjectionModel, string>;
+    projectionSnapshots!: Table<StoredProjectionSnapshot, number>;
 
     constructor(options?: DexieOptions) {
         super('stock-portfolio', options);
@@ -251,6 +255,10 @@ export class PortfolioDatabase extends Dexie {
                     row['lotStrategy'] = 'fifo';
                 }),
         );
+        this.version(9).stores({
+            projectionModels: 'symbol',
+            projectionSnapshots: '++id, symbol',
+        });
     }
 }
 

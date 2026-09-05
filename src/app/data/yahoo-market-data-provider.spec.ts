@@ -1,6 +1,62 @@
 import { YahooMarketDataProvider } from './yahoo-market-data-provider';
 
 describe('YahooMarketDataProvider', () => {
+    it('maps proxy fundamentals to string fields', async () => {
+        const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+            return new Response(
+                JSON.stringify({
+                    symbol: 'AMD',
+                    currency: 'USD',
+                    longName: 'Advanced Micro Devices, Inc.',
+                    sharesOutstanding: 1632475042,
+                    epsTtm: 4.11,
+                    peTtm: null,
+                    marketCap: 779621105664,
+                    revenueTtm: 41305001984,
+                    marginTtm: 0.15577,
+                    fiscalYearEnd: '2025-12-31',
+                    revenueFy: 34639000000,
+                    netIncomeFy: 4335000000,
+                }),
+                { status: 200, headers: { 'Content-Type': 'application/json' } },
+            );
+        });
+
+        try {
+            const provider = new YahooMarketDataProvider();
+            provider.setBaseUrl('http://proxy.test/');
+            const result = await provider.fundamentals('AMD');
+
+            expect(result.symbol).toBe('AMD');
+            expect(result.currency).toBe('USD');
+            expect(result.sharesOutstanding).toBe('1632475042');
+            expect(result.epsTtm).toBe('4.11');
+            expect(result.peTtm).toBeNull();
+            expect(result.revenueFy).toBe('34639000000');
+            expect(result.netIncomeFy).toBe('4335000000');
+            expect(result.fiscalYearEnd).toBe('2025-12-31');
+        } finally {
+            fetch.mockRestore();
+        }
+    });
+
+    it('propagates proxy fundamentals errors', async () => {
+        const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+            return new Response(JSON.stringify({ error: 'No fundamentals for NOPE' }), {
+                status: 502,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        });
+
+        try {
+            const provider = new YahooMarketDataProvider();
+            provider.setBaseUrl('http://proxy.test/');
+            await expect(provider.fundamentals('NOPE')).rejects.toThrow('No fundamentals for NOPE');
+        } finally {
+            fetch.mockRestore();
+        }
+    });
+
     it('splits quote requests into proxy-sized batches', async () => {
         const requests: string[] = [];
         const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {

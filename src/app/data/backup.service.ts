@@ -9,6 +9,10 @@ import {
     StoredImportBatch,
     StoredPortfolio,
     StoredPriceBar,
+    StoredProjectionModel,
+    StoredProjectionScenario,
+    StoredProjectionScenarioRow,
+    StoredProjectionSnapshot,
     StoredQuote,
     StoredSecurity,
     StoredSecurityAlias,
@@ -32,6 +36,8 @@ export interface BackupStores {
     priceHistory: StoredPriceBar[];
     splitEvents: StoredSplitEvent[];
     settings: StoredSetting[];
+    projectionModels: StoredProjectionModel[];
+    projectionSnapshots: StoredProjectionSnapshot[];
 }
 
 export interface DbSnapshot {
@@ -45,6 +51,8 @@ export interface DbSnapshot {
     priceHistory: readonly StoredPriceBar[];
     splitEvents: readonly StoredSplitEvent[];
     settings: readonly StoredSetting[];
+    projectionModels: readonly StoredProjectionModel[];
+    projectionSnapshots: readonly StoredProjectionSnapshot[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -73,6 +81,8 @@ export class BackupService {
                 this.db.priceHistory,
                 this.db.splitEvents,
                 this.db.settings,
+                this.db.projectionModels,
+                this.db.projectionSnapshots,
             ],
             async () => {
                 await this.db.portfolios.clear();
@@ -85,6 +95,8 @@ export class BackupService {
                 await this.db.priceHistory.clear();
                 await this.db.splitEvents.clear();
                 await this.db.settings.clear();
+                await this.db.projectionModels.clear();
+                await this.db.projectionSnapshots.clear();
 
                 if (data.portfolios.length > 0) await this.db.portfolios.bulkPut(data.portfolios);
                 if (data.transactions.length > 0) await this.db.transactions.bulkPut(data.transactions);
@@ -96,6 +108,10 @@ export class BackupService {
                 if (data.priceHistory.length > 0) await this.db.priceHistory.bulkPut(data.priceHistory);
                 if (data.splitEvents.length > 0) await this.db.splitEvents.bulkPut(data.splitEvents);
                 if (data.settings.length > 0) await this.db.settings.bulkPut(data.settings);
+                if (data.projectionModels.length > 0) await this.db.projectionModels.bulkPut(data.projectionModels);
+                if (data.projectionSnapshots.length > 0) {
+                    await this.db.projectionSnapshots.bulkPut(data.projectionSnapshots);
+                }
             },
         );
         return importReport(normalized);
@@ -113,6 +129,8 @@ export class BackupService {
             priceHistory,
             splitEvents,
             settings,
+            projectionModels,
+            projectionSnapshots,
         ] = await Promise.all([
             this.db.portfolios.toArray(),
             this.db.transactions.toArray(),
@@ -124,6 +142,8 @@ export class BackupService {
             this.db.priceHistory.toArray(),
             this.db.splitEvents.toArray(),
             this.db.settings.toArray(),
+            this.db.projectionModels.toArray(),
+            this.db.projectionSnapshots.toArray(),
         ]);
         return {
             portfolios,
@@ -136,6 +156,8 @@ export class BackupService {
             priceHistory,
             splitEvents,
             settings,
+            projectionModels,
+            projectionSnapshots,
         };
     }
 }
@@ -152,6 +174,8 @@ export function bundleFromSnapshot(snapshot: DbSnapshot): BackupBundle {
         priceHistory: [...snapshot.priceHistory],
         splitEvents: [...snapshot.splitEvents],
         settings: [...snapshot.settings],
+        projectionModels: [...snapshot.projectionModels],
+        projectionSnapshots: [...snapshot.projectionSnapshots],
     };
     return {
         schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -231,6 +255,8 @@ function importReport(bundle: BackupBundle): BackupImportReport {
             priceHistory: bundle.data.priceHistory.length,
             splitEvents: bundle.data.splitEvents.length,
             settings: bundle.data.settings.length,
+            projectionModels: bundle.data.projectionModels.length,
+            projectionSnapshots: bundle.data.projectionSnapshots.length,
         },
     };
 }
@@ -279,6 +305,9 @@ function normalizeBundle(input: unknown): BackupBundle {
         priceHistory: array(raw['priceHistory']).map(normalizePriceBar),
         splitEvents: array(raw['splitEvents']).map(normalizeSplitEvent),
         settings: array(raw['settings']).map(normalizeSetting),
+        // Added after schema 4; older backups legitimately omit these stores.
+        projectionModels: array(raw['projectionModels']).map(normalizeProjectionModel),
+        projectionSnapshots: array(raw['projectionSnapshots']).map(normalizeProjectionSnapshot),
     };
     return {
         schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -442,6 +471,49 @@ function normalizeSetting(row: UnknownRecord): StoredSetting {
     };
 }
 
+function normalizeProjectionModel(row: UnknownRecord): StoredProjectionModel {
+    return {
+        symbol: String(row['symbol'] ?? ''),
+        updatedAt: String(row['updatedAt'] ?? new Date(0).toISOString()),
+        baseYear: Number(row['baseYear'] ?? new Date().getUTCFullYear()),
+        baseRevenue: String(row['baseRevenue'] ?? ''),
+        baseNetIncome: String(row['baseNetIncome'] ?? ''),
+        currentPrice: nullableString(row, 'currentPrice', 'currentPrice'),
+        sharesOutstanding: nullableString(row, 'sharesOutstanding', 'sharesOutstanding'),
+        projectedYears: Number(row['projectedYears'] ?? 5),
+        scenarios: array(row['scenarios']).map(normalizeProjectionScenario),
+    };
+}
+
+function normalizeProjectionScenario(row: UnknownRecord): StoredProjectionScenario {
+    return {
+        name: String(row['name'] ?? ''),
+        rows: array(row['rows']).map(normalizeProjectionScenarioRow),
+    };
+}
+
+function normalizeProjectionScenarioRow(row: UnknownRecord): StoredProjectionScenarioRow {
+    return {
+        revenueGrowthPct: nullableString(row, 'revenueGrowthPct', 'revenueGrowthPct'),
+        netMarginPct: nullableString(row, 'netMarginPct', 'netMarginPct'),
+        peLow: String(row['peLow'] ?? ''),
+        peHigh: String(row['peHigh'] ?? ''),
+    };
+}
+
+function normalizeProjectionSnapshot(row: UnknownRecord): StoredProjectionSnapshot {
+    return {
+        ...(row['id'] === undefined ? {} : { id: Number(row['id']) }),
+        symbol: String(row['symbol'] ?? ''),
+        createdAt: String(row['createdAt'] ?? new Date(0).toISOString()),
+        currency: String(row['currency'] ?? ''),
+        longName: nullableString(row, 'longName', 'longName'),
+        model: normalizeProjectionModel(
+            row['model'] !== null && typeof row['model'] === 'object' ? (row['model'] as UnknownRecord) : {},
+        ),
+    };
+}
+
 function normalizeCorporateAction(input: unknown): StoredTransaction['corporateAction'] {
     if (input === 'PRODUCTWIJZIGING') return 'PRODUCT_CHANGE';
     if (input === 'WIJZIGING_ISIN') return 'ISIN_CHANGE';
@@ -460,5 +532,7 @@ function totalsFor(data: BackupStores): BackupBundle['totals'] {
         priceHistory: data.priceHistory.length,
         splitEvents: data.splitEvents.length,
         settings: data.settings.length,
+        projectionModels: data.projectionModels.length,
+        projectionSnapshots: data.projectionSnapshots.length,
     };
 }

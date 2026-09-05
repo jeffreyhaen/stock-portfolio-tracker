@@ -1,5 +1,12 @@
 import { Injectable } from '@angular/core';
-import { DayBarDto, HistoryResult, MarketDataProvider, QuoteResult, TickerSuggestion } from './market-data-provider';
+import {
+    DayBarDto,
+    FundamentalsResult,
+    HistoryResult,
+    MarketDataProvider,
+    QuoteResult,
+    TickerSuggestion,
+} from './market-data-provider';
 
 const DEFAULT_BASE_URL = 'http://localhost:8787';
 const MAX_QUOTES_PER_REQUEST = 50;
@@ -77,4 +84,44 @@ export class YahooMarketDataProvider extends MarketDataProvider {
     async search(query: string): Promise<TickerSuggestion[]> {
         return this.getJson<TickerSuggestion[]>(`/api/search?q=${encodeURIComponent(query)}`);
     }
+
+    override async fundamentals(symbol: string): Promise<FundamentalsResult> {
+        const data = await this.getJson<ProxyFundamentals>(`/api/fundamentals?symbol=${encodeURIComponent(symbol)}`);
+        return {
+            symbol: data.symbol ?? symbol.toUpperCase(),
+            currency: data.currency ?? '',
+            longName: data.longName ?? null,
+            sharesOutstanding: numberToString(data.sharesOutstanding),
+            epsTtm: numberToString(data.epsTtm),
+            peTtm: numberToString(data.peTtm),
+            marketCap: numberToString(data.marketCap),
+            revenueTtm: numberToString(data.revenueTtm),
+            revenueGrowthTtm: numberToString(data.revenueGrowthTtm),
+            marginTtm: numberToString(data.marginTtm),
+            fiscalYearEnd: data.fiscalYearEnd ?? null,
+            revenueFy: numberToString(data.revenueFy),
+            netIncomeFy: numberToString(data.netIncomeFy),
+        };
+    }
+}
+
+interface ProxyFundamentals {
+    symbol?: string;
+    currency?: string;
+    longName?: string | null;
+    sharesOutstanding?: number | null;
+    epsTtm?: number | null;
+    peTtm?: number | null;
+    marketCap?: number | null;
+    revenueTtm?: number | null;
+    revenueGrowthTtm?: number | null;
+    marginTtm?: number | null;
+    fiscalYearEnd?: string | null;
+    revenueFy?: number | null;
+    netIncomeFy?: number | null;
+    error?: string;
+}
+
+function numberToString(value: number | null | undefined): string | null {
+    return typeof value === 'number' && Number.isFinite(value) ? String(value) : null;
 }

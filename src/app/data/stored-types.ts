@@ -103,6 +103,46 @@ export interface StoredSetting {
     value: string;
 }
 
+/** One column of a projection scenario; strings keep Decimal-precision values. */
+export interface StoredProjectionScenarioRow {
+    /** Percentage vs the previous column; null in the base-year column (actuals). */
+    revenueGrowthPct: string | null;
+    /** Net margin as % of revenue; null in the base-year column (derived from actuals). */
+    netMarginPct: string | null;
+    peLow: string;
+    peHigh: string;
+}
+
+export interface StoredProjectionScenario {
+    name: string;
+    /** Aligned with the model's columns: index 0 is the base year. */
+    rows: StoredProjectionScenarioRow[];
+}
+
+export interface StoredProjectionModel {
+    symbol: string;
+    updatedAt: string;
+    baseYear: number;
+    baseRevenue: string;
+    baseNetIncome: string;
+    /** Manual price override; null resolves the price live from the market-data proxy. */
+    currentPrice: string | null;
+    /** Manual shares override; null resolves shares live from the market-data proxy. */
+    sharesOutstanding: string | null;
+    projectedYears: number;
+    scenarios: StoredProjectionScenario[];
+}
+
+export interface StoredProjectionSnapshot {
+    id?: number;
+    symbol: string;
+    createdAt: string;
+    currency: string;
+    longName: string | null;
+    /** Full frozen input set, so past projections stay reproducible after fundamentals change. */
+    model: StoredProjectionModel;
+}
+
 export interface BackupBundle {
     schemaVersion: number;
     appVersion: string;
@@ -118,6 +158,8 @@ export interface BackupBundle {
         priceHistory: number;
         splitEvents: number;
         settings: number;
+        projectionModels: number;
+        projectionSnapshots: number;
     };
     data: {
         portfolios: StoredPortfolio[];
@@ -130,6 +172,8 @@ export interface BackupBundle {
         priceHistory: StoredPriceBar[];
         splitEvents: StoredSplitEvent[];
         settings: StoredSetting[];
+        projectionModels: StoredProjectionModel[];
+        projectionSnapshots: StoredProjectionSnapshot[];
     };
 }
 
@@ -146,6 +190,8 @@ export interface BackupImportReport {
         priceHistory: number;
         splitEvents: number;
         settings: number;
+        projectionModels: number;
+        projectionSnapshots: number;
     };
 }
 

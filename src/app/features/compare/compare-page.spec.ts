@@ -1,5 +1,7 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { BehaviorSubject } from 'rxjs';
+import { ActivatedRoute, convertToParamMap, ParamMap, provideRouter, Router } from '@angular/router';
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PortfolioDatabase } from '../../data/db';
@@ -90,14 +92,22 @@ class DummyRoute {}
 describe('ComparePage', () => {
     let db: PortfolioDatabase;
 
-    function configure(provider: MarketDataProvider | null): void {
+    function configure(provider: MarketDataProvider | null, routeParamMap?: BehaviorSubject<ParamMap>): void {
         TestBed.resetTestingModule();
+        localStorage.removeItem('compare-history');
         db = new PortfolioDatabase({ indexedDB: new IDBFactory(), IDBKeyRange });
         TestBed.configureTestingModule({
             imports: [ComparePage, DummyRoute],
             providers: [
                 { provide: PortfolioDatabase, useValue: db },
                 ...(provider === null ? [] : [{ provide: MarketDataProvider, useValue: provider }]),
+                provideRouter([
+                    { path: 'compare', component: DummyRoute },
+                    { path: 'compare/:symbols', component: DummyRoute },
+                ]),
+                ...(routeParamMap === undefined
+                    ? []
+                    : [{ provide: ActivatedRoute, useValue: { paramMap: routeParamMap } }]),
             ],
         }).compileComponents();
     }
@@ -116,6 +126,129 @@ describe('ComparePage', () => {
                 bars: AMD_BARS,
             }),
         );
+    });
+
+    it('navigates to /compare/:symbols when symbols are added or removed', async () => {
+        const page = await createPage();
+        page.addSymbol({ symbol: 'AMD', name: 'AMD', exchange: '' });
+        await waitFor(() => TestBed.inject(Router).url === '/compare/AMD');
+
+        page.addSymbol({ symbol: 'NVDA', name: 'NVIDIA', exchange: '' });
+        await waitFor(() => TestBed.inject(Router).url === '/compare/AMD,NVDA');
+
+        page.removeSymbol(page.entries()[1].id);
+        await waitFor(() => TestBed.inject(Router).url === '/compare/AMD');
+
+        page.removeSymbol(page.entries()[0].id);
+        await waitFor(() => TestBed.inject(Router).url === '/compare');
+    });
+
+    it('loads symbols from the route and follows route changes', async () => {
+        const paramMap = new BehaviorSubject<ParamMap>(convertToParamMap({ symbols: 'AMD,NVDA' }));
+        configure(
+            new StubProvider({
+                fundamentals: AMD_FUNDAMENTALS,
+                quote: { price: '477.57', currency: 'USD', date: '2026-09-04' },
+                bars: AMD_BARS,
+            }),
+            paramMap,
+        );
+        const page = await createPage();
+        await waitFor(() => page.entries().length === 2 && !page.entries()[1].loading);
+        expect(page.entries().map((entry) => entry.symbol)).toEqual(['AMD', 'NVDA']);
+
+        paramMap.next(convertToParamMap({ symbols: 'AMD' }));
+        await waitFor(() => page.entries().length === 1 && !page.entries()[0].loading);
+
+        paramMap.next(convertToParamMap({}));
+        await waitFor(() => page.entries().length === 0);
+    });
+
+    it('records and reopens recent comparisons', async () => {
+        const paramMap = new BehaviorSubject<ParamMap>(convertToParamMap({ symbols: 'AMD,NVDA' }));
+        configure(
+            new StubProvider({
+                fundamentals: AMD_FUNDAMENTALS,
+                quote: { price: '477.57', currency: 'USD', date: '2026-09-04' },
+                bars: AMD_BARS,
+            }),
+            paramMap,
+        );
+        const page = await createPage();
+        await waitFor(() => page.entries().length === 2 && !page.entries()[1].loading);
+        expect(page.recentCompares()).toHaveLength(1);
+        expect(page.recentCompares()[0].symbols).toEqual(['AMD', 'NVDA']);
+
+        paramMap.next(convertToParamMap({}));
+        await waitFor(() => page.entries().length === 0);
+        expect(page.recentCompares()).toHaveLength(1);
+
+        page.openHistoryEntry(page.recentCompares()[0]);
+        await waitFor(() => TestBed.inject(Router).url === '/compare/AMD,NVDA');
+        paramMap.next(convertToParamMap({ symbols: 'AMD,NVDA' }));
+        await waitFor(() => page.entries().length === 2 && !page.entries()[1].loading);
+    });
+
+    it('adds a symbol picked from the history into the current comparison', async () => {
+        const paramMap = new BehaviorSubject<ParamMap>(convertToParamMap({ symbols: 'AMD' }));
+        configure(
+            new StubProvider({
+                fundamentals: AMD_FUNDAMENTALS,
+                quote: { price: '477.57', currency: 'USD', date: '2026-09-04' },
+                bars: AMD_BARS,
+            }),
+            paramMap,
+        );
+        const page = await createPage();
+        await waitFor(() => page.entries().length === 1 && !page.entries()[0].loading);
+
+        page.addSymbol({ symbol: 'MSFT', name: 'Microsoft', exchange: '' });
+        await waitFor(() => TestBed.inject(Router).url === '/compare/AMD,MSFT');
+        expect(page.entries().map((entry) => entry.symbol)).toEqual(['AMD', 'MSFT']);
+        expect(page.recentCompares()[0].symbols).toEqual(['AMD', 'MSFT']);
+    });
+
+    it('does not record single-symbol comparisons', async () => {
+        const paramMap = new BehaviorSubject<ParamMap>(convertToParamMap({ symbols: 'AMD' }));
+        configure(
+            new StubProvider({
+                fundamentals: AMD_FUNDAMENTALS,
+                quote: { price: '477.57', currency: 'USD', date: '2026-09-04' },
+                bars: AMD_BARS,
+            }),
+            paramMap,
+        );
+        const page = await createPage();
+        await waitFor(() => page.entries().length === 1 && !page.entries()[0].loading);
+        expect(page.recentCompares()).toEqual([]);
+    });
+
+    it('removes a recent comparison and clears the history', async () => {
+        const paramMap = new BehaviorSubject<ParamMap>(convertToParamMap({ symbols: 'AMD,NVDA' }));
+        configure(
+            new StubProvider({
+                fundamentals: AMD_FUNDAMENTALS,
+                quote: { price: '477.57', currency: 'USD', date: '2026-09-04' },
+                bars: AMD_BARS,
+            }),
+            paramMap,
+        );
+        const page = await createPage();
+        await waitFor(() => page.entries().length === 2 && !page.entries()[1].loading);
+
+        paramMap.next(convertToParamMap({ symbols: 'AMD,NVDA,ASML' }));
+        await waitFor(() => page.entries().length === 3 && !page.entries()[2].loading);
+        expect(page.recentCompares()).toHaveLength(2);
+
+        page.removeHistoryEntry(page.recentCompares()[0]);
+        expect(page.recentCompares()).toHaveLength(1);
+        expect(page.recentCompares()[0].symbols).toEqual(['AMD', 'NVDA']);
+
+        page.requestClearHistory();
+        expect(page.clearingHistory()).toBe(true);
+        page.confirmClearHistory();
+        expect(page.clearingHistory()).toBe(false);
+        expect(page.recentCompares()).toEqual([]);
     });
 
     it('starts empty', async () => {

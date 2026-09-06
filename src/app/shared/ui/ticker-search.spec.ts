@@ -11,6 +11,12 @@ const rejectSync = {
     },
 };
 
+const stubSync = {
+    searchTicker: async (): Promise<TickerSuggestion[]> => [
+        { symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', exchange: 'NASDAQ' },
+    ],
+};
+
 describe('TickerSearchComponent', () => {
     let fixture: ComponentFixture<TickerSearchComponent>;
 
@@ -65,5 +71,58 @@ describe('TickerSearchComponent', () => {
         fixture.componentInstance.pick.subscribe((sug) => picks.push(sug));
         fixture.componentInstance.pickManual();
         expect(picks).toEqual([]);
+    });
+
+    it('keeps the query and suggestions after a pick by default', async () => {
+        TestBed.resetTestingModule();
+        await TestBed.configureTestingModule({
+            imports: [TickerSearchComponent],
+            providers: [{ provide: MarketDataSyncService, useValue: stubSync }],
+        }).compileComponents();
+        fixture = TestBed.createComponent(TickerSearchComponent);
+        fixture.autoDetectChanges();
+
+        const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('input');
+        input!.value = 'AMD';
+        input!.dispatchEvent(new Event('input'));
+        findButton('Find')!.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        fixture.detectChanges();
+
+        const picks: TickerSuggestion[] = [];
+        fixture.componentInstance.pick.subscribe((sug) => picks.push(sug));
+        findButton('Advanced Micro Devices, Inc.')!.click();
+        fixture.detectChanges();
+
+        expect(picks).toHaveLength(1);
+        expect(input!.value).toBe('AMD');
+        expect((fixture.nativeElement as HTMLElement).querySelectorAll('ul li').length).toBeGreaterThan(0);
+    });
+
+    it('clears the query and suggestions after a pick when clearOnPick is set', async () => {
+        TestBed.resetTestingModule();
+        await TestBed.configureTestingModule({
+            imports: [TickerSearchComponent],
+            providers: [{ provide: MarketDataSyncService, useValue: stubSync }],
+        }).compileComponents();
+        fixture = TestBed.createComponent(TickerSearchComponent);
+        fixture.componentRef.setInput('clearOnPick', true);
+        fixture.autoDetectChanges();
+
+        const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('input');
+        input!.value = 'AMD';
+        input!.dispatchEvent(new Event('input'));
+        findButton('Find')!.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        fixture.detectChanges();
+
+        const picks: TickerSuggestion[] = [];
+        fixture.componentInstance.pick.subscribe((sug) => picks.push(sug));
+        findButton('Advanced Micro Devices, Inc.')!.click();
+        fixture.detectChanges();
+
+        expect(picks).toHaveLength(1);
+        expect(input!.value).toBe('');
+        expect((fixture.nativeElement as HTMLElement).querySelectorAll('ul li').length).toBe(0);
     });
 });

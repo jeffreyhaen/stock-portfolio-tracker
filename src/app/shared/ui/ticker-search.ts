@@ -37,7 +37,7 @@ const SEARCH_DEBOUNCE_MS = 400;
                                 type="button"
                                 class="text-left text-[0.8125rem] text-primary hover:underline"
                                 [disabled]="busy()"
-                                (click)="pick.emit(sug)"
+                                (click)="onPick(sug)"
                             >
                                 <span class="font-mono font-medium">{{ sug.symbol }}</span>
                                 <span class="text-base-content/60"> — {{ sug.name }} ({{ sug.exchange }})</span>
@@ -64,6 +64,8 @@ export class TickerSearchComponent implements OnInit, OnDestroy {
     readonly cancelLabel = input<string | null>(null);
     /** Offer the typed text as a raw symbol when the search itself fails (e.g. proxy offline). */
     readonly allowManual = input(false);
+    /** Empty the query field and result list after a pick (compare page). */
+    readonly clearOnPick = input(false);
     readonly pick = output<TickerSuggestion>();
     readonly cancelled = output<void>();
 
@@ -104,7 +106,18 @@ export class TickerSearchComponent implements OnInit, OnDestroy {
         if (symbol === '') {
             return;
         }
-        this.pick.emit({ symbol, name: symbol, exchange: '' });
+        this.onPick({ symbol, name: symbol, exchange: '' });
+    }
+
+    onPick(suggestion: TickerSuggestion): void {
+        this.pick.emit(suggestion);
+        if (this.clearOnPick()) {
+            this.cancelTimer();
+            this.query.set('');
+            this.suggestions.set([]);
+            this.error.set(null);
+            this.searching.set(false);
+        }
     }
 
     async find(): Promise<void> {

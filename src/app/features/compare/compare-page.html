@@ -9,11 +9,83 @@
             Fundamentals come from the local market-data proxy; without it, search a symbol and choose “Use directly”.
         </p>
         <div class="mt-4 flex justify-center">
-            <app-ticker-search placeholder="e.g. AMD or ASML.AS" [allowManual]="true" (pick)="addSymbol($event)" />
+            <app-ticker-search
+                placeholder="search..."
+                [allowManual]="true"
+                [clearOnPick]="true"
+                (pick)="addSymbol($event)"
+            />
         </div>
     </div>
 </section>
-} @else {
+@if (recentCompares().length > 0) {
+<section class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4">
+    <div class="flex items-start justify-between gap-2">
+        <div>
+            <h2 class="text-base font-semibold">Recent comparisons</h2>
+            <p class="mt-0.5 text-sm text-base-content/60">
+                {{ recentCompares().length }} {{ recentCompares().length === 1 ? 'comparison' : 'comparisons' }} ·
+                sorted by last use — pick one to reopen it.
+            </p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-xs text-base-content/60" (click)="requestClearHistory()">
+            Clear all
+        </button>
+    </div>
+    <div class="mt-3 overflow-x-auto">
+        <table class="w-full text-sm tabular-nums">
+            <thead>
+                <tr class="text-left text-xs uppercase tracking-wide text-base-content/60">
+                    <th class="pb-2 font-medium">Symbols</th>
+                    <th class="pb-2 text-right font-medium">Last used</th>
+                    <th class="pb-2 font-medium"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (recent of recentCompares(); track recent.symbols) {
+                <tr
+                    class="cursor-pointer border-t border-base-300 hover:bg-base-200"
+                    (click)="openHistoryEntry(recent)"
+                >
+                    <td class="py-2">
+                        @for (symbol of recent.symbols; track symbol) {
+                        <span
+                            class="rounded-full bg-primary-soft px-2.5 py-1 font-mono text-xs font-bold text-primary-dark"
+                            >{{ symbol }}</span
+                        >
+                        }
+                    </td>
+                    <td class="py-2 text-right text-base-content/70">{{ recent.lastUsed | localizedDate }}</td>
+                    <td class="py-2 text-right whitespace-nowrap">
+                        <button type="button" class="btn btn-ghost btn-xs" (click)="openHistoryEntry(recent)">
+                            Open
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-ghost btn-xs px-1 text-base-content/60"
+                            [attr.aria-label]="'Remove ' + recent.symbols.join(', ') + ' comparison'"
+                            (click)="$event.stopPropagation(); removeHistoryEntry(recent)"
+                        >
+                            ×
+                        </button>
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+} @if (clearingHistory()) {
+<app-confirm-dialog
+    title="Clear all recent comparisons?"
+    description="This removes the comparison history from this browser. This cannot be undone."
+    confirmLabel="Clear"
+    cancelLabel="Cancel"
+    [dangerous]="true"
+    (confirmed)="confirmClearHistory()"
+    (cancelled)="cancelClearHistory()"
+/>
+} } @else {
 <section class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4">
     <div class="flex flex-wrap items-center gap-2">
         @for (entry of entries(); track entry.id) {
@@ -33,7 +105,12 @@
             </button>
         </span>
         } @if (canAdd()) {
-        <app-ticker-search placeholder="Add symbol…" [allowManual]="true" (pick)="addSymbol($event)" />
+        <app-ticker-search
+            placeholder="Add symbol…"
+            [allowManual]="true"
+            [clearOnPick]="true"
+            (pick)="addSymbol($event)"
+        />
         } @else {
         <span class="text-xs text-base-content/50">Maximum of {{ maxSymbols }} symbols</span>
         }

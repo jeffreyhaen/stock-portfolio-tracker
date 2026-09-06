@@ -80,6 +80,7 @@ export class ProjectionPage {
     readonly viewingSnapshot = signal<StoredProjectionSnapshot | null>(null);
     readonly overview = signal<ProjectionOverviewRow[]>([]);
     readonly saved = signal(false);
+    readonly prefillNotice = signal<string | null>(null);
 
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -666,7 +667,7 @@ export class ProjectionPage {
                 : new Date().getUTCFullYear();
         const baseRevenue = fundamentals?.revenueFy ?? fundamentals?.revenueTtm ?? '';
         const baseNetIncome = fundamentals?.netIncomeFy ?? '';
-        const growthPct = this.prefillGrowthPct(fundamentals);
+        const growth = this.prefillGrowthRow(fundamentals, DEFAULT_PROJECTED_YEARS);
         const marginPct = this.prefillMarginPct(fundamentals);
         const peLow = this.prefillPe(fundamentals, FALLBACK_PE_LOW);
         const peHigh = this.prefillPe(fundamentals, FALLBACK_PE_HIGH);
@@ -682,7 +683,7 @@ export class ProjectionPage {
             scenarios: [
                 {
                     name: 'Base',
-                    growth: Array.from({ length: columns }, (_, i) => (i === 0 ? '' : growthPct)),
+                    growth,
                     margin: Array.from({ length: columns }, (_, i) => (i === 0 ? '' : marginPct)),
                     peLow: Array.from({ length: columns }, () => peLow),
                     peHigh: Array.from({ length: columns }, () => peHigh),
@@ -691,16 +692,106 @@ export class ProjectionPage {
         };
     }
 
+    /**
+     * Growth per year: analyst outlook for the current and next fiscal year when the feed has it,
+     * then the trailing growth repeated for remaining years, then the flat default.
+     */
+    private prefillGrowthRow(fundamentals: FundamentalsResult | null, projectedYears: number): string[] {
+        const trailing = this.prefillGrowthPct(fundamentals);
+        const estimates = fundamentals?.estimates;
+        const currentFy = estimates?.revGrowthCurrentFy != null ? validGrowthPct(estimates.revGrowthCurrentFy) : null;
+        const nextFy = estimates?.revGrowthNextFy != null ? validGrowthPct(estimates.revGrowthNextFy) : null;
+        return Array.from({ length: projectedYears + 1 }, (_, i) => {
+            if (i === 0) {
+                return '';
+            }
+            if (i === 1) {
+                return currentFy ?? trailing;
+            }
+            return nextFy ?? currentFy ?? trailing;
+        });
+    }
+
     private prefillGrowthPct(fundamentals: FundamentalsResult | null): string {
         const growth = fundamentals?.revenueGrowthTtm ?? null;
         if (growth === null) {
             return DEFAULT_GROWTH_PCT.toFixed();
         }
-        const pct = new Decimal(growth).times(100);
-        if (pct.lte(-100) || pct.gt(1000)) {
-            return DEFAULT_GROWTH_PCT.toFixed();
+        return validGrowthPct(growth) ?? DEFAULT_GROWTH_PCT.toFixed();
+    }
+
+    /**
+     * Refills the active scenario's growth and P/E assumptions from a prefill profile:
+     * "outlook" uses analyst revenue growth (current, then next fiscal year) and anchors the P/E
+     * band on the forward P/E; "trailing" uses the trailing growth and trailing P/E. Margin is
+     * always the trailing margin — the feed has no margin outlook. Only the active scenario changes.
+     */
+    prefillActiveScenario(source: 'outlook' | 'trailing'): void {
+        const fundamentals = this.fundamentals();
+        const drafts = this.drafts();
+        const scenario = drafts?.scenarios[this.activeScenario()];
+        if (fundamentals === null || drafts === null || scenario === undefined) {
+            return;
         }
-        return pct.toFixed(1);
+        const columns = scenario.growth.length;
+        const trailingGrowth = this.prefillGrowthPct(fundamentals);
+        const estimates = fundamentals.estimates;
+        const currentFy = estimates?.revGrowthCurrentFy != null ? validGrowthPct(estimates.revGrowthCurrentFy) : null;
+        const nextFy = estimates?.revGrowthNextFy != null ? validGrowthPct(estimates.revGrowthNextFy) : null;
+        let growth: string[];
+        const noOutlook = source === 'trailing' || (source === 'outlook' && currentFy === null && nextFy === null);
+        if (noOutlook) {
+            this.prefillNotice.set(
+                source === 'outlook' ? 'No analyst revenue-growth outlook — used trailing figures.' : null,
+            );
+            growth = Array.from({ length: columns }, (_, i) => (i === 0 ? '' : trailingGrowth));
+        } else {
+            this.prefillNotice.set(null);
+            growth = Array.from({ length: columns }, (_, i) => {
+                if (i === 0) {
+                    return '';
+                }
+                if (i === 1) {
+                    return currentFy ?? trailingGrowth;
+                }
+                return nextFy ?? currentFy ?? trailingGrowth;
+            });
+        }
+        const marginPct = this.prefillMarginPct(fundamentals);
+        const peLow =
+            source === 'outlook'
+                ? this.prefillPe(fundamentals, FALLBACK_PE_LOW)
+                : this.trailingPePct(fundamentals, FALLBACK_PE_LOW);
+        const peHigh =
+            source === 'outlook'
+                ? this.prefillPe(fundamentals, FALLBACK_PE_HIGH)
+                : this.trailingPePct(fundamentals, FALLBACK_PE_HIGH);
+        this.drafts.set({
+            ...drafts,
+            scenarios: drafts.scenarios.map((item, i) =>
+                i === this.activeScenario()
+                    ? {
+                          ...item,
+                          growth,
+                          margin: item.margin.map((cell, i2) => (i2 === 0 ? '' : marginPct)),
+                          peLow: item.peLow.map(() => peLow),
+                          peHigh: item.peHigh.map(() => peHigh),
+                      }
+                    : item,
+            ),
+        });
+    }
+
+    private trailingPePct(fundamentals: FundamentalsResult | null, fallback: Decimal): string {
+        const pe = fundamentals?.peTtm ?? null;
+        if (pe === null) {
+            return fallback.toFixed();
+        }
+        const value = new Decimal(pe);
+        if (value.lte(0) || value.gt(1000)) {
+            return fallback.toFixed();
+        }
+        return value.toFixed(1);
     }
 
     private prefillMarginPct(fundamentals: FundamentalsResult | null): string {
@@ -716,7 +807,8 @@ export class ProjectionPage {
     }
 
     private prefillPe(fundamentals: FundamentalsResult | null, fallback: Decimal): string {
-        const pe = fundamentals?.peTtm ?? null;
+        // Anchor the band on the forward P/E (analyst current-year EPS) when available; trailing as fallback.
+        const pe = fundamentals?.forwardPe ?? fundamentals?.peTtm ?? null;
         if (pe === null) {
             return fallback.toFixed();
         }
@@ -757,6 +849,26 @@ function draftsFromModel(model: ProjectionModel): ModelDrafts {
             peHigh: scenario.rows.map((row) => row.peHigh.toFixed()),
         })),
     };
+}
+
+/** Ratio to percent string, rejecting out-of-range growth values. */
+function validGrowthPct(ratio: string): string | null {
+    if (ratio.trim() === '') {
+        return null;
+    }
+    try {
+        const decimal = new Decimal(ratio);
+        if (!decimal.isFinite()) {
+            return null;
+        }
+        const pct = decimal.times(100);
+        if (pct.lte(-100) || pct.gt(1000)) {
+            return null;
+        }
+        return pct.toFixed(1);
+    } catch {
+        return null;
+    }
 }
 
 function storedModelAssumptionsLabel(stored: StoredProjectionModel): string {

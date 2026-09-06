@@ -44,6 +44,19 @@ const AMD_FUNDAMENTALS: FundamentalsResult = {
 
 const AMD_QUOTE: QuoteResult = { price: '477.57', currency: 'USD', date: '2026-09-04' };
 
+function emptyEstimates() {
+    return {
+        epsGrowthCurrentQtr: null,
+        epsGrowthCurrentFy: null,
+        epsGrowthNextFy: null,
+        revGrowthCurrentFy: null,
+        revGrowthNextFy: null,
+        epsEstimateCurrentFy: null,
+        epsEstimateNextFy: null,
+        revenueEstimateNextFy: null,
+    };
+}
+
 class StubProvider extends MarketDataProvider {
     constructor(
         private readonly fundamentalsResult: FundamentalsResult | null,
@@ -132,11 +145,86 @@ describe('ProjectionPage', () => {
         expect(drafts!.baseNetIncome).toBe('11005499037');
         expect(drafts!.projectedYears).toBe('4');
         expect(drafts!.scenarios[0].name).toBe('Base');
-        expect(drafts!.scenarios[0].growth[1]).toBe('21.0');
+        // Prefilled from analyst outlook: current-FY revenue growth first, then next-FY.
+        expect(drafts!.scenarios[0].growth[1]).toBe('18.0');
+        expect(drafts!.scenarios[0].growth[2]).toBe('12.0');
+        expect(drafts!.scenarios[0].growth[4]).toBe('12.0');
         expect(drafts!.scenarios[0].margin[1]).toBe('15.6');
-        expect(drafts!.scenarios[0].peLow[1]).toBe('116.2');
-        expect(drafts!.scenarios[0].peHigh[1]).toBe('116.2');
+        // Forward P/E anchors the band when available.
+        expect(drafts!.scenarios[0].peLow[1]).toBe('40.1');
+        expect(drafts!.scenarios[0].peHigh[1]).toBe('40.1');
         expect(page.modelError()).toBeNull();
+    });
+
+    it('falls back to trailing prefill without analyst estimates', async () => {
+        const withoutEstimates: FundamentalsResult = { ...AMD_FUNDAMENTALS, estimates: emptyEstimates() };
+        configure(new StubProvider(withoutEstimates, AMD_QUOTE));
+        const page = await createPage();
+        await page.pickSymbol({ symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const drafts = page.drafts();
+        expect(drafts!.scenarios[0].growth[1]).toBe('21.0');
+        expect(drafts!.scenarios[0].growth[2]).toBe('21.0');
+        // forwardPe is independent of the estimates module, so the band still anchors on it.
+        expect(drafts!.scenarios[0].peLow[1]).toBe('40.1');
+    });
+
+    it('prefills the active scenario from analyst outlook on demand', async () => {
+        const page = await createPage();
+        await page.pickSymbol({ symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        page.prefillActiveScenario('outlook');
+        const scenario = page.drafts()!.scenarios[0];
+        expect(scenario.growth).toEqual(['', '18.0', '12.0', '12.0', '12.0']);
+        expect(scenario.peLow[1]).toBe('40.1');
+        expect(scenario.peHigh[1]).toBe('40.1');
+        expect(scenario.margin[1]).toBe('15.6');
+        expect(page.prefillNotice()).toBeNull();
+    });
+
+    it('prefills the active scenario from trailing figures on demand', async () => {
+        const page = await createPage();
+        await page.pickSymbol({ symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        page.prefillActiveScenario('trailing');
+        const scenario = page.drafts()!.scenarios[0];
+        expect(scenario.growth).toEqual(['', '21.0', '21.0', '21.0', '21.0']);
+        expect(scenario.peLow[1]).toBe('116.2');
+        expect(scenario.peHigh[1]).toBe('116.2');
+    });
+
+    it('keeps other scenarios untouched when prefiling the active one', async () => {
+        const page = await createPage();
+        await page.pickSymbol({ symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        page.openScenarioEditor();
+        page.newScenarioName.set('Bear');
+        page.confirmAddScenario();
+        page.setActiveScenario(1);
+        page.prefillActiveScenario('outlook');
+
+        const scenarios = page.drafts()!.scenarios;
+        // Only the active scenario (Bear) is refilled from outlook.
+        expect(scenarios[0].growth[1]).toBe('18.0');
+        expect(scenarios[1].growth[1]).toBe('18.0');
+        page.prefillActiveScenario('trailing');
+        expect(page.drafts()!.scenarios[0].growth[1]).toBe('18.0');
+        expect(page.drafts()!.scenarios[1].growth[1]).toBe('21.0');
+    });
+
+    it('shows a notice and uses trailing when no analyst outlook exists', async () => {
+        configure(new StubProvider({ ...AMD_FUNDAMENTALS, estimates: emptyEstimates() }, AMD_QUOTE));
+        const page = await createPage();
+        await page.pickSymbol({ symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        page.prefillActiveScenario('outlook');
+        expect(page.prefillNotice()).toContain('used trailing figures');
+        expect(page.drafts()!.scenarios[0].growth[1]).toBe('21.0');
     });
 
     it('reproduces the AMD sheet scenario through the page', async () => {

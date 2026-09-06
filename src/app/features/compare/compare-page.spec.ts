@@ -348,4 +348,86 @@ describe('ComparePage', () => {
 
         expect(page.entries()[0].error).toBe('Market data is not available on this origin.');
     });
+
+    it('prefills the expected return from analyst EPS growth', async () => {
+        const page = await createPage();
+        page.addSymbol({ symbol: 'AMD', name: 'AMD', exchange: '' });
+        await waitFor(() => page.entries()[0]?.loading === false);
+
+        // Average of epsGrowthCurrentFy (0.45) and epsGrowthNextFy (0.25) = 35%.
+        expect(page.returnDrafts()['AMD']).toBe('35.0');
+    });
+
+    it('forecasts a projected price and total return from the draft and horizon', async () => {
+        const page = await createPage();
+        page.addSymbol({ symbol: 'AMD', name: 'AMD', exchange: '' });
+        await waitFor(() => page.entries()[0]?.loading === false);
+        page.setReturnDraft('AMD', '10');
+        page.horizonDraft.set('2');
+        page.setActiveTab('forecast');
+
+        await waitFor(() => page.forecastHistory().has('AMD'));
+        const row = page.forecastRows()[0];
+        expect(row.draft).toBe('10');
+        // 477.57 at 10% for 2 years, compounded monthly (Decimal pow approximation): ~577.9.
+        expect(row.projectedPrice!.toNumber()).toBeCloseTo(577.9, 1);
+        expect(row.totalReturnPct!.toNumber()).toBeCloseTo(21.0, 1);
+        expect(page.forecastChartSeries()).toHaveLength(1);
+        expect(page.forecastChartSeries()[0].points[0].value).toBeCloseTo(100, 2);
+        expect(page.forecastChartSeries()[0].points.at(-1)!.value).toBeCloseTo(121.0, 1);
+    });
+
+    it('flags an invalid return draft and shows no projection', async () => {
+        const page = await createPage();
+        page.addSymbol({ symbol: 'AMD', name: 'AMD', exchange: '' });
+        await waitFor(() => page.entries()[0]?.loading === false);
+        page.setReturnDraft('AMD', 'not-a-number');
+
+        const row = page.forecastRows()[0];
+        expect(row.invalid).toBe(true);
+        expect(row.projectedPrice).toBeNull();
+        expect(row.totalReturnPct).toBeNull();
+        expect(page.forecastChartSeries()).toEqual([]);
+    });
+
+    it('rejects an out-of-range horizon', () => {
+        const page = createPageSync();
+        page.horizonDraft.set('0');
+        expect(page.horizonError()).toContain('Horizon must be a whole number');
+        page.horizonDraft.set('4');
+        expect(page.horizonError()).not.toBeNull();
+        page.horizonDraft.set('3');
+        expect(page.horizonError()).toBeNull();
+        page.horizonDraft.set('2');
+        expect(page.horizonDraft()).toBe('2');
+    });
+
+    it('computes a historical CAGR reference over the loaded bars', async () => {
+        configure(
+            new StubProvider({
+                fundamentals: AMD_FUNDAMENTALS,
+                quote: { price: '477.57', currency: 'USD', date: '2026-09-04' },
+                bars: [
+                    { date: '2021-09-05', close: '100' },
+                    { date: '2026-09-04', close: '200' },
+                ],
+            }),
+        );
+        const page = await createPage();
+        page.addSymbol({ symbol: 'AMD', name: 'AMD', exchange: '' });
+        await waitFor(() => page.entries()[0]?.loading === false);
+        page.setActiveTab('forecast');
+        await waitFor(() => page.forecastHistory().has('AMD'));
+
+        const row = page.forecastRows()[0];
+        // 100 -> 200 over 5 years: annualized ~14.9%.
+        expect(row.cagrPct!.toNumber()).toBeCloseTo(14.9, 0);
+        expect(row.outlookPct!.toNumber()).toBeCloseTo(35, 0);
+    });
+
+    function createPageSync(): ComparePage {
+        const fixture = TestBed.createComponent(ComparePage);
+        fixture.detectChanges();
+        return fixture.componentInstance;
+    }
 });

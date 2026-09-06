@@ -124,6 +124,32 @@
     } }
 </section>
 
+<div role="tablist" class="mt-4 flex gap-2">
+    <button
+        type="button"
+        role="tab"
+        class="btn btn-sm"
+        [class.btn-primary]="activeTab() === 'fundamentals'"
+        [class.btn-outline]="activeTab() !== 'fundamentals'"
+        [attr.aria-selected]="activeTab() === 'fundamentals'"
+        (click)="setActiveTab('fundamentals')"
+    >
+        Fundamentals
+    </button>
+    <button
+        type="button"
+        role="tab"
+        class="btn btn-sm"
+        [class.btn-primary]="activeTab() === 'forecast'"
+        [class.btn-outline]="activeTab() !== 'forecast'"
+        [attr.aria-selected]="activeTab() === 'forecast'"
+        (click)="setActiveTab('forecast')"
+    >
+        Forecast
+    </button>
+</div>
+
+@if (activeTab() === 'fundamentals') {
 <section class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4">
     <div class="overflow-x-auto">
         <table class="w-full text-sm tabular-nums">
@@ -184,5 +210,109 @@
         </div>
         <p class="mt-1 text-xs text-base-content/50">Indexed: 100 = 12 months ago.</p>
     </div>
+</section>
+} } @else {
+<section class="mt-4 rounded-xl border border-base-300 bg-base-100 p-4">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <h2 class="text-base font-semibold">Forecast</h2>
+            <p class="mt-0.5 text-sm text-base-content/60">
+                Compounds each price with an expected annual return over a short horizon (analysts rarely look further
+                than a year or two). Prefilled from analyst EPS growth; edit freely.
+            </p>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-base-content/70">
+            Horizon (years)
+            <input
+                type="number"
+                min="1"
+                [max]="maxYears"
+                step="1"
+                class="input input-bordered input-sm w-20 text-right tabular-nums"
+                [value]="horizonDraft()"
+                (input)="horizonDraft.set($any($event.target).value)"
+            />
+        </label>
+    </div>
+    @if (horizonError() !== null) {
+    <p class="mt-2 text-xs text-error">{{ horizonError() }}</p>
+    }
+    <div class="mt-3 overflow-x-auto">
+        <table class="w-full text-sm tabular-nums">
+            <thead>
+                <tr class="text-left text-xs uppercase tracking-wide text-base-content/60">
+                    <th class="pb-2 font-medium">Symbol</th>
+                    <th class="pb-2 text-right font-medium">Price</th>
+                    <th class="pb-2 text-right font-medium">Expected return %/yr</th>
+                    <th
+                        class="pb-2 text-right font-medium"
+                        title="Analyst EPS growth, averaged over the current and next fiscal year. An expectation, not a promise."
+                    >
+                        Outlook (analysts)
+                    </th>
+                    <th
+                        class="pb-2 text-right font-medium"
+                        title="Annualized price return over the available history. Price return only: dividends are not included."
+                    >
+                        CAGR (history)
+                    </th>
+                    <th class="pb-2 text-right font-medium">Projected price</th>
+                    <th class="pb-2 text-right font-medium">Expected total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (row of forecastRows(); track row.entry.symbol) {
+                <tr class="border-t border-base-300">
+                    <td class="py-1.5 font-mono text-xs font-bold">{{ row.entry.symbol }}</td>
+                    <td class="py-1.5 text-right">{{ row.entry.price | money : row.entry.currency }}</td>
+                    <td class="py-1.5 text-right">
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            class="input input-bordered input-xs w-20 text-right tabular-nums"
+                            [class.input-error]="row.invalid"
+                            [value]="row.draft"
+                            (input)="setReturnDraft(row.entry.symbol, $any($event.target).value)"
+                        />
+                    </td>
+                    <td class="py-1.5 text-right" [class.text-base-content/40]="row.outlookPct === null">
+                        {{ formatPct(row.outlookPct) }}
+                    </td>
+                    <td class="py-1.5 text-right" [class.text-base-content/40]="row.cagrPct === null">
+                        {{ formatPct(row.cagrPct) }}
+                    </td>
+                    <td class="py-1.5 text-right font-semibold">
+                        {{ row.projectedPrice | money : row.entry.currency }}
+                    </td>
+                    <td
+                        class="py-1.5 text-right"
+                        [class.text-success]="row.totalReturnPct !== null && !row.totalReturnPct.isNegative()"
+                        [class.text-error]="row.totalReturnPct?.isNegative() === true"
+                    >
+                        {{ formatPct(row.totalReturnPct) }}
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (forecastChartSeries().length > 0) {
+    <div class="mt-3">
+        <app-value-chart [series]="forecastChartSeries()" [pct]="true" />
+        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/70">
+            @for (series of forecastChartSeries(); track series.name) {
+            <span class="inline-flex items-center gap-1.5">
+                <span class="inline-block h-0.5 w-4 rounded-full" [style.background-color]="series.color"></span>
+                {{ series.name }}
+            </span>
+            }
+        </div>
+    </div>
+    }
+    <p class="mt-2 text-xs text-base-content/50">
+        A scenario, not investment advice: past performance and analyst expectations are no guarantee for future
+        results. Outlook and CAGR are reference figures; only the expected return drives the forecast. Chart is indexed:
+        100 = today's price, so lines stay comparable across price levels.
+    </p>
 </section>
 } }

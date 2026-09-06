@@ -62,11 +62,11 @@
                         </button>
                         <button
                             type="button"
-                            class="btn btn-ghost btn-xs px-1 text-base-content/60"
-                            [attr.aria-label]="'Remove ' + recent.symbols.join(', ') + ' comparison'"
+                            class="btn btn-ghost btn-xs text-error"
+                            [attr.aria-label]="'Delete ' + recent.symbols.join(', ') + ' comparison'"
                             (click)="$event.stopPropagation(); removeHistoryEntry(recent)"
                         >
-                            ×
+                            Delete
                         </button>
                     </td>
                 </tr>

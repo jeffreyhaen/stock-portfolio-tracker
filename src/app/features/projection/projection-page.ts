@@ -578,6 +578,31 @@ export class ProjectionPage {
         void this.pickSymbol({ symbol: row.symbol, name: row.longName ?? '', exchange: '' });
     }
 
+    /** Deletes the saved draft of an overview row; snapshots are kept. */
+    async deleteOverviewModel(row: ProjectionOverviewRow): Promise<void> {
+        if (!row.hasModel) {
+            return;
+        }
+        await this.projectionService.deleteModel(row.symbol);
+        await this.refreshOverview();
+    }
+
+    /** Deletes the draft of the currently open symbol and returns to the overview. */
+    async deleteCurrentModel(): Promise<void> {
+        const symbol = this.symbol();
+        if (symbol === null) {
+            return;
+        }
+        if (this.saveTimer !== null) {
+            clearTimeout(this.saveTimer);
+            this.saveTimer = null;
+        }
+        await this.projectionService.deleteModel(symbol);
+        this.resetState();
+        void this.router.navigate(['/projection']);
+        await this.refreshOverview();
+    }
+
     snapshotAssumptionsLabel(snapshot: StoredProjectionSnapshot): string {
         return storedModelAssumptionsLabel(snapshot.model);
     }

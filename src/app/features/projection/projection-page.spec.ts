@@ -464,6 +464,45 @@ describe('ProjectionPage', () => {
         expect(rows[2]!.snapshotCount).toBe(0);
         expect(rows[2]!.currency).toBe('USD');
         expect(rows[2]!.latestSnapshot).toBeNull();
+        // Models exist for AMD and NVDA; MSFT only has a snapshot.
+        expect(rows.map((row) => row.hasModel)).toEqual([true, false, true]);
+    });
+
+    it('deletes an overview draft while keeping snapshots', async () => {
+        const page = await createPage();
+        await db.projectionModels.bulkPut([
+            storedModel('NVDA', '2026-02-10T10:00:00.000Z', 'USD'),
+            storedModel('AMD', '2026-01-05T10:00:00.000Z', 'USD'),
+        ]);
+        await db.projectionSnapshots.bulkAdd([storedSnapshot('AMD', '2026-02-12T10:00:00.000Z', 'USD', 'AMD')]);
+        page.overview.set(await TestBed.inject(ProjectionService).listOverview());
+
+        const amdRow = page.overview().find((row) => row.symbol === 'AMD')!;
+        await page.deleteOverviewModel(amdRow);
+        await waitFor(() => page.overview().find((row) => row.symbol === 'AMD')?.hasModel === false);
+
+        const rows = await TestBed.inject(ProjectionService).listOverview();
+        expect(rows.find((row) => row.symbol === 'AMD')!.snapshotCount).toBe(1);
+        expect(rows.find((row) => row.symbol === 'NVDA')!.hasModel).toBe(true);
+    });
+
+    it('deletes the current draft and returns to the overview', async () => {
+        const page = await createPage();
+        await page.pickSymbol({ symbol: 'AMD', name: 'AMD', exchange: 'NASDAQ' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        page.drafts.set({
+            ...page.drafts()!,
+            currentPrice: '477.57',
+            sharesOutstanding: '1632475000',
+        });
+        await waitFor(() => page.saved());
+
+        await page.deleteCurrentModel();
+        await waitFor(() => page.symbol() === null);
+
+        const stored = await db.projectionModels.get('AMD');
+        expect(stored).toBeUndefined();
+        expect(TestBed.inject(Router).url).toBe('/projection');
     });
 
     it('shows recent projections on the empty state after saving a snapshot', async () => {

@@ -75,6 +75,16 @@
                         <button type="button" class="btn btn-ghost btn-xs" (click)="openOverviewSymbol(row)">
                             Open
                         </button>
+                        @if (row.hasModel) {
+                        <button
+                            type="button"
+                            class="btn btn-ghost btn-xs text-error"
+                            [attr.aria-label]="'Delete saved draft for ' + row.symbol"
+                            (click)="$event.stopPropagation(); deleteOverviewModel(row)"
+                        >
+                            Delete
+                        </button>
+                        }
                     </td>
                 </tr>
                 }
@@ -632,6 +642,14 @@
     </p>
     <button type="button" class="btn btn-primary btn-sm" [disabled]="modelError() !== null" (click)="saveSnapshot()">
         Save snapshot
+    </button>
+    <button
+        type="button"
+        class="btn btn-ghost btn-sm text-error"
+        [disabled]="symbol() === null"
+        (click)="deleteCurrentModel()"
+    >
+        Delete draft
     </button>
 </div>
 } }

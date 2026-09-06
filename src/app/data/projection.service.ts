@@ -14,6 +14,8 @@ export interface ProjectionOverviewRow {
     latestSnapshot: StoredProjectionSnapshot | null;
     /** ISO timestamp; the newest of the model's updatedAt and the latest snapshot's createdAt. */
     lastTouched: string;
+    /** Whether a saved draft model exists for this symbol. */
+    hasModel: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -113,6 +115,11 @@ export class ProjectionService {
         await this.db.projectionSnapshots.delete(id);
     }
 
+    /** Deletes the saved draft model for a symbol; snapshots are kept. */
+    async deleteModel(symbol: string): Promise<void> {
+        await this.db.projectionModels.delete(symbol.trim().toUpperCase());
+    }
+
     /** Every symbol with a saved projection model and/or snapshots, newest activity first. */
     async listOverview(): Promise<ProjectionOverviewRow[]> {
         const [models, snapshots] = await Promise.all([
@@ -147,6 +154,7 @@ export class ProjectionService {
                 snapshotCount: perSymbol.length,
                 latestSnapshot,
                 lastTouched: lastTouched ?? '',
+                hasModel: model !== null,
             });
         }
         return rows.sort((a, b) => b.lastTouched.localeCompare(a.lastTouched));
